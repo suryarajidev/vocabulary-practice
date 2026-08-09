@@ -77,12 +77,105 @@
 
   .app {
     width: 100%;
-    max-width: 760px;
+    max-width: 1080px;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    margin: auto;
+  }
+
+  .app-shell {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 220px minmax(0, 760px);
+    justify-content: center;
+    align-items: start;
+    gap: 24px;
+  }
+
+  .sidebar {
+    position: sticky;
+    top: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 18px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.06);
+  }
+
+  .sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 2px 4px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .brand-mark {
+    width: 38px;
+    height: 38px;
+    display: grid;
+    place-items: center;
+    border-radius: 11px;
+    background: linear-gradient(135deg, var(--accent), var(--teal));
+    color: white;
+    font-size: 20px;
+    box-shadow: 0 5px 12px rgba(37, 99, 235, 0.2);
+  }
+
+  .brand-copy strong,
+  .brand-copy span {
+    display: block;
+  }
+
+  .brand-copy strong { font-size: 14px; }
+  .brand-copy span { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  .sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .nav-btn {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 11px 12px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 16px;
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .nav-btn.active {
+    background: var(--accent);
+    color: white;
+    box-shadow: 0 6px 14px rgba(37, 99, 235, 0.22);
+  }
+
+  .nav-icon {
+    width: 22px;
+    text-align: center;
+    font-size: 17px;
+  }
+
+  .view-root {
+    width: 100%;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 24px;
-    margin: auto;
   }
 
   .tabs {
@@ -630,6 +723,173 @@
     cursor: pointer;
   }
 
+  /* Bubble Shot game */
+  .bubble-game {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .game-heading {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .game-heading h2 { margin: 0 0 4px; }
+  .game-heading p { margin: 0; color: var(--muted); font-size: 13px; }
+
+  .game-stats {
+    display: flex;
+    gap: 8px;
+  }
+
+  .stat-pill {
+    min-width: 62px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    text-align: center;
+  }
+
+  .stat-pill strong,
+  .stat-pill span { display: block; }
+  .stat-pill strong { color: var(--accent); font-size: 18px; }
+  .stat-pill span { color: var(--muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
+
+  .definition-prompt {
+    padding: 22px 20px;
+    border-radius: 15px;
+    background: linear-gradient(135deg, #eef4ff, #e7faf6);
+    border: 1px solid rgba(37, 99, 235, 0.16);
+    text-align: center;
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.08);
+  }
+
+  .definition-prompt .side-label { margin-bottom: 9px; }
+  .definition-prompt p { margin: 0; font-size: 20px; font-weight: 700; line-height: 1.42; }
+
+  .bubble-field {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+    padding: 8px 4px;
+  }
+
+  .word-bubble {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1.2;
+    min-height: 120px;
+    display: grid;
+    place-items: center;
+    padding: 20px 12px;
+    border: 2px solid rgba(255, 255, 255, 0.72);
+    border-radius: 50%;
+    color: #15325b;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 800;
+    line-height: 1.15;
+    text-align: center;
+    cursor: crosshair;
+    box-shadow: inset -8px -10px 18px rgba(37, 99, 235, 0.12),
+      inset 7px 8px 14px rgba(255, 255, 255, 0.7),
+      0 10px 22px rgba(37, 99, 235, 0.14);
+    animation: bubbleFloat 3.2s ease-in-out infinite;
+  }
+
+  .word-bubble::after {
+    content: "";
+    position: absolute;
+    width: 22%;
+    height: 13%;
+    top: 17%;
+    left: 22%;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.64);
+    transform: rotate(-22deg);
+    pointer-events: none;
+  }
+
+  .word-bubble:nth-child(1) { background: linear-gradient(145deg, #c7e2ff, #9ed0ff); }
+  .word-bubble:nth-child(2) { background: linear-gradient(145deg, #c9f4e8, #93e2cf); animation-delay: -0.8s; }
+  .word-bubble:nth-child(3) { background: linear-gradient(145deg, #fce2b7, #f7c978); animation-delay: -1.6s; }
+  .word-bubble:nth-child(4) { background: linear-gradient(145deg, #e5d5ff, #c5a6f6); animation-delay: -2.4s; }
+
+  .word-bubble:hover {
+    transform: translateY(-5px) scale(1.035);
+    box-shadow: inset -8px -10px 18px rgba(37, 99, 235, 0.12),
+      inset 7px 8px 14px rgba(255, 255, 255, 0.7),
+      0 16px 28px rgba(37, 99, 235, 0.2);
+  }
+
+  .word-bubble.correct {
+    background: #bbf7d0;
+    border-color: var(--good);
+    color: #14532d;
+    animation: none;
+  }
+
+  .word-bubble.wrong {
+    background: #fecaca;
+    border-color: var(--bad);
+    color: #7f1d1d;
+    animation: none;
+  }
+
+  .word-bubble:disabled { cursor: default; opacity: 0.72; }
+  .word-bubble.correct:disabled,
+  .word-bubble.wrong:disabled { opacity: 1; }
+
+  .game-feedback {
+    min-height: 24px;
+    text-align: center;
+    font-weight: 800;
+  }
+
+  .game-feedback.correct { color: var(--good); }
+  .game-feedback.wrong { color: var(--bad); }
+
+  .game-footer {
+    display: flex;
+    justify-content: center;
+  }
+
+  @keyframes bubbleFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-7px); }
+  }
+
+  @media (max-width: 720px) {
+    body { padding: 14px; }
+
+    .app-shell {
+      grid-template-columns: minmax(0, 760px);
+      gap: 14px;
+    }
+
+    .sidebar {
+      position: static;
+      padding: 12px;
+      gap: 10px;
+    }
+
+    .sidebar-brand { padding-bottom: 9px; }
+    .sidebar-nav { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+    .nav-btn { flex-direction: column; gap: 3px; padding: 8px 3px; text-align: center; font-size: 11px; }
+    .nav-icon { font-size: 16px; }
+  }
+
+  @media (max-width: 390px) {
+    .bubble-field { gap: 10px; }
+    .word-bubble { min-height: 108px; font-size: 14px; }
+    .game-heading { flex-direction: column; }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       scroll-behavior: auto !important;
@@ -815,7 +1075,7 @@
 
   let customWords = loadCustomWords();
   let deck = randomSample(getAllWords(), SESSION_SIZE);
-  let view = "practice"; // "practice" | "dictionary" | "manage"
+  let view = "practice"; // "practice" | "bubble" | "dictionary" | "manage"
   let editingIndex = null;
 
   // practice session state
@@ -826,6 +1086,18 @@
   let practiceMode = "random"; // "random" | "missed"
   let score = { gotit: 0, almost: 0, dontknow: 0 };
   let results = {}; // original deck index -> "gotit" | "almost" | "dontknow" | "skipped"
+
+  let bubbleGame = {
+    score: 0,
+    attempts: 0,
+    streak: 0,
+    answer: null,
+    choices: [],
+    selectedWord: null,
+    feedback: "",
+    feedbackType: "",
+    locked: false
+  };
 
   const app = document.getElementById("app");
 
@@ -868,6 +1140,35 @@
     resetPracticeSession();
   }
 
+  function createBubbleRound() {
+    const words = getAllWords();
+    if (words.length < 4) {
+      bubbleGame.answer = null;
+      bubbleGame.choices = [];
+      return;
+    }
+
+    const answer = words[Math.floor(Math.random() * words.length)];
+    const decoys = randomSample(
+      words.filter((item) => item.word.toLowerCase() !== answer.word.toLowerCase()),
+      3
+    );
+
+    bubbleGame.answer = answer;
+    bubbleGame.choices = randomSample([answer, ...decoys], 4);
+    bubbleGame.selectedWord = null;
+    bubbleGame.feedback = "";
+    bubbleGame.feedbackType = "";
+    bubbleGame.locked = false;
+  }
+
+  function resetBubbleGame() {
+    bubbleGame.score = 0;
+    bubbleGame.attempts = 0;
+    bubbleGame.streak = 0;
+    createBubbleRound();
+  }
+
   function shuffleOrder() {
     for (let i = order.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -881,34 +1182,50 @@
 
   function render() {
     app.innerHTML = `
-      <div class="tabs" role="tablist" aria-label="Vocabulary sections">
-        <button class="tab ${view === 'practice' ? 'active' : ''}" id="tabPractice" role="tab" aria-selected="${view === 'practice'}">Practice</button>
-        <button class="tab ${view === 'dictionary' ? 'active' : ''}" id="tabDictionary" role="tab" aria-selected="${view === 'dictionary'}">Dictionary</button>
-        <button class="tab ${view === 'manage' ? 'active' : ''}" id="tabManage" role="tab" aria-selected="${view === 'manage'}">My Words</button>
+      <div class="app-shell">
+        <aside class="sidebar">
+          <div class="sidebar-brand">
+            <div class="brand-mark" aria-hidden="true">V</div>
+            <div class="brand-copy">
+              <strong>Vocab Lab</strong>
+              <span>Learn through play</span>
+            </div>
+          </div>
+          <nav class="sidebar-nav" aria-label="Vocabulary activities">
+            <button class="nav-btn ${view === 'practice' ? 'active' : ''}" data-view="practice" aria-current="${view === 'practice' ? 'page' : 'false'}">
+              <span class="nav-icon" aria-hidden="true">▣</span><span>Flashcards</span>
+            </button>
+            <button class="nav-btn ${view === 'bubble' ? 'active' : ''}" data-view="bubble" aria-current="${view === 'bubble' ? 'page' : 'false'}">
+              <span class="nav-icon" aria-hidden="true">◉</span><span>Bubble Shot</span>
+            </button>
+            <button class="nav-btn ${view === 'dictionary' ? 'active' : ''}" data-view="dictionary" aria-current="${view === 'dictionary' ? 'page' : 'false'}">
+              <span class="nav-icon" aria-hidden="true">A</span><span>Dictionary</span>
+            </button>
+            <button class="nav-btn ${view === 'manage' ? 'active' : ''}" data-view="manage" aria-current="${view === 'manage' ? 'page' : 'false'}">
+              <span class="nav-icon" aria-hidden="true">＋</span><span>My Words</span>
+            </button>
+          </nav>
+        </aside>
+        <main id="viewRoot" class="view-root"></main>
       </div>
-      <div id="viewRoot" style="width:100%;display:flex;flex-direction:column;align-items:center;gap:20px;"></div>
     `;
 
-    document.getElementById("tabPractice").addEventListener("click", () => {
-      playClickSound();
-      view = "practice";
-      resetPracticeSession();
-      render();
-    });
-    document.getElementById("tabManage").addEventListener("click", () => {
-      playClickSound();
-      view = "manage";
-      render();
-    });
-    document.getElementById("tabDictionary").addEventListener("click", () => {
-      playClickSound();
-      view = "dictionary";
-      render();
+    document.querySelectorAll(".nav-btn").forEach((button) => {
+      button.addEventListener("click", () => {
+        const nextView = button.getAttribute("data-view");
+        playClickSound();
+        view = nextView;
+        if (view === "practice") resetPracticeSession();
+        if (view === "bubble" && !bubbleGame.answer) resetBubbleGame();
+        render();
+      });
     });
 
     const root = document.getElementById("viewRoot");
     if (view === "practice") {
       renderPractice(root);
+    } else if (view === "bubble") {
+      renderBubbleGame(root);
     } else if (view === "dictionary") {
       renderDictionary(root);
     } else {
@@ -1138,6 +1455,105 @@
       score.gotit++;
       pos++;
       side = firstSide;
+      render();
+    });
+  }
+
+  function renderBubbleGame(root) {
+    if (!bubbleGame.answer) createBubbleRound();
+
+    if (!bubbleGame.answer) {
+      root.innerHTML = `<div class="empty-state">Add at least four words to play Bubble Shot.</div>`;
+      return;
+    }
+
+    root.innerHTML = `
+      <section class="bubble-game" aria-labelledby="bubbleGameTitle">
+        <div class="game-heading">
+          <div>
+            <h2 id="bubbleGameTitle">Bubble Shot</h2>
+            <p>Shoot the word that matches the definition.</p>
+          </div>
+          <div class="game-stats" aria-label="Game score">
+            <div class="stat-pill"><strong>${bubbleGame.score}</strong><span>Score</span></div>
+            <div class="stat-pill"><strong>${bubbleGame.streak}</strong><span>Streak</span></div>
+          </div>
+        </div>
+
+        <div class="definition-prompt">
+          <div class="side-label">FIND THIS WORD</div>
+          <p>${escapeHtml(bubbleGame.answer.definition)}</p>
+        </div>
+
+        <div class="bubble-field" aria-label="Word choices">
+          ${bubbleGame.choices.map((choice, index) => {
+            const isAnswer = choice.word === bubbleGame.answer.word;
+            const isSelected = choice.word === bubbleGame.selectedWord;
+            const stateClass = bubbleGame.locked && isAnswer
+              ? "correct"
+              : bubbleGame.locked && isSelected
+                ? "wrong"
+                : "";
+            return `
+              <button
+                class="word-bubble ${stateClass}"
+                data-choice-index="${index}"
+                ${bubbleGame.locked ? "disabled" : ""}
+                aria-label="Shoot ${escapeHtml(choice.word)}"
+              >${escapeHtml(choice.word)}</button>
+            `;
+          }).join("")}
+        </div>
+
+        <div class="game-feedback ${bubbleGame.feedbackType}" aria-live="polite">
+          ${escapeHtml(bubbleGame.feedback)}
+        </div>
+
+        <div class="game-footer">
+          <button class="small-btn" id="newBubbleGame">New game</button>
+        </div>
+      </section>
+    `;
+
+    root.querySelectorAll(".word-bubble").forEach((button) => {
+      button.addEventListener("click", () => {
+        if (bubbleGame.locked) return;
+
+        const choiceIndex = Number(button.getAttribute("data-choice-index"));
+        const choice = bubbleGame.choices[choiceIndex];
+        const isCorrect = choice.word === bubbleGame.answer.word;
+
+        bubbleGame.locked = true;
+        bubbleGame.attempts++;
+        bubbleGame.selectedWord = choice.word;
+
+        if (isCorrect) {
+          bubbleGame.score++;
+          bubbleGame.streak++;
+          bubbleGame.feedback = `Bullseye! ${bubbleGame.answer.word} is correct.`;
+          bubbleGame.feedbackType = "correct";
+          playGotItSound();
+        } else {
+          bubbleGame.streak = 0;
+          bubbleGame.feedback = `Not quite — the answer is ${bubbleGame.answer.word}.`;
+          bubbleGame.feedbackType = "wrong";
+          playDontKnowSound();
+        }
+
+        const answeredAttempt = bubbleGame.attempts;
+        render();
+        setTimeout(() => {
+          if (view === "bubble" && bubbleGame.locked && bubbleGame.attempts === answeredAttempt) {
+            createBubbleRound();
+            render();
+          }
+        }, 950);
+      });
+    });
+
+    root.querySelector("#newBubbleGame").addEventListener("click", () => {
+      playClickSound();
+      resetBubbleGame();
       render();
     });
   }
