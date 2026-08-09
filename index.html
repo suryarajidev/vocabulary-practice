@@ -1692,11 +1692,12 @@
   }
 
   function chooseBossIntent() {
+    const shieldValue = 6 + Math.floor(Math.random() * 3);
     const intents = [
       { type: "attack", value: 7, label: "Strike for 7 damage" },
       { type: "attack", value: 7, label: "Heavy attack for 7 damage" },
       { type: "heal", value: 6, label: "Restore 6 health" },
-      { type: "shield", value: 10, label: "Gain 10 shield" },
+      { type: "shield", value: shieldValue, label: `Gain ${shieldValue} shield` },
       { type: "attack", value: 6, label: "Quick attack for 6 damage" }
     ];
     return intents[Math.floor(Math.random() * intents.length)];
@@ -1868,8 +1869,8 @@
       battleState.bossHp = Math.min(battleState.bossMaxHp, battleState.bossHp + battleState.bossIntent.value);
       message += `The boss restored ${battleState.bossIntent.value} health.`;
     } else if (battleState.bossIntent.type === "shield") {
-      battleState.bossShield = Math.min(20, battleState.bossShield + battleState.bossIntent.value);
-      message += `The boss gained ${battleState.bossIntent.value} shield.`;
+      battleState.bossShield = Math.min(8, battleState.bossIntent.value);
+      message += `The boss gained ${battleState.bossShield} shield.`;
     } else {
       message += takeBossAttack(battleState.bossIntent.value);
     }
