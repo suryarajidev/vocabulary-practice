@@ -392,6 +392,44 @@
     cursor: pointer;
   }
 
+  .deck-item-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .edit-btn {
+    background: none;
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 700;
+    padding: 6px 9px;
+    border: none;
+    border-radius: 7px;
+    cursor: pointer;
+  }
+
+  .form-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .form-actions button {
+    flex: 1;
+  }
+
+  .cancel-btn {
+    background: var(--card-bg);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    font-size: 15px;
+    font-weight: 700;
+    padding: 12px;
+    border-radius: 10px;
+    cursor: pointer;
+  }
+
   .deck-count {
     font-size: 13px;
     color: var(--muted);
@@ -588,6 +626,7 @@
   let customWords = loadCustomWords();
   let deck = randomSample(getAllWords(), SESSION_SIZE);
   let view = "practice"; // "practice" | "dictionary" | "manage"
+  let editingIndex = null;
 
   // practice session state
   let firstSide = "term"; // "term" | "definition"
@@ -709,6 +748,11 @@
 
     const current = deck[order[pos]];
     const progressPct = Math.round((pos / order.length) * 100);
+    const frontIsTerm = firstSide === "term";
+    const frontLabel = frontIsTerm ? "TERM" : "DEFINITION";
+    const frontValue = frontIsTerm ? current.word : current.definition;
+    const backLabel = frontIsTerm ? "DEFINITION" : "TERM";
+    const backValue = frontIsTerm ? current.definition : current.word;
 
     const sessionActions = document.createElement("div");
     sessionActions.className = "session-actions";
@@ -736,15 +780,15 @@
       <div class="card-inner ${side !== firstSide ? 'flip' : ''}" id="cardInner">
         <div class="card-face card-front">
           <div>
-            <div class="side-label">TERM</div>
-            <div class="word">${escapeHtml(current.word)}</div>
+            <div class="side-label">${frontLabel}</div>
+            <div class="${frontIsTerm ? 'word' : 'definition'}">${escapeHtml(frontValue)}</div>
             <div class="hint">Tap to flip</div>
           </div>
         </div>
         <div class="card-face card-back">
           <div>
-            <div class="side-label">DEFINITION</div>
-            <div class="definition">${escapeHtml(current.definition)}</div>
+            <div class="side-label">${backLabel}</div>
+            <div class="${frontIsTerm ? 'definition' : 'word'}">${escapeHtml(backValue)}</div>
             <div class="hint">Tap to flip back</div>
           </div>
         </div>
@@ -823,6 +867,7 @@
   }
 
   function renderManage(root) {
+    const editingWord = editingIndex === null ? null : customWords[editingIndex];
     root.innerHTML = `
       <div class="manage">
         <div class="dictionary-header">
@@ -830,9 +875,13 @@
           <p>Add your own words to the built-in dictionary and future random sessions.</p>
         </div>
         <div class="add-form">
+          <strong>${editingWord ? 'Edit word' : 'Add a word'}</strong>
           <input type="text" id="newWord" placeholder="Word" />
           <textarea id="newDef" placeholder="Definition" rows="2"></textarea>
-          <button class="accent-btn" id="addBtn">Add card</button>
+          <div class="form-actions">
+            ${editingWord ? '<button class="cancel-btn" id="cancelEditBtn">Cancel</button>' : ''}
+            <button class="accent-btn" id="addBtn">${editingWord ? 'Save changes' : 'Add word'}</button>
+          </div>
         </div>
 
         <div class="deck-count">${customWords.length} custom word${customWords.length === 1 ? '' : 's'}</div>
@@ -853,15 +902,28 @@
             <div class="deck-item-word">${escapeHtml(item.word)}</div>
             <div class="deck-item-def">${escapeHtml(item.definition)}</div>
           </div>
-          <button class="delete-btn" data-index="${i}">&times;</button>
+          <div class="deck-item-actions">
+            <button class="edit-btn" data-index="${i}" aria-label="Edit ${escapeHtml(item.word)}">Edit</button>
+            <button class="delete-btn" data-index="${i}" aria-label="Delete ${escapeHtml(item.word)}">&times;</button>
+          </div>
         `;
         list.appendChild(row);
+      });
+
+      list.querySelectorAll(".edit-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          editingIndex = parseInt(btn.getAttribute("data-index"), 10);
+          render();
+          document.getElementById("newWord").focus();
+        });
       });
 
       list.querySelectorAll(".delete-btn").forEach((btn) => {
         btn.addEventListener("click", () => {
           const i = parseInt(btn.getAttribute("data-index"), 10);
           customWords.splice(i, 1);
+          if (editingIndex === i) editingIndex = null;
+          else if (editingIndex !== null && editingIndex > i) editingIndex--;
           saveCustomWords(customWords);
           generateNewSession();
           render();
@@ -869,19 +931,36 @@
       });
     }
 
+    const wordInput = root.querySelector("#newWord");
+    const defInput = root.querySelector("#newDef");
+    if (editingWord) {
+      wordInput.value = editingWord.word;
+      defInput.value = editingWord.definition;
+      root.querySelector("#cancelEditBtn").addEventListener("click", () => {
+        editingIndex = null;
+        render();
+      });
+    }
+
     root.querySelector("#addBtn").addEventListener("click", () => {
-      const wordInput = root.querySelector("#newWord");
-      const defInput = root.querySelector("#newDef");
       const word = wordInput.value.trim();
       const definition = defInput.value.trim();
       if (!word || !definition) return;
-      const duplicate = getAllWords().some((item) => item.word.toLowerCase() === word.toLowerCase());
+      const duplicate = getAllWords().some((item) => {
+        const isCurrentEdit = editingIndex !== null && customWords[editingIndex] === item;
+        return !isCurrentEdit && item.word.toLowerCase() === word.toLowerCase();
+      });
       if (duplicate) {
         wordInput.setCustomValidity("That word is already in the dictionary.");
         wordInput.reportValidity();
         return;
       }
-      customWords.push({ word, definition });
+      if (editingIndex === null) {
+        customWords.push({ word, definition });
+      } else {
+        customWords[editingIndex] = { word, definition };
+        editingIndex = null;
+      }
       saveCustomWords(customWords);
       generateNewSession();
       render();
