@@ -31,7 +31,6 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
     min-height: 100vh;
     padding: 24px;
   }
@@ -43,6 +42,33 @@
     flex-direction: column;
     align-items: center;
     gap: 20px;
+    margin: auto;
+  }
+
+  .tabs {
+    width: 100%;
+    display: flex;
+    gap: 8px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 4px;
+  }
+
+  .tab {
+    flex: 1;
+    text-align: center;
+    padding: 10px 0;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    color: var(--muted);
+  }
+
+  .tab.active {
+    background: var(--accent);
+    color: white;
   }
 
   .progress-track {
@@ -66,9 +92,29 @@
     align-self: flex-end;
   }
 
-  .card {
+  .card-scene {
     width: 100%;
     min-height: 260px;
+    perspective: 1200px;
+    cursor: pointer;
+  }
+
+  .card-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 260px;
+    transition: transform 0.5s;
+    transform-style: preserve-3d;
+  }
+
+  .card-inner.flipped {
+    transform: rotateY(180deg);
+  }
+
+  .card-face {
+    position: absolute;
+    inset: 0;
     background: var(--card-bg);
     border: 1px solid var(--border);
     border-radius: 16px;
@@ -77,8 +123,12 @@
     justify-content: center;
     text-align: center;
     padding: 32px 24px;
-    cursor: pointer;
+    backface-visibility: hidden;
     user-select: none;
+  }
+
+  .card-back {
+    transform: rotateY(180deg);
   }
 
   .word {
@@ -95,6 +145,7 @@
   .hint {
     font-size: 13px;
     color: var(--muted);
+    margin-top: 8px;
   }
 
   .controls {
@@ -104,13 +155,16 @@
   }
 
   button {
-    flex: 1;
     font-size: 16px;
     font-weight: 600;
     padding: 14px 0;
     border-radius: 10px;
     border: none;
     cursor: pointer;
+  }
+
+  .controls button {
+    flex: 1;
   }
 
   .dont-know {
@@ -123,7 +177,7 @@
     color: var(--good);
   }
 
-  .next {
+  .accent-btn {
     background: var(--accent);
     color: white;
   }
@@ -136,10 +190,88 @@
     margin-bottom: 8px;
   }
 
-  .restart {
-    background: var(--accent);
-    color: white;
-    margin-top: 16px;
+  .empty-state {
+    text-align: center;
+    color: var(--muted);
+    padding: 40px 0;
+  }
+
+  /* Manage deck view */
+  .manage {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .add-form {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+  }
+
+  .add-form input,
+  .add-form textarea {
+    font-size: 15px;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: inherit;
+    resize: vertical;
+  }
+
+  .deck-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .deck-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+
+  .deck-item-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow: hidden;
+  }
+
+  .deck-item-word {
+    font-weight: 700;
+    font-size: 15px;
+  }
+
+  .deck-item-def {
+    font-size: 13px;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .delete-btn {
+    background: none;
+    color: var(--bad);
+    font-size: 18px;
+    padding: 4px 10px;
+    line-height: 1;
+  }
+
+  .deck-count {
+    font-size: 13px;
+    color: var(--muted);
   }
 </style>
 </head>
@@ -148,7 +280,9 @@
 <div class="app" id="app"></div>
 
 <script>
-  const words = [
+  const STORAGE_KEY = "vocabPracticeDeck";
+
+  const defaultDeck = [
     { word: "Ephemeral", definition: "Lasting for a very short time." },
     { word: "Ubiquitous", definition: "Present, appearing, or found everywhere." },
     { word: "Candid", definition: "Truthful and straightforward; frank." },
@@ -161,95 +295,202 @@
     { word: "Superfluous", definition: "Unnecessary; more than what is required." }
   ];
 
+  function loadDeck() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (e) {}
+    saveDeck(defaultDeck);
+    return defaultDeck.slice();
+  }
+
+  function saveDeck(deck) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(deck));
+  }
+
+  let deck = loadDeck();
+  let view = "practice"; // "practice" | "manage"
+
+  // practice state
   let index = 0;
-  let revealed = false;
+  let flipped = false;
   let known = 0;
   let unknown = 0;
 
   const app = document.getElementById("app");
 
   function render() {
-    if (index >= words.length) {
-      renderDone();
-      return;
-    }
-
-    const current = words[index];
-    const progressPct = Math.round((index / words.length) * 100);
-
     app.innerHTML = `
-      <div class="progress-label">${index + 1} / ${words.length}</div>
-      <div class="progress-track">
-        <div class="progress-fill" style="width:${progressPct}%"></div>
+      <div class="tabs">
+        <div class="tab ${view === 'practice' ? 'active' : ''}" id="tabPractice">Practice</div>
+        <div class="tab ${view === 'manage' ? 'active' : ''}" id="tabManage">Manage Deck</div>
       </div>
-
-      <div class="card" id="card">
-        ${revealed
-          ? `<div class="definition">${current.definition}</div>`
-          : `<div>
-               <div class="word">${current.word}</div>
-               <div class="hint">Tap to reveal definition</div>
-             </div>`
-        }
-      </div>
-
-      <div class="controls">
-        ${revealed
-          ? `<button class="dont-know" id="dontKnow">Don't know</button>
-             <button class="know" id="know">Know it</button>`
-          : `<button class="next" id="reveal">Reveal</button>`
-        }
-      </div>
+      <div id="viewRoot" style="width:100%;display:flex;flex-direction:column;align-items:center;gap:20px;"></div>
     `;
 
-    document.getElementById("card").addEventListener("click", () => {
-      if (!revealed) {
-        revealed = true;
-        render();
-      }
-    });
-
-    if (revealed) {
-      document.getElementById("know").addEventListener("click", (e) => {
-        e.stopPropagation();
-        known++;
-        advance();
-      });
-      document.getElementById("dontKnow").addEventListener("click", (e) => {
-        e.stopPropagation();
-        unknown++;
-        advance();
-      });
-    } else {
-      document.getElementById("reveal").addEventListener("click", (e) => {
-        e.stopPropagation();
-        revealed = true;
-        render();
-      });
-    }
-  }
-
-  function advance() {
-    index++;
-    revealed = false;
-    render();
-  }
-
-  function renderDone() {
-    app.innerHTML = `
-      <div class="done">
-        <h2>Done!</h2>
-        <p>You knew ${known} out of ${words.length} words.</p>
-        <button class="restart" id="restart">Practice again</button>
-      </div>
-    `;
-    document.getElementById("restart").addEventListener("click", () => {
+    document.getElementById("tabPractice").addEventListener("click", () => {
+      view = "practice";
       index = 0;
-      revealed = false;
+      flipped = false;
       known = 0;
       unknown = 0;
       render();
     });
+    document.getElementById("tabManage").addEventListener("click", () => {
+      view = "manage";
+      render();
+    });
+
+    const root = document.getElementById("viewRoot");
+    if (view === "practice") {
+      renderPractice(root);
+    } else {
+      renderManage(root);
+    }
+  }
+
+  function renderPractice(root) {
+    if (deck.length === 0) {
+      root.innerHTML = `
+        <div class="empty-state">
+          <p>No cards yet.</p>
+          <p>Add some in "Manage Deck" to start practicing.</p>
+        </div>
+      `;
+      return;
+    }
+
+    if (index >= deck.length) {
+      root.innerHTML = `
+        <div class="done">
+          <h2>Done!</h2>
+          <p>You knew ${known} out of ${deck.length} words.</p>
+          <button class="accent-btn restart" id="restart">Practice again</button>
+        </div>
+      `;
+      root.querySelector("#restart").addEventListener("click", () => {
+        index = 0;
+        flipped = false;
+        known = 0;
+        unknown = 0;
+        render();
+      });
+      return;
+    }
+
+    const current = deck[index];
+    const progressPct = Math.round((index / deck.length) * 100);
+
+    root.innerHTML = `
+      <div class="progress-label">${index + 1} / ${deck.length}</div>
+      <div class="progress-track">
+        <div class="progress-fill" style="width:${progressPct}%"></div>
+      </div>
+
+      <div class="card-scene" id="cardScene">
+        <div class="card-inner ${flipped ? 'flipped' : ''}" id="cardInner">
+          <div class="card-face card-front">
+            <div>
+              <div class="word">${current.word}</div>
+              <div class="hint">Tap to flip</div>
+            </div>
+          </div>
+          <div class="card-face card-back">
+            <div>
+              <div class="definition">${current.definition}</div>
+              <div class="hint">Tap to flip back</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button class="dont-know" id="dontKnow">Don't know</button>
+        <button class="know" id="know">Know it</button>
+      </div>
+    `;
+
+    root.querySelector("#cardScene").addEventListener("click", () => {
+      flipped = !flipped;
+      render();
+    });
+
+    root.querySelector("#know").addEventListener("click", (e) => {
+      e.stopPropagation();
+      known++;
+      advance();
+    });
+    root.querySelector("#dontKnow").addEventListener("click", (e) => {
+      e.stopPropagation();
+      unknown++;
+      advance();
+    });
+  }
+
+  function advance() {
+    index++;
+    flipped = false;
+    render();
+  }
+
+  function renderManage(root) {
+    root.innerHTML = `
+      <div class="manage">
+        <div class="add-form">
+          <input type="text" id="newWord" placeholder="Word" />
+          <textarea id="newDef" placeholder="Definition" rows="2"></textarea>
+          <button class="accent-btn" id="addBtn">Add card</button>
+        </div>
+
+        <div class="deck-count">${deck.length} card${deck.length === 1 ? '' : 's'} in deck</div>
+
+        <div class="deck-list" id="deckList"></div>
+      </div>
+    `;
+
+    const list = root.querySelector("#deckList");
+    if (deck.length === 0) {
+      list.innerHTML = `<div class="empty-state">Your deck is empty. Add a word above.</div>`;
+    } else {
+      deck.forEach((item, i) => {
+        const row = document.createElement("div");
+        row.className = "deck-item";
+        row.innerHTML = `
+          <div class="deck-item-text">
+            <div class="deck-item-word">${escapeHtml(item.word)}</div>
+            <div class="deck-item-def">${escapeHtml(item.definition)}</div>
+          </div>
+          <button class="delete-btn" data-index="${i}">&times;</button>
+        `;
+        list.appendChild(row);
+      });
+
+      list.querySelectorAll(".delete-btn").forEach((btn) => {
+        btn.addEventListener("click", () => {
+          const i = parseInt(btn.getAttribute("data-index"), 10);
+          deck.splice(i, 1);
+          saveDeck(deck);
+          render();
+        });
+      });
+    }
+
+    root.querySelector("#addBtn").addEventListener("click", () => {
+      const wordInput = root.querySelector("#newWord");
+      const defInput = root.querySelector("#newDef");
+      const word = wordInput.value.trim();
+      const definition = defInput.value.trim();
+      if (!word || !definition) return;
+      deck.push({ word, definition });
+      saveDeck(deck);
+      render();
+    });
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement("div");
+    div.textContent = str;
+    return div.innerHTML;
   }
 
   render();
