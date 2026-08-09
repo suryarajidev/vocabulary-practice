@@ -85,6 +85,13 @@
     margin: auto;
   }
 
+  .app.home-mode {
+    max-width: none;
+    min-height: calc(100vh - 48px);
+    align-self: stretch;
+    margin: 0;
+  }
+
   .back-home-btn {
     align-self: flex-start;
     display: inline-flex;
@@ -101,6 +108,7 @@
 
   .home-view {
     width: 100%;
+    min-height: calc(100vh - 48px);
     display: flex;
     flex-direction: column;
     gap: 28px;
@@ -143,6 +151,7 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 18px;
+    flex: 1;
   }
 
   .home-card {
@@ -155,7 +164,7 @@
     border: 1px solid var(--border);
     border-radius: 16px;
     padding: 30px 24px;
-    min-height: 150px;
+    min-height: 220px;
     cursor: pointer;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.04);
   }
@@ -944,6 +953,13 @@
     .game-heading { flex-direction: column; }
   }
 
+  @media (max-width: 720px) {
+    .app.home-mode,
+    .home-view { min-height: auto; }
+    .home-grid { grid-template-columns: 1fr; }
+    .home-card { min-height: 170px; }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       scroll-behavior: auto !important;
@@ -1372,6 +1388,7 @@
   function render() {
     stopBubbleTimer();
     stopBubblePhysics();
+    app.classList.toggle("home-mode", view === "home");
     if (view === "home") {
       renderHome();
       return;
