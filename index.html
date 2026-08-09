@@ -758,7 +758,11 @@
     padding: 22px;
     border-radius: 20px;
     border: 1px solid rgba(13, 148, 136, 0.2);
-    background: linear-gradient(180deg, #dff5ef, #f7f0dc 72%);
+    background:
+      linear-gradient(180deg, rgba(8, 35, 52, 0.18), rgba(20, 15, 45, 0.3)),
+      url("assets/wordbound-arena.png") center / cover no-repeat;
+    color: white;
+    text-shadow: 0 2px 5px rgba(0, 0, 0, 0.58);
   }
 
   .combatant { width: min(42%, 320px); text-align: center; }
@@ -785,7 +789,7 @@
     margin-top: 12px;
     padding: 8px 10px;
     border-radius: 10px;
-    background: rgba(255,255,255,0.68);
+    background: rgba(15, 23, 42, 0.68);
     font-size: 13px;
     font-weight: 700;
   }
@@ -882,6 +886,48 @@
 
   .game-heading h2 { margin: 0 0 4px; }
   .game-heading p { margin: 0; color: var(--muted); font-size: 13px; }
+
+  .bubble-heading-actions { display: flex; gap: 8px; align-items: center; }
+
+  .bubble-pause-screen {
+    min-height: 480px;
+    display: grid;
+    place-items: center;
+    padding: 30px;
+    border-radius: 18px;
+    background: linear-gradient(145deg, #0f6e56, #073d35);
+    color: white;
+    text-align: center;
+  }
+
+  .bubble-pause-screen h3 { margin: 0 0 8px; font-size: 30px; }
+  .bubble-pause-screen p { margin: 0 0 18px; color: rgba(255,255,255,0.78); }
+  .resume-bubble-btn { border: 0; border-radius: 12px; padding: 13px 24px; background: white; color: var(--brand-dark); font-weight: 850; cursor: pointer; }
+
+  .bubble-game:fullscreen {
+    box-sizing: border-box;
+    padding: 24px;
+    background: var(--bg);
+    overflow: auto;
+  }
+
+  .bubble-game.bubble-fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    box-sizing: border-box;
+    padding: 24px;
+    background: var(--bg);
+    overflow: auto;
+  }
+
+  .bubble-game:fullscreen .bubble-field,
+  .bubble-game:fullscreen .bubble-pause-screen,
+  .bubble-game.bubble-fullscreen .bubble-field,
+  .bubble-game.bubble-fullscreen .bubble-pause-screen {
+    height: calc(100vh - 230px);
+    min-height: 430px;
+  }
 
   .game-stats {
     display: flex;
@@ -1338,6 +1384,7 @@
     feedback: "",
     feedbackType: "",
     locked: false,
+    paused: false,
     roundStartedAt: 0,
     elapsed: 0
   };
@@ -1474,6 +1521,7 @@
     bubbleGame.feedback = "";
     bubbleGame.feedbackType = "";
     bubbleGame.locked = false;
+    bubbleGame.paused = false;
     bubbleGame.elapsed = 0;
     bubbleGame.roundStartedAt = performance.now();
   }
@@ -1483,6 +1531,21 @@
       clearInterval(bubbleTimerId);
       bubbleTimerId = null;
     }
+  }
+
+  function pauseBubbleGame(shouldRender = true) {
+    if (!bubbleGame.answer || bubbleGame.paused || bubbleGame.locked) return;
+    bubbleGame.elapsed = Math.max(0, (performance.now() - bubbleGame.roundStartedAt) / 1000);
+    bubbleGame.paused = true;
+    stopBubbleTimer();
+    stopBubblePhysics();
+    if (shouldRender && view === "bubble") render();
+  }
+
+  function resumeBubbleGame() {
+    bubbleGame.paused = false;
+    bubbleGame.roundStartedAt = performance.now() - bubbleGame.elapsed * 1000;
+    render();
   }
 
   function stopBubblePhysics() {
@@ -1573,11 +1636,11 @@
 
   function startBubbleTimer() {
     stopBubbleTimer();
-    if (bubbleGame.locked || view !== "bubble") return;
+    if (bubbleGame.locked || bubbleGame.paused || view !== "bubble") return;
 
     const updateTimer = () => {
       const timer = document.getElementById("roundTimer");
-      if (!timer || bubbleGame.locked || view !== "bubble") {
+      if (!timer || bubbleGame.locked || bubbleGame.paused || view !== "bubble") {
         stopBubbleTimer();
         return;
       }
@@ -1594,6 +1657,7 @@
     bubbleGame.score = 0;
     bubbleGame.attempts = 0;
     bubbleGame.streak = 0;
+    bubbleGame.paused = false;
     createBubbleRound();
   }
 
@@ -1607,10 +1671,11 @@
 
   function chooseBossIntent() {
     const intents = [
-      { type: "attack", value: 7, label: "Strike for 7 damage" },
-      { type: "attack", value: 9, label: "Heavy attack for 9 damage" },
-      { type: "heal", value: 6, label: "Restore 6 health" },
-      { type: "attack", value: 6, label: "Quick attack for 6 damage" }
+      { type: "attack", value: 9, label: "Strike for 9 damage" },
+      { type: "attack", value: 12, label: "Crushing attack for 12 damage" },
+      { type: "heal", value: 8, label: "Restore 8 health" },
+      { type: "shield", value: 10, label: "Gain 10 shield" },
+      { type: "attack", value: 8, label: "Quick attack for 8 damage" }
     ];
     return intents[Math.floor(Math.random() * intents.length)];
   }
@@ -1630,7 +1695,7 @@
   function startBossBattle() {
     battleState = {
       playerHp: 40, playerMaxHp: 40, shield: 0,
-      bossHp: 50, bossMaxHp: 50,
+      bossHp: 50, bossMaxHp: 50, bossShield: 0,
       energy: 3, turn: 1, nextUid: 1,
       hand: [], drawPile: shuffleBattleDeck(battleCards), discard: [],
       question: null, message: "Choose a card, then prove you know its word.",
@@ -1647,14 +1712,17 @@
   }
 
   function damageBoss(amount) {
-    battleState.bossHp = Math.max(0, battleState.bossHp - amount);
+    const blocked = Math.min(battleState.bossShield, amount);
+    battleState.bossShield -= blocked;
+    const healthDamage = amount - blocked;
+    battleState.bossHp = Math.max(0, battleState.bossHp - healthDamage);
+    return healthDamage;
   }
 
   function attackBoss(amount) {
     const total = amount + battleState.attackBonus;
     battleState.attackBonus = 0;
-    damageBoss(total);
-    return total;
+    return damageBoss(total);
   }
 
   function takeBossAttack(amount) {
@@ -1760,9 +1828,9 @@
     if (!battleState || battleState.question || battleState.result) return;
     let message = "";
     if (battleState.poisonTurns > 0) {
-      damageBoss(battleState.poisonDamage);
+      const poisonHit = damageBoss(battleState.poisonDamage);
       battleState.poisonTurns--;
-      message += `Poison dealt ${battleState.poisonDamage}. `;
+      message += `Poison dealt ${poisonHit} health damage. `;
     }
 
     if (battleState.bossHp <= 0) {
@@ -1777,6 +1845,9 @@
     } else if (battleState.bossIntent.type === "heal") {
       battleState.bossHp = Math.min(battleState.bossMaxHp, battleState.bossHp + battleState.bossIntent.value);
       message += `The boss restored ${battleState.bossIntent.value} health.`;
+    } else if (battleState.bossIntent.type === "shield") {
+      battleState.bossShield = Math.min(20, battleState.bossShield + battleState.bossIntent.value);
+      message += `The boss gained ${battleState.bossIntent.value} shield.`;
     } else {
       message += takeBossAttack(battleState.bossIntent.value);
     }
@@ -1809,6 +1880,14 @@
   resetPracticeSession();
 
   function render() {
+    if (view !== "bubble" && bubbleGame.answer && !bubbleGame.paused) {
+      if (bubbleGame.locked) {
+        createBubbleRound();
+        bubbleGame.paused = true;
+      } else {
+        pauseBubbleGame(false);
+      }
+    }
     stopBubbleTimer();
     stopBubblePhysics();
     app.classList.toggle("battle-mode", view === "boss");
@@ -1817,14 +1896,15 @@
       return;
     }
 
+    const backToGames = view === "bubble" || view === "boss";
     app.innerHTML = `
-      <button class="back-home-btn" id="backHome">&#8249; Back to Home</button>
+      <button class="back-home-btn" id="backHome">&#8249; Back to ${backToGames ? "Games" : "Home"}</button>
       <div id="viewRoot" style="width:100%;display:flex;flex-direction:column;align-items:center;gap:20px;"></div>
     `;
 
     app.querySelector("#backHome").addEventListener("click", () => {
       playClickSound();
-      view = "home";
+      view = backToGames ? "games" : "home";
       render();
     });
 
@@ -1983,6 +2063,7 @@
           <div class="combatant-name">The Lexicon Beast</div><div class="combatant-figure">🐉</div>
           <div class="health-track"><div class="health-fill" style="width:${battleState.bossHp / battleState.bossMaxHp * 100}%"></div></div>
           <div class="health-label">${battleState.bossHp} / ${battleState.bossMaxHp} HP</div>
+          <div class="shield-label">${battleState.bossShield ? `🛡 ${battleState.bossShield} shield` : ""}</div>
           <div class="boss-intent">${escapeHtml(intentText)}</div>
         </div>
       </div></div>
@@ -2011,11 +2092,50 @@
     }));
   }
 
+  async function toggleBubbleFullscreen() {
+    const game = document.querySelector(".bubble-game");
+    if (!game) return;
+    if (game.classList.contains("bubble-fullscreen")) {
+      game.classList.remove("bubble-fullscreen");
+    } else if (!document.fullscreenEnabled) {
+      game.classList.add("bubble-fullscreen");
+    } else {
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await game.requestFullscreen();
+      }
+    } catch (error) {
+      game.classList.add("bubble-fullscreen");
+    }
+    }
+    if (!bubbleGame.paused) {
+      requestAnimationFrame(() => {
+        const field = document.querySelector(".bubble-field");
+        if (field) startBubblePhysics(field);
+      });
+    }
+  }
+
   function renderGames(root) {
     if (!bubbleGame.answer) createBubbleRound();
 
     if (!bubbleGame.answer) {
       root.innerHTML = `<div class="empty-state">Add at least four words in the Dictionary to play Bubble Shot.</div>`;
+      return;
+    }
+
+    if (bubbleGame.paused) {
+      root.innerHTML = `<section class="bubble-game" aria-labelledby="bubbleGameTitle">
+        <div class="game-heading">
+          <div><h2 id="bubbleGameTitle">Bubble Shot</h2><p>Game paused — the targets are hidden.</p></div>
+          <div class="bubble-heading-actions"><button class="small-btn" id="fullscreenBubble">⛶ Fullscreen</button></div>
+        </div>
+        <div class="bubble-pause-screen"><div><h3>Paused</h3><p>Your timer and bubbles are frozen until you return.</p><button class="resume-bubble-btn" id="resumeBubble">Resume game</button></div></div>
+      </section>`;
+      root.querySelector("#resumeBubble").addEventListener("click", () => { playClickSound(); resumeBubbleGame(); });
+      root.querySelector("#fullscreenBubble").addEventListener("click", toggleBubbleFullscreen);
       return;
     }
 
@@ -2026,10 +2146,16 @@
             <h2 id="bubbleGameTitle">Bubble Shot</h2>
             <p>Shoot the word that matches the definition.</p>
           </div>
-          <div class="game-stats" aria-label="Game score">
-            <div class="stat-pill"><strong id="gameScore">${bubbleGame.score}</strong><span>Score</span></div>
-            <div class="stat-pill"><strong id="gameStreak">${bubbleGame.streak}</strong><span>Streak</span></div>
-            <div class="stat-pill"><strong id="roundTimer">${bubbleGame.elapsed.toFixed(1)}s</strong><span>Time</span></div>
+          <div>
+            <div class="game-stats" aria-label="Game score">
+              <div class="stat-pill"><strong id="gameScore">${bubbleGame.score}</strong><span>Score</span></div>
+              <div class="stat-pill"><strong id="gameStreak">${bubbleGame.streak}</strong><span>Streak</span></div>
+              <div class="stat-pill"><strong id="roundTimer">${bubbleGame.elapsed.toFixed(1)}s</strong><span>Time</span></div>
+            </div>
+            <div class="bubble-heading-actions" style="justify-content:flex-end;margin-top:7px">
+              <button class="small-btn" id="pauseBubble">Pause</button>
+              <button class="small-btn" id="fullscreenBubble">⛶ Fullscreen</button>
+            </div>
           </div>
         </div>
 
@@ -2065,6 +2191,8 @@
     startBubbleTimer();
     const bubbleField = root.querySelector(".bubble-field");
     startBubblePhysics(bubbleField);
+    root.querySelector("#pauseBubble").addEventListener("click", () => { playClickSound(); pauseBubbleGame(); });
+    root.querySelector("#fullscreenBubble").addEventListener("click", toggleBubbleFullscreen);
 
     root.querySelectorAll(".word-bubble").forEach((button) => {
       button.addEventListener("click", () => {
@@ -2511,6 +2639,21 @@
     div.textContent = str;
     return div.innerHTML;
   }
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden && view === "bubble" && !bubbleGame.paused && !bubbleGame.locked) {
+      pauseBubbleGame();
+    }
+  });
+
+  document.addEventListener("fullscreenchange", () => {
+    if (view === "bubble" && !bubbleGame.paused) {
+      requestAnimationFrame(() => {
+        const field = document.querySelector(".bubble-field");
+        if (field) startBubblePhysics(field);
+      });
+    }
+  });
 
   render();
 </script>
