@@ -773,7 +773,7 @@
   .word-bubble:nth-child(3) { background: linear-gradient(145deg, #fce2b7, #f7c978); }
   .word-bubble:nth-child(4) { background: linear-gradient(145deg, #ede6d3, #d8ceac); }
 
-  .word-bubble:hover {
+  .bubble-field:not(.round-locked) .word-bubble:hover {
     animation-play-state: paused;
     transform: scale(1.08);
     box-shadow: inset -8px -10px 18px rgba(13, 148, 136, 0.12),
@@ -801,7 +801,7 @@
 
   .word-bubble.hit {
     pointer-events: none;
-    animation: bubblePop 520ms cubic-bezier(0.2, 0.8, 0.3, 1) forwards !important;
+    animation: bubblePop 760ms cubic-bezier(0.16, 0.8, 0.3, 1) forwards !important;
     z-index: 4;
   }
 
@@ -812,8 +812,46 @@
     border: 5px solid rgba(255, 255, 255, 0.92);
     border-radius: 50%;
     opacity: 0;
-    animation: bubbleRipple 520ms ease-out forwards;
+    animation: bubbleRipple 560ms ease-out forwards;
   }
+
+  .bubble-word { position: relative; z-index: 1; }
+
+  .pop-spray {
+    position: absolute;
+    inset: 50%;
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  .pop-spray i {
+    position: absolute;
+    width: calc(var(--drop-size, 9px) * 1.35);
+    height: calc(var(--drop-size, 9px) * 1.8);
+    border-radius: 55% 45% 58% 42%;
+    border: 1px solid rgba(255, 255, 255, 0.82);
+    background: linear-gradient(145deg, #ffffff, rgba(69, 177, 255, 0.92));
+    box-shadow: inset 2px 2px 3px rgba(255,255,255,0.82), 0 3px 7px rgba(13,84,145,0.34);
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.3) rotate(var(--drop-angle));
+  }
+
+  .word-bubble.hit .pop-spray i {
+    animation: dropletFly 1050ms cubic-bezier(0.12, 0.68, 0.28, 1) var(--drop-delay, 0ms) forwards;
+  }
+
+  .pop-spray i:nth-child(1)  { --drop-x: -108px; --drop-y: -62px; --drop-size: 11px; --drop-angle: -55deg; }
+  .pop-spray i:nth-child(2)  { --drop-x: -128px; --drop-y: -8px;  --drop-size: 7px;  --drop-angle: -78deg; --drop-delay: 35ms; }
+  .pop-spray i:nth-child(3)  { --drop-x: -102px; --drop-y: 58px;  --drop-size: 9px;  --drop-angle: -120deg; --drop-delay: 20ms; }
+  .pop-spray i:nth-child(4)  { --drop-x: -45px;  --drop-y: 105px; --drop-size: 6px;  --drop-angle: -150deg; --drop-delay: 55ms; }
+  .pop-spray i:nth-child(5)  { --drop-x: 12px;   --drop-y: 122px; --drop-size: 10px; --drop-angle: 175deg; --drop-delay: 15ms; }
+  .pop-spray i:nth-child(6)  { --drop-x: 76px;   --drop-y: 92px;  --drop-size: 7px;  --drop-angle: 140deg; --drop-delay: 45ms; }
+  .pop-spray i:nth-child(7)  { --drop-x: 120px;  --drop-y: 44px;  --drop-size: 11px; --drop-angle: 105deg; }
+  .pop-spray i:nth-child(8)  { --drop-x: 132px;  --drop-y: -25px; --drop-size: 6px;  --drop-angle: 72deg; --drop-delay: 60ms; }
+  .pop-spray i:nth-child(9)  { --drop-x: 91px;   --drop-y: -93px; --drop-size: 9px;  --drop-angle: 38deg; --drop-delay: 25ms; }
+  .pop-spray i:nth-child(10) { --drop-x: 28px;   --drop-y: -119px;--drop-size: 7px;  --drop-angle: 12deg; --drop-delay: 50ms; }
+  .pop-spray i:nth-child(11) { --drop-x: -35px;  --drop-y: -112px;--drop-size: 10px; --drop-angle: -18deg; --drop-delay: 10ms; }
+  .pop-spray i:nth-child(12) { --drop-x: 108px;  --drop-y: -4px;  --drop-size: 5px;  --drop-angle: 88deg; --drop-delay: 75ms; }
 
   .game-feedback {
     min-height: 24px;
@@ -850,9 +888,10 @@
 
   @keyframes bubblePop {
     0% { transform: scale(1); opacity: 1; filter: brightness(1); }
-    38% { transform: scale(1.2); opacity: 1; filter: brightness(1.22); }
-    62% { transform: scale(0.88); opacity: 0.9; filter: brightness(1.4); }
-    100% { transform: scale(0); opacity: 0; filter: brightness(1.6); }
+    24% { transform: scale(1.12, 0.94); opacity: 1; filter: brightness(1.24); }
+    42% { transform: scale(1.2); opacity: 0.92; filter: brightness(1.55); }
+    52% { transform: scale(0.72); opacity: 0.3; filter: brightness(1.8); }
+    100% { transform: scale(0); opacity: 0; filter: brightness(2); }
   }
 
   @keyframes bubbleRipple {
@@ -861,6 +900,12 @@
     100% { transform: scale(1.42); opacity: 0; }
   }
 
+  @keyframes dropletFly {
+    0% { transform: translate(-50%, -50%) scale(0.25) rotate(var(--drop-angle)); opacity: 0; }
+    14% { opacity: 1; }
+    72% { opacity: 0.95; }
+    100% { transform: translate(calc(-50% + var(--drop-x)), calc(-50% + var(--drop-y))) scale(0.8) rotate(var(--drop-angle)); opacity: 0; }
+  }
   @media (max-width: 390px) {
     .bubble-field { height: 430px; }
     .word-bubble { width: 116px; height: 116px; font-size: 14px; }
@@ -1320,8 +1365,8 @@
             <p>Shoot the word that matches the definition.</p>
           </div>
           <div class="game-stats" aria-label="Game score">
-            <div class="stat-pill"><strong>${bubbleGame.score}</strong><span>Score</span></div>
-            <div class="stat-pill"><strong>${bubbleGame.streak}</strong><span>Streak</span></div>
+            <div class="stat-pill"><strong id="gameScore">${bubbleGame.score}</strong><span>Score</span></div>
+            <div class="stat-pill"><strong id="gameStreak">${bubbleGame.streak}</strong><span>Streak</span></div>
             <div class="stat-pill"><strong id="roundTimer">${bubbleGame.elapsed.toFixed(1)}s</strong><span>Time</span></div>
           </div>
         </div>
@@ -1333,22 +1378,15 @@
 
         <div class="bubble-field" aria-label="Word choices">
           ${bubbleGame.choices.map((choice, index) => {
-            const isAnswer = choice.word === bubbleGame.answer.word;
-            const isSelected = choice.word === bubbleGame.selectedWord;
-            const stateClass = bubbleGame.locked && isSelected
-              ? `${isAnswer ? "correct" : "wrong"} hit`
-              : bubbleGame.locked && isAnswer
-                ? "correct"
-                : "";
             const motion = choice.motion;
             return `
               <button
-                class="word-bubble ${stateClass}"
+                class="word-bubble"
                 data-choice-index="${index}"
                 style="--x:${motion.x};--y:${motion.y};--dx:${motion.dx};--dy:${motion.dy};--dx2:${motion.dx2};--dy2:${motion.dy2};--duration:${motion.duration};--delay:${motion.delay};"
                 ${bubbleGame.locked ? "disabled" : ""}
                 aria-label="Shoot ${escapeHtml(choice.word)}"
-              >${escapeHtml(choice.word)}</button>
+              ><span class="bubble-word">${escapeHtml(choice.word)}</span><span class="pop-spray" aria-hidden="true">${"<i></i>".repeat(12)}</span></button>
             `;
           }).join("")}
           <div class="aim-hint">Aim and shoot</div>
@@ -1399,13 +1437,26 @@
         }
 
         const answeredAttempt = bubbleGame.attempts;
-        render();
+        const field = root.querySelector(".bubble-field");
+        const bubbleRect = button.getBoundingClientRect();
+        const fieldRect = field.getBoundingClientRect();
+        button.style.left = `${bubbleRect.left + bubbleRect.width / 2 - fieldRect.left - button.offsetWidth / 2}px`;
+        button.style.top = `${bubbleRect.top + bubbleRect.height / 2 - fieldRect.top - button.offsetHeight / 2}px`;
+        button.classList.add(isCorrect ? "correct" : "wrong", "hit");
+        field.classList.add("round-locked");
+        root.querySelectorAll(".word-bubble").forEach((bubble) => bubble.setAttribute("aria-disabled", "true"));
+        root.querySelector("#gameScore").textContent = bubbleGame.score;
+        root.querySelector("#gameStreak").textContent = bubbleGame.streak;
+        root.querySelector("#roundTimer").textContent = `${elapsed.toFixed(1)}s`;
+        const feedback = root.querySelector(".game-feedback");
+        feedback.className = `game-feedback ${bubbleGame.feedbackType}`;
+        feedback.textContent = bubbleGame.feedback;
         setTimeout(() => {
           if (view === "games" && bubbleGame.locked && bubbleGame.attempts === answeredAttempt) {
             createBubbleRound();
             render();
           }
-        }, 950);
+        }, 1500);
       });
     });
 
