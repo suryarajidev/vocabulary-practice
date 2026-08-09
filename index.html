@@ -870,6 +870,7 @@
 
   .battle-ending { padding: 36px; border-radius: 18px; background: var(--card-bg); border: 1px solid var(--border); text-align: center; }
   .battle-ending h3 { margin: 0 0 9px; font-size: 30px; }
+  #battleAgain { padding: 14px 28px; margin-top: 8px; }
 
   @media (max-width: 850px) {
     .battle-hand { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1692,11 +1693,11 @@
 
   function chooseBossIntent() {
     const intents = [
-      { type: "attack", value: 9, label: "Strike for 9 damage" },
-      { type: "attack", value: 12, label: "Crushing attack for 12 damage" },
-      { type: "heal", value: 8, label: "Restore 8 health" },
+      { type: "attack", value: 7, label: "Strike for 7 damage" },
+      { type: "attack", value: 7, label: "Heavy attack for 7 damage" },
+      { type: "heal", value: 6, label: "Restore 6 health" },
       { type: "shield", value: 10, label: "Gain 10 shield" },
-      { type: "attack", value: 8, label: "Quick attack for 8 damage" }
+      { type: "attack", value: 6, label: "Quick attack for 6 damage" }
     ];
     return intents[Math.floor(Math.random() * intents.length)];
   }
