@@ -705,6 +705,166 @@
     cursor: pointer;
   }
 
+  /* Games and Wordbound boss battle */
+  .game-menu {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+
+  .game-menu-heading { grid-column: 1 / -1; }
+  .game-menu-heading h2 { margin: 0 0 5px; }
+  .game-menu-heading p { margin: 0; color: var(--muted); }
+
+  .game-choice {
+    min-height: 220px;
+    padding: 26px;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    background: var(--card-bg);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .game-choice-icon { display: block; font-size: 42px; margin-bottom: 22px; }
+  .game-choice strong { display: block; font-size: 23px; margin-bottom: 8px; }
+  .game-choice span:last-child { color: var(--muted); line-height: 1.5; }
+
+  .app.battle-mode { max-width: 1100px; }
+
+  .boss-battle {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .battle-topbar,
+  .battle-actions,
+  .combatant-row,
+  .battle-resource-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .battle-topbar h2 { margin: 0 0 4px; }
+  .battle-topbar p { margin: 0; color: var(--muted); }
+
+  .battle-arena {
+    min-height: 245px;
+    padding: 22px;
+    border-radius: 20px;
+    border: 1px solid rgba(13, 148, 136, 0.2);
+    background: linear-gradient(180deg, #dff5ef, #f7f0dc 72%);
+  }
+
+  .combatant { width: min(42%, 320px); text-align: center; }
+  .combatant-name { font-weight: 800; font-size: 18px; margin-bottom: 8px; }
+  .combatant-figure { font-size: 72px; line-height: 1; margin: 8px 0 14px; filter: drop-shadow(0 8px 8px rgba(0,0,0,0.12)); }
+  .combatant.player .combatant-figure { font-size: 58px; }
+  .versus { color: var(--brand-muted); font-size: 13px; font-weight: 800; letter-spacing: 0.14em; }
+
+  .health-track {
+    width: 100%;
+    height: 15px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.72);
+    border: 1px solid rgba(0,0,0,0.08);
+  }
+
+  .health-fill { height: 100%; background: linear-gradient(90deg, #ef4444, #f97316); transition: width 0.35s ease; }
+  .combatant.player .health-fill { background: linear-gradient(90deg, #0d9488, #22c55e); }
+  .health-label { margin-top: 5px; font-size: 13px; font-weight: 750; }
+  .shield-label { color: #2563eb; min-height: 18px; font-size: 13px; font-weight: 700; }
+
+  .boss-intent {
+    margin-top: 12px;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.68);
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .battle-resource-row {
+    padding: 11px 14px;
+    border-radius: 13px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+  }
+
+  .energy-display { color: #b45309; font-size: 17px; font-weight: 850; }
+  .battle-status { color: var(--muted); font-size: 13px; text-align: right; }
+
+  .battle-hand {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .battle-card {
+    position: relative;
+    min-height: 235px;
+    padding: 12px;
+    border: 2px solid var(--card-edge, #0d9488);
+    border-radius: 15px;
+    background: var(--card-bg);
+    color: var(--text);
+    text-align: left;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .battle-card.attack { --card-edge: #dc2626; }
+  .battle-card.defense { --card-edge: #2563eb; }
+  .battle-card.heal { --card-edge: #16a34a; }
+  .battle-card.strategy { --card-edge: #7c3aed; }
+  .battle-card.unaffordable { opacity: 0.48; cursor: not-allowed; }
+  .battle-card-cost { position: absolute; top: 9px; right: 9px; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; background: #fbbf24; font-weight: 900; }
+  .battle-card-word { padding-right: 28px; font-size: 17px; font-weight: 900; overflow-wrap: anywhere; }
+  .battle-card-name { margin-top: 5px; color: var(--card-edge); font-size: 12px; font-weight: 850; text-transform: uppercase; letter-spacing: 0.07em; }
+  .battle-card-art { flex: 1; display: grid; place-items: center; font-size: 42px; }
+  .battle-card-effect { min-height: 58px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 12px; line-height: 1.4; }
+
+  .end-turn-btn { border: 0; border-radius: 11px; padding: 12px 20px; background: var(--brand-dark); color: white; font-weight: 800; cursor: pointer; }
+  .battle-message { min-height: 23px; font-weight: 750; color: var(--brand-dark); }
+
+  .question-panel {
+    padding: 20px;
+    border: 2px solid var(--accent);
+    border-radius: 16px;
+    background: var(--card-bg);
+    box-shadow: 0 16px 36px rgba(15, 110, 86, 0.14);
+  }
+
+  .question-panel h3 { margin: 0 0 5px; }
+  .question-panel p { margin: 0 0 14px; color: var(--muted); }
+  .question-options { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px; }
+  .question-option { padding: 12px; border: 1px solid var(--border); border-radius: 10px; background: white; text-align: left; cursor: pointer; font: inherit; }
+
+  .battle-ending { padding: 36px; border-radius: 18px; background: var(--card-bg); border: 1px solid var(--border); text-align: center; }
+  .battle-ending h3 { margin: 0 0 9px; font-size: 30px; }
+
+  @media (max-width: 850px) {
+    .battle-hand { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .battle-card { min-height: 210px; }
+  }
+
+  @media (max-width: 600px) {
+    .game-menu, .question-options { grid-template-columns: 1fr; }
+    .combatant-row { align-items: flex-end; }
+    .combatant { width: 46%; }
+    .combatant-figure { font-size: 52px; }
+    .battle-hand { grid-template-columns: 1fr; }
+    .battle-card { min-height: 170px; }
+  }
+
   /* Bubble Shot game */
   .bubble-game {
     width: 100%;
@@ -1155,7 +1315,7 @@
 
   let words = loadWords();
   let deck = randomSample(getAllWords(), SESSION_SIZE);
-  let view = "home"; // "home" | "practice" | "dictionary" | "games"
+  let view = "home"; // "home" | "practice" | "dictionary" | "games" | "bubble" | "boss"
   let editingIndex = null;
   let showAddForm = false;
 
@@ -1185,6 +1345,73 @@
   let bubbleTimerId = null;
   let bubblePhysicsFrame = null;
   let bubblePhysicsBodies = [];
+
+  const bw = (word, definition) => ({ word, definition });
+  const battleCards = [
+    { id: "tackle", name: "Tackle", type: "attack", icon: "⚔️", cost: 1, effect: "Deal 6 damage.", words: [
+      bw("Belligerent", "Hostile and eager to fight."), bw("Clandestine", "Kept secret or done secretly."), bw("Debilitate", "To make someone or something weak."), bw("Ephemeral", "Lasting for a very short time."), bw("Aggressive", "Ready or likely to attack or confront.")
+    ]},
+    { id: "heavy", name: "Heavy Strike", type: "attack", icon: "🔨", cost: 2, effect: "Deal 14 damage.", words: [
+      bw("Ferocious", "Savagely fierce or violent."), bw("Brutal", "Extremely harsh or violent."), bw("Formidable", "Inspiring fear or respect through great strength."), bw("Ruthless", "Having no pity or compassion."), bw("Vehement", "Showing strong and forceful feeling.")
+    ]},
+    { id: "quick", name: "Quick Slash", type: "attack", icon: "🗡️", cost: 1, effect: "Deal 6 damage and draw 1 card.", words: [
+      bw("Nimble", "Quick and light in movement or thought."), bw("Brisk", "Quick, energetic, and active."), bw("Agile", "Able to move quickly and easily."), bw("Deft", "Skillful, quick, and precise."), bw("Expeditious", "Done with speed and efficiency.")
+    ]},
+    { id: "poison", name: "Poison Dart", type: "attack", icon: "🏹", cost: 1, effect: "Deal 3 damage, then 3 damage for 2 turns.", words: [
+      bw("Toxic", "Poisonous or very harmful."), bw("Insidious", "Proceeding gradually but with harmful effects."), bw("Virulent", "Extremely harmful, severe, or poisonous."), bw("Pernicious", "Having a damaging effect, especially gradually."), bw("Noxious", "Harmful, poisonous, or unpleasant.")
+    ]},
+    { id: "debilitating", name: "Debilitating Blow", type: "attack", icon: "💥", cost: 2, effect: "Deal 7 damage; weaken the next attack by 4.", words: [
+      bw("Enervate", "To drain energy or vitality."), bw("Impair", "To weaken or damage something."), bw("Hinder", "To make progress difficult."), bw("Incapacitate", "To prevent someone from functioning normally."), bw("Sap", "To gradually weaken or drain energy.")
+    ]},
+    { id: "reckless", name: "Reckless Charge", type: "attack", icon: "🐏", cost: 2, effect: "Deal 16 damage, but take 4 damage.", words: [
+      bw("Audacious", "Showing bold willingness to take risks."), bw("Rash", "Acting without careful consideration."), bw("Impetuous", "Acting quickly without thought or care."), bw("Brazen", "Bold and without shame."), bw("Foolhardy", "Recklessly bold or unwise.")
+    ]},
+    { id: "relentless", name: "Relentless Assault", type: "attack", icon: "🌪️", cost: 3, effect: "Deal 7 damage three times.", words: [
+      bw("Incessant", "Continuing without interruption."), bw("Persistent", "Continuing firmly despite difficulty."), bw("Tenacious", "Not readily giving up."), bw("Unyielding", "Not giving way to pressure."), bw("Relentless", "Continuing without becoming weaker or less severe.")
+    ]},
+    { id: "shield", name: "Shield", type: "defense", icon: "🛡️", cost: 1, effect: "Gain 6 shield.", words: [
+      bw("Frugal", "Careful about spending or using resources."), bw("Impartial", "Treating all sides fairly."), bw("Resilient", "Able to recover quickly from difficulty."), bw("Steadfast", "Firm and dependable in purpose."), bw("Impregnable", "Unable to be captured or broken into.")
+    ]},
+    { id: "barrier", name: "Barrier", type: "defense", icon: "🏰", cost: 2, effect: "Gain 12 shield.", words: [
+      bw("Fortified", "Strengthened against attack."), bw("Impenetrable", "Impossible to pass through or understand."), bw("Secure", "Protected against danger or threat."), bw("Robust", "Strong, healthy, and sturdy."), bw("Impervious", "Unable to be affected or penetrated.")
+    ]},
+    { id: "parry", name: "Parry", type: "defense", icon: "🤺", cost: 1, effect: "Gain 5 shield and counter for 5 damage.", words: [
+      bw("Vigilant", "Keeping careful watch for danger."), bw("Wary", "Cautious about possible danger."), bw("Discerning", "Showing good judgment and perception."), bw("Astute", "Clever and perceptive."), bw("Perceptive", "Quick to notice and understand things.")
+    ]},
+    { id: "evasion", name: "Evasion", type: "defense", icon: "💨", cost: 1, effect: "Avoid the boss's next attack.", words: [
+      bw("Elusive", "Difficult to find, catch, or achieve."), bw("Evasive", "Tending to avoid commitment or danger."), bw("Furtive", "Attempting to avoid notice or attention."), bw("Dexterous", "Skillful with the hands or body."), bw("Lithe", "Thin, supple, and graceful.")
+    ]},
+    { id: "fortify", name: "Fortify", type: "defense", icon: "🧱", cost: 2, effect: "Gain 8 shield and 2 maximum health.", words: [
+      bw("Durable", "Able to withstand wear or damage."), bw("Resolute", "Admirably determined and unwavering."), bw("Enduring", "Lasting over a long period."), bw("Stalwart", "Loyal, reliable, and strong."), bw("Indomitable", "Impossible to defeat or discourage.")
+    ]},
+    { id: "mend", name: "Mend", type: "heal", icon: "🩹", cost: 1, effect: "Restore 6 health.", words: [
+      bw("Restorative", "Having the ability to restore health or strength."), bw("Soothing", "Having a calming or comforting effect."), bw("Remedial", "Intended to correct or improve something."), bw("Nurturing", "Caring for and encouraging growth."), bw("Beneficial", "Producing a good or helpful result.")
+    ]},
+    { id: "second-wind", name: "Second Wind", type: "heal", icon: "✨", cost: 2, effect: "Restore 10 health and gain 1 energy.", words: [
+      bw("Vigorous", "Strong, healthy, and full of energy."), bw("Energetic", "Showing great activity or vitality."), bw("Revitalized", "Given new life or energy."), bw("Buoyant", "Cheerful, optimistic, or able to float."), bw("Rejuvenated", "Made to feel younger or more energetic.")
+    ]},
+    { id: "compassion", name: "Compassion", type: "heal", icon: "💚", cost: 1, effect: "Restore 5 health and gain 3 shield.", words: [
+      bw("Benevolent", "Kind, generous, and charitable."), bw("Empathetic", "Able to understand another person's feelings."), bw("Gracious", "Courteous, kind, and pleasant."), bw("Altruistic", "Showing selfless concern for others."), bw("Compassionate", "Feeling and showing concern for suffering.")
+    ]},
+    { id: "vital", name: "Vital Surge", type: "heal", icon: "🌱", cost: 3, effect: "Restore 16 health.", words: [
+      bw("Vibrant", "Full of energy and life."), bw("Vital", "Essential to life or full of energy."), bw("Dynamic", "Characterized by constant energy or change."), bw("Invigorated", "Filled with strength or energy."), bw("Flourishing", "Growing or developing successfully.")
+    ]},
+    { id: "focus", name: "Focus", type: "strategy", icon: "🎯", cost: 1, effect: "The next question has only 2 choices.", words: [
+      bw("Meticulous", "Showing very careful attention to detail."), bw("Attentive", "Closely watching or listening."), bw("Diligent", "Showing careful and persistent effort."), bw("Deliberate", "Done consciously and intentionally."), bw("Concentrated", "Focused closely on one purpose.")
+    ]},
+    { id: "insight", name: "Insight", type: "strategy", icon: "🔮", cost: 1, effect: "Reveal the boss's move and draw 1 card.", words: [
+      bw("Sagacious", "Having good judgment and practical wisdom."), bw("Intuitive", "Understood instinctively without conscious reasoning."), bw("Incisive", "Clear, direct, and intelligently analytical."), bw("Judicious", "Showing sensible and careful judgment."), bw("Prescient", "Having knowledge of events before they happen.")
+    ]},
+    { id: "rally", name: "Rally", type: "strategy", icon: "📣", cost: 2, effect: "Gain 1 energy; next attack deals 5 extra damage.", words: [
+      bw("Inspiring", "Encouraging someone to act or feel motivated."), bw("Zealous", "Showing passionate enthusiasm."), bw("Spirited", "Full of energy and enthusiasm."), bw("Enthusiastic", "Showing intense enjoyment or interest."), bw("Fervent", "Having intense and sincere feeling.")
+    ]},
+    { id: "disrupt", name: "Disrupt", type: "strategy", icon: "⚡", cost: 1, effect: "Cancel the boss's next move.", words: [
+      bw("Chaotic", "Completely disordered or confused."), bw("Erratic", "Unpredictable and inconsistent."), bw("Anomalous", "Different from what is normal or expected."), bw("Volatile", "Liable to change rapidly and unpredictably."), bw("Disruptive", "Causing interruption or disorder.")
+    ]}
+  ];
+
+  const allBattleWords = battleCards.flatMap((card) => card.words);
+  let battleState = null;
 
   const app = document.getElementById("app");
 
@@ -1339,18 +1566,18 @@
           body.element.style.transform = `translate3d(${body.x}px, ${body.y}px, 0)`;
         }
       }
-      if (view === "games" && field.isConnected) bubblePhysicsFrame = requestAnimationFrame(step);
+      if (view === "bubble" && field.isConnected) bubblePhysicsFrame = requestAnimationFrame(step);
     };
     bubblePhysicsFrame = requestAnimationFrame(step);
   }
 
   function startBubbleTimer() {
     stopBubbleTimer();
-    if (bubbleGame.locked || view !== "games") return;
+    if (bubbleGame.locked || view !== "bubble") return;
 
     const updateTimer = () => {
       const timer = document.getElementById("roundTimer");
-      if (!timer || bubbleGame.locked || view !== "games") {
+      if (!timer || bubbleGame.locked || view !== "bubble") {
         stopBubbleTimer();
         return;
       }
@@ -1370,6 +1597,206 @@
     createBubbleRound();
   }
 
+  function shuffleBattleDeck(items) {
+    return randomSample(items, items.length);
+  }
+
+  function createBattleCard(card, uid) {
+    return { ...card, uid, vocab: card.words[Math.floor(Math.random() * card.words.length)] };
+  }
+
+  function chooseBossIntent() {
+    const intents = [
+      { type: "attack", value: 7, label: "Strike for 7 damage" },
+      { type: "attack", value: 9, label: "Heavy attack for 9 damage" },
+      { type: "heal", value: 6, label: "Restore 6 health" },
+      { type: "attack", value: 6, label: "Quick attack for 6 damage" }
+    ];
+    return intents[Math.floor(Math.random() * intents.length)];
+  }
+
+  function drawBattleCards(count) {
+    for (let i = 0; i < count && battleState.hand.length < 7; i++) {
+      if (!battleState.drawPile.length) {
+        if (!battleState.discard.length) return;
+        battleState.drawPile = shuffleBattleDeck(battleState.discard);
+        battleState.discard = [];
+      }
+      const definition = battleState.drawPile.pop();
+      battleState.hand.push(createBattleCard(definition, battleState.nextUid++));
+    }
+  }
+
+  function startBossBattle() {
+    battleState = {
+      playerHp: 40, playerMaxHp: 40, shield: 0,
+      bossHp: 50, bossMaxHp: 50,
+      energy: 3, turn: 1, nextUid: 1,
+      hand: [], drawPile: shuffleBattleDeck(battleCards), discard: [],
+      question: null, message: "Choose a card, then prove you know its word.",
+      poisonTurns: 0, poisonDamage: 0, bossWeak: 0,
+      evade: false, counter: 0, focusNext: false,
+      attackBonus: 0, cancelBoss: false, intentRevealed: false,
+      bossIntent: chooseBossIntent(), result: null
+    };
+    drawBattleCards(5);
+  }
+
+  function healPlayer(amount) {
+    battleState.playerHp = Math.min(battleState.playerMaxHp, battleState.playerHp + amount);
+  }
+
+  function damageBoss(amount) {
+    battleState.bossHp = Math.max(0, battleState.bossHp - amount);
+  }
+
+  function attackBoss(amount) {
+    const total = amount + battleState.attackBonus;
+    battleState.attackBonus = 0;
+    damageBoss(total);
+    return total;
+  }
+
+  function takeBossAttack(amount) {
+    if (battleState.evade) {
+      battleState.evade = false;
+      return "You evaded the attack.";
+    }
+    const weakened = Math.max(0, amount - battleState.bossWeak);
+    battleState.bossWeak = 0;
+    const blocked = Math.min(battleState.shield, weakened);
+    battleState.shield -= blocked;
+    const damage = weakened - blocked;
+    battleState.playerHp = Math.max(0, battleState.playerHp - damage);
+    if (battleState.counter) {
+      damageBoss(battleState.counter);
+      battleState.counter = 0;
+    }
+    return `${blocked ? `Blocked ${blocked}. ` : ""}Took ${damage} damage.`;
+  }
+
+  function applyBattleCard(card) {
+    let result = "";
+    switch (card.id) {
+      case "tackle": result = `Tackle dealt ${attackBoss(6)} damage.`; break;
+      case "heavy": result = `Heavy Strike dealt ${attackBoss(14)} damage.`; break;
+      case "quick": result = `Quick Slash dealt ${attackBoss(6)} damage. Drew a card.`; drawBattleCards(1); break;
+      case "poison":
+        result = `Poison Dart dealt ${attackBoss(3)} damage and poisoned the boss.`;
+        battleState.poisonTurns = 2; battleState.poisonDamage = 3; break;
+      case "debilitating": result = `The blow dealt ${attackBoss(7)} damage and weakened the boss.`; battleState.bossWeak = 4; break;
+      case "reckless":
+        result = `Reckless Charge dealt ${attackBoss(16)} damage, but cost 4 health.`;
+        battleState.playerHp = Math.max(0, battleState.playerHp - 4); break;
+      case "relentless": result = `Relentless Assault dealt ${attackBoss(21)} total damage.`; break;
+      case "shield": battleState.shield += 6; result = "Gained 6 shield."; break;
+      case "barrier": battleState.shield += 12; result = "Gained 12 shield."; break;
+      case "parry": battleState.shield += 5; battleState.counter = 5; result = "Gained 5 shield and prepared a 5-damage counter."; break;
+      case "evasion": battleState.evade = true; result = "The next attack will miss."; break;
+      case "fortify":
+        battleState.playerMaxHp += 2; battleState.playerHp += 2; battleState.shield += 8;
+        result = "Gained 8 shield and 2 maximum health."; break;
+      case "mend": healPlayer(6); result = "Restored 6 health."; break;
+      case "second-wind": healPlayer(10); battleState.energy += 1; result = "Restored 10 health and regained 1 energy."; break;
+      case "compassion": healPlayer(5); battleState.shield += 3; result = "Restored 5 health and gained 3 shield."; break;
+      case "vital": healPlayer(16); result = "Restored 16 health."; break;
+      case "focus": battleState.focusNext = true; result = "The next vocabulary question will have only 2 choices."; break;
+      case "insight": battleState.intentRevealed = true; drawBattleCards(1); result = "Revealed the boss's move and drew a card."; break;
+      case "rally": battleState.energy += 1; battleState.attackBonus += 5; result = "Regained 1 energy; the next attack gains 5 damage."; break;
+      case "disrupt": battleState.cancelBoss = true; result = "The boss's next move is cancelled."; break;
+    }
+    return result;
+  }
+
+  function askBattleQuestion(uid) {
+    if (!battleState || battleState.question || battleState.result) return;
+    const card = battleState.hand.find((item) => item.uid === uid);
+    if (!card || card.cost > battleState.energy) {
+      battleState.message = "You do not have enough energy for that card.";
+      render();
+      return;
+    }
+    const choiceCount = battleState.focusNext ? 2 : 4;
+    const decoys = randomSample(
+      allBattleWords.filter((item) => item.word !== card.vocab.word && item.definition !== card.vocab.definition),
+      choiceCount - 1
+    );
+    battleState.question = {
+      uid,
+      word: card.vocab.word,
+      correctDefinition: card.vocab.definition,
+      choices: randomSample([card.vocab, ...decoys], choiceCount)
+    };
+    battleState.focusNext = false;
+    render();
+  }
+
+  function resolveBattleQuestion(definition) {
+    if (!battleState?.question) return;
+    const question = battleState.question;
+    const cardIndex = battleState.hand.findIndex((item) => item.uid === question.uid);
+    if (cardIndex < 0) return;
+    const card = battleState.hand[cardIndex];
+    const correct = definition === question.correctDefinition;
+    battleState.energy = Math.max(0, battleState.energy - card.cost);
+    battleState.hand.splice(cardIndex, 1);
+    battleState.discard.push(battleCards.find((item) => item.id === card.id));
+    battleState.question = null;
+
+    if (correct) {
+      battleState.message = `Correct — ${applyBattleCard(card)}`;
+      playGotItSound();
+    } else {
+      battleState.message = `Not quite. ${card.vocab.word} means “${card.vocab.definition}” The card was discarded.`;
+      playDontKnowSound();
+    }
+
+    if (battleState.bossHp <= 0) battleState.result = "victory";
+    if (battleState.playerHp <= 0) battleState.result = "defeat";
+    render();
+  }
+
+  function endBattleTurn() {
+    if (!battleState || battleState.question || battleState.result) return;
+    let message = "";
+    if (battleState.poisonTurns > 0) {
+      damageBoss(battleState.poisonDamage);
+      battleState.poisonTurns--;
+      message += `Poison dealt ${battleState.poisonDamage}. `;
+    }
+
+    if (battleState.bossHp <= 0) {
+      battleState.result = "victory";
+      render();
+      return;
+    }
+
+    if (battleState.cancelBoss) {
+      message += "The boss's move was disrupted.";
+      battleState.cancelBoss = false;
+    } else if (battleState.bossIntent.type === "heal") {
+      battleState.bossHp = Math.min(battleState.bossMaxHp, battleState.bossHp + battleState.bossIntent.value);
+      message += `The boss restored ${battleState.bossIntent.value} health.`;
+    } else {
+      message += takeBossAttack(battleState.bossIntent.value);
+    }
+
+    battleState.shield = 0;
+    if (battleState.playerHp <= 0) {
+      battleState.result = "defeat";
+    } else if (battleState.bossHp <= 0) {
+      battleState.result = "victory";
+    } else {
+      battleState.turn++;
+      battleState.energy = 3;
+      battleState.intentRevealed = false;
+      battleState.bossIntent = chooseBossIntent();
+      drawBattleCards(5 - battleState.hand.length);
+      battleState.message = message;
+    }
+    render();
+  }
+
   function shuffleOrder() {
     for (let i = order.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -1384,6 +1811,7 @@
   function render() {
     stopBubbleTimer();
     stopBubblePhysics();
+    app.classList.toggle("battle-mode", view === "boss");
     if (view === "home") {
       renderHome();
       return;
@@ -1406,7 +1834,11 @@
     } else if (view === "dictionary") {
       renderDictionary(root);
     } else if (view === "games") {
+      renderGameMenu(root);
+    } else if (view === "bubble") {
       renderGames(root);
+    } else if (view === "boss") {
+      renderBossBattle(root);
     }
   }
 
@@ -1479,9 +1911,104 @@
     app.querySelector("#goGames").addEventListener("click", () => {
       playClickSound();
       view = "games";
+      render();
+    });
+  }
+
+  function renderGameMenu(root) {
+    root.innerHTML = `
+      <section class="game-menu" aria-labelledby="gamesTitle">
+        <div class="game-menu-heading">
+          <h2 id="gamesTitle">Choose a game</h2>
+          <p>Practice your vocabulary in two different ways.</p>
+        </div>
+        <button class="game-choice" id="playBubbleShot">
+          <span class="game-choice-icon">🫧</span><strong>Bubble Shot</strong>
+          <span>Aim at the moving bubble that matches the definition.</span>
+        </button>
+        <button class="game-choice" id="playBossBattle">
+          <span class="game-choice-icon">🐉</span><strong>Wordbound</strong>
+          <span>Answer vocabulary questions to activate cards and defeat the boss.</span>
+        </button>
+      </section>`;
+    root.querySelector("#playBubbleShot").addEventListener("click", () => {
+      playClickSound(); view = "bubble";
       if (!bubbleGame.answer) resetBubbleGame();
       render();
     });
+    root.querySelector("#playBossBattle").addEventListener("click", () => {
+      playClickSound(); view = "boss"; startBossBattle(); render();
+    });
+  }
+
+  function battleStatusText() {
+    const statuses = [];
+    if (battleState.poisonTurns) statuses.push(`Boss poisoned: ${battleState.poisonTurns} turn${battleState.poisonTurns === 1 ? "" : "s"}`);
+    if (battleState.attackBonus) statuses.push(`Next attack +${battleState.attackBonus}`);
+    if (battleState.evade) statuses.push("Evasion ready");
+    if (battleState.counter) statuses.push(`Counter: ${battleState.counter}`);
+    if (battleState.cancelBoss) statuses.push("Disruption ready");
+    return statuses.join(" · ") || "No active effects";
+  }
+
+  function renderBossBattle(root) {
+    if (!battleState) startBossBattle();
+    if (battleState.result) {
+      const won = battleState.result === "victory";
+      root.innerHTML = `<section class="battle-ending">
+        <div style="font-size:64px">${won ? "🏆" : "💀"}</div>
+        <h3>${won ? "Boss defeated!" : "Battle lost"}</h3>
+        <p>${won ? `You won in ${battleState.turn} turn${battleState.turn === 1 ? "" : "s"}.` : "The boss got the better of you this time."}</p>
+        <button class="accent-btn" id="battleAgain">Battle again</button>
+      </section>`;
+      root.querySelector("#battleAgain").addEventListener("click", () => { playClickSound(); startBossBattle(); render(); });
+      return;
+    }
+
+    const intentText = battleState.intentRevealed ? battleState.bossIntent.label : "The boss is preparing a move…";
+    root.innerHTML = `<section class="boss-battle" aria-labelledby="bossBattleTitle">
+      <div class="battle-topbar">
+        <div><h2 id="bossBattleTitle">Wordbound</h2><p>Answer correctly to activate your cards.</p></div>
+        <button class="small-btn" id="restartBattle">Restart battle</button>
+      </div>
+      <div class="battle-arena"><div class="combatant-row">
+        <div class="combatant player">
+          <div class="combatant-name">You</div><div class="combatant-figure">🧙</div>
+          <div class="health-track"><div class="health-fill" style="width:${battleState.playerHp / battleState.playerMaxHp * 100}%"></div></div>
+          <div class="health-label">${battleState.playerHp} / ${battleState.playerMaxHp} HP</div>
+          <div class="shield-label">${battleState.shield ? `🛡 ${battleState.shield} shield` : ""}</div>
+        </div>
+        <div class="versus">TURN ${battleState.turn}</div>
+        <div class="combatant boss">
+          <div class="combatant-name">The Lexicon Beast</div><div class="combatant-figure">🐉</div>
+          <div class="health-track"><div class="health-fill" style="width:${battleState.bossHp / battleState.bossMaxHp * 100}%"></div></div>
+          <div class="health-label">${battleState.bossHp} / ${battleState.bossMaxHp} HP</div>
+          <div class="boss-intent">${escapeHtml(intentText)}</div>
+        </div>
+      </div></div>
+      <div class="battle-resource-row"><div class="energy-display">⚡ ${battleState.energy} energy</div><div class="battle-status">${escapeHtml(battleStatusText())}</div></div>
+      <div class="battle-message" aria-live="polite">${escapeHtml(battleState.message)}</div>
+      ${battleState.question ? `<div class="question-panel" aria-labelledby="questionTitle">
+        <h3 id="questionTitle">What does “${escapeHtml(battleState.question.word)}” mean?</h3>
+        <p>Choose the correct definition to activate the card.</p>
+        <div class="question-options">${battleState.question.choices.map((choice, index) => `<button class="question-option" data-answer-index="${index}">${escapeHtml(choice.definition)}</button>`).join("")}</div>
+      </div>` : `<div class="battle-hand" aria-label="Your hand">
+        ${battleState.hand.map((card) => `<button class="battle-card ${card.type} ${card.cost > battleState.energy ? "unaffordable" : ""}" data-card-uid="${card.uid}" ${card.cost > battleState.energy ? "disabled" : ""}>
+          <span class="battle-card-cost">${card.cost}</span><span class="battle-card-word">${escapeHtml(card.vocab.word)}</span>
+          <span class="battle-card-name">${escapeHtml(card.name)}</span><span class="battle-card-art">${card.icon}</span>
+          <span class="battle-card-effect">${escapeHtml(card.effect)}</span>
+        </button>`).join("")}
+      </div>`}
+      <div class="battle-actions"><span>${battleState.hand.length} cards in hand · ${battleState.drawPile.length} in deck</span><button class="end-turn-btn" id="endBattleTurn" ${battleState.question ? "disabled" : ""}>End turn</button></div>
+    </section>`;
+
+    root.querySelector("#restartBattle").addEventListener("click", () => { playClickSound(); startBossBattle(); render(); });
+    root.querySelector("#endBattleTurn").addEventListener("click", () => { playClickSound(); endBattleTurn(); });
+    root.querySelectorAll(".battle-card").forEach((button) => button.addEventListener("click", () => askBattleQuestion(Number(button.dataset.cardUid))));
+    root.querySelectorAll(".question-option").forEach((button) => button.addEventListener("click", () => {
+      const choice = battleState.question.choices[Number(button.dataset.answerIndex)];
+      resolveBattleQuestion(choice.definition);
+    }));
   }
 
   function renderGames(root) {
@@ -1594,7 +2121,7 @@
         feedback.className = `game-feedback ${bubbleGame.feedbackType}`;
         feedback.textContent = bubbleGame.feedback;
         setTimeout(() => {
-          if (view === "games" && bubbleGame.locked && bubbleGame.attempts === answeredAttempt) {
+          if (view === "bubble" && bubbleGame.locked && bubbleGame.attempts === answeredAttempt) {
             createBubbleRound();
             render();
           }
