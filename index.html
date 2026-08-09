@@ -343,6 +343,84 @@
     white-space: nowrap;
   }
 
+  .restart-btn {
+    width: 100%;
+    margin: 10px 0 18px;
+    padding: 15px 20px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--accent), #4f46e5);
+    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.24);
+    letter-spacing: 0.01em;
+  }
+
+  .restart-btn:hover {
+    box-shadow: 0 12px 26px rgba(37, 99, 235, 0.3);
+  }
+
+  .results-review {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    text-align: left;
+  }
+
+  .results-review h3 {
+    margin: 4px 0;
+    text-align: center;
+  }
+
+  .result-group {
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    background: var(--card-bg);
+    overflow: hidden;
+  }
+
+  .result-group summary {
+    padding: 12px 14px;
+    cursor: pointer;
+    font-weight: 750;
+    list-style-position: inside;
+    transition: background-color 0.16s ease;
+  }
+
+  .result-group summary:hover {
+    background: rgba(37, 99, 235, 0.06);
+  }
+
+  .result-group.dont-know-group summary { color: var(--bad); }
+  .result-group.almost-group summary { color: var(--almost); }
+  .result-group.got-it-group summary { color: var(--good); }
+
+  .result-items {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 0 12px 12px;
+  }
+
+  .result-item {
+    border-top: 1px solid var(--border);
+    padding: 10px 2px 2px;
+  }
+
+  .result-word {
+    font-weight: 750;
+    margin-bottom: 3px;
+  }
+
+  .result-definition {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.4;
+  }
+
+  .result-empty {
+    color: var(--muted);
+    font-size: 13px;
+    padding: 2px;
+  }
+
   .empty-state {
     text-align: center;
     color: var(--muted);
@@ -721,6 +799,31 @@
     results = {};
   }
 
+  function getResultItems(category) {
+    return Object.entries(results)
+      .filter(([, result]) => result === category)
+      .map(([index]) => deck[Number(index)])
+      .filter(Boolean);
+  }
+
+  function resultGroupHtml(title, items, className) {
+    const itemMarkup = items.length
+      ? items.map((item) => `
+          <div class="result-item">
+            <div class="result-word">${escapeHtml(item.word)}</div>
+            <div class="result-definition">${escapeHtml(item.definition)}</div>
+          </div>
+        `).join("")
+      : `<div class="result-empty">No words in this group.</div>`;
+
+    return `
+      <details class="result-group ${className}" ${items.length ? 'open' : ''}>
+        <summary>${title} (${items.length})</summary>
+        <div class="result-items">${itemMarkup}</div>
+      </details>
+    `;
+  }
+
   function generateNewSession() {
     deck = randomSample(getAllWords(), SESSION_SIZE);
     resetPracticeSession();
@@ -810,8 +913,7 @@
     });
 
     if (pos >= order.length) {
-      const totalRated = score.gotit + score.almost + score.dontknow;
-      const skipped = deck.length - totalRated;
+      const skipped = Object.values(results).filter((result) => result === "skipped").length;
       const missedIndices = Object.keys(results)
         .filter((k) => results[k] !== "gotit")
         .map(Number);
@@ -819,11 +921,17 @@
       const done = document.createElement("div");
       done.className = "done";
       done.innerHTML = `
-        <h2>Done!</h2>
+        <h2>Session complete!</h2>
         <p>Got it: ${score.gotit} &nbsp;|&nbsp; Almost: ${score.almost} &nbsp;|&nbsp; Didn't know: ${score.dontknow}</p>
         ${skipped > 0 ? `<p>Skipped: ${skipped}</p>` : ""}
-        <button class="restart-btn" id="restart">Practice again</button>
+        <button class="accent-btn restart-btn" id="restart">&#8635; Practice again</button>
         ${missedIndices.length > 0 ? `<button class="missed-btn" id="practiceMissed">Practice missed &amp; skipped (${missedIndices.length})</button>` : ""}
+        <div class="results-review">
+          <h3>Review your words</h3>
+          ${resultGroupHtml("Didn't know", getResultItems("dontknow"), "dont-know-group")}
+          ${resultGroupHtml("Almost got it", getResultItems("almost"), "almost-group")}
+          ${resultGroupHtml("Got it", getResultItems("gotit"), "got-it-group")}
+        </div>
       `;
       root.appendChild(done);
       done.querySelector("#restart").addEventListener("click", () => {
@@ -956,13 +1064,15 @@
     container.innerHTML = `
       <div class="rate-row">
         <button class="dont-know" id="dontKnow">Didn't know</button>
-        <button class="almost-btn" id="almost">Almost</button>
+        <button class="almost-btn" id="almost">Almost got it</button>
         <button class="know" id="gotit">Got it</button>
       </div>
     `;
     container.querySelector("#dontKnow").addEventListener("click", (e) => {
       e.stopPropagation();
       playDontKnowSound();
+      const previous = results[order[pos]];
+      if (previous && previous !== "skipped") score[previous]--;
       results[order[pos]] = "dontknow";
       score.dontknow++;
       pos++;
@@ -972,6 +1082,8 @@
     container.querySelector("#almost").addEventListener("click", (e) => {
       e.stopPropagation();
       playAlmostSound();
+      const previous = results[order[pos]];
+      if (previous && previous !== "skipped") score[previous]--;
       results[order[pos]] = "almost";
       score.almost++;
       pos++;
@@ -981,6 +1093,8 @@
     container.querySelector("#gotit").addEventListener("click", (e) => {
       e.stopPropagation();
       playGotItSound();
+      const previous = results[order[pos]];
+      if (previous && previous !== "skipped") score[previous]--;
       results[order[pos]] = "gotit";
       score.gotit++;
       pos++;
