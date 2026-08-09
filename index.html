@@ -904,14 +904,17 @@
   .bubble-pause-screen p { margin: 0 0 18px; color: rgba(255,255,255,0.78); }
   .resume-bubble-btn { border: 0; border-radius: 12px; padding: 13px 24px; background: white; color: var(--brand-dark); font-weight: 850; cursor: pointer; }
 
-  .bubble-game:fullscreen {
+  .app:fullscreen {
     box-sizing: border-box;
     padding: 24px;
     background: var(--bg);
     overflow: auto;
+    max-width: none;
+    margin: 0;
+    align-items: stretch;
   }
 
-  .bubble-game.bubble-fullscreen {
+  .app.bubble-fullscreen {
     position: fixed;
     inset: 0;
     z-index: 1000;
@@ -919,12 +922,14 @@
     padding: 24px;
     background: var(--bg);
     overflow: auto;
+    max-width: none;
+    align-items: stretch;
   }
 
-  .bubble-game:fullscreen .bubble-field,
-  .bubble-game:fullscreen .bubble-pause-screen,
-  .bubble-game.bubble-fullscreen .bubble-field,
-  .bubble-game.bubble-fullscreen .bubble-pause-screen {
+  .app:fullscreen .bubble-field,
+  .app:fullscreen .bubble-pause-screen,
+  .app.bubble-fullscreen .bubble-field,
+  .app.bubble-fullscreen .bubble-pause-screen {
     height: calc(100vh - 230px);
     min-height: 430px;
   }
@@ -1880,6 +1885,10 @@
   resetPracticeSession();
 
   function render() {
+    if (view !== "bubble") {
+      app.classList.remove("bubble-fullscreen");
+      if (document.fullscreenElement === app) document.exitFullscreen().catch(() => {});
+    }
     if (view !== "bubble" && bubbleGame.answer && !bubbleGame.paused) {
       if (bubbleGame.locked) {
         createBubbleRound();
@@ -2092,24 +2101,10 @@
     }));
   }
 
-  async function toggleBubbleFullscreen() {
+  function toggleBubbleFullscreen() {
     const game = document.querySelector(".bubble-game");
     if (!game) return;
-    if (game.classList.contains("bubble-fullscreen")) {
-      game.classList.remove("bubble-fullscreen");
-    } else if (!document.fullscreenEnabled) {
-      game.classList.add("bubble-fullscreen");
-    } else {
-    try {
-      if (document.fullscreenElement) {
-        await document.exitFullscreen();
-      } else {
-        await game.requestFullscreen();
-      }
-    } catch (error) {
-      game.classList.add("bubble-fullscreen");
-    }
-    }
+    app.classList.toggle("bubble-fullscreen");
     if (!bubbleGame.paused) {
       requestAnimationFrame(() => {
         const field = document.querySelector(".bubble-field");
@@ -2652,6 +2647,18 @@
         const field = document.querySelector(".bubble-field");
         if (field) startBubblePhysics(field);
       });
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && app.classList.contains("bubble-fullscreen")) {
+      app.classList.remove("bubble-fullscreen");
+      if (view === "bubble" && !bubbleGame.paused) {
+        requestAnimationFrame(() => {
+          const field = document.querySelector(".bubble-field");
+          if (field) startBubblePhysics(field);
+        });
+      }
     }
   });
 
