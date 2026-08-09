@@ -6,13 +6,15 @@
 <title>Vocabulary Practice</title>
 <style>
   :root {
-    --bg: #ffffff;
+    --bg: #f0ebdd;
     --text: #1a1a1a;
     --muted: #6b7280;
-    --card-bg: #f7f7f8;
-    --border: #e5e7eb;
+    --card-bg: #fdfcf9;
+    --border: #e5e1d3;
     --accent: #2563eb;
+    --teal: #0d9488;
     --good: #16a34a;
+    --almost: #b45309;
     --bad: #dc2626;
   }
 
@@ -37,7 +39,7 @@
 
   .app {
     width: 100%;
-    max-width: 420px;
+    max-width: 460px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -71,6 +73,34 @@
     color: white;
   }
 
+  .practice-topbar {
+    width: 100%;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .side-toggle {
+    display: flex;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 4px;
+  }
+
+  .side-toggle-btn {
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    color: var(--muted);
+  }
+
+  .side-toggle-btn.active {
+    background: var(--teal);
+    color: white;
+  }
+
   .progress-track {
     width: 100%;
     height: 6px;
@@ -81,7 +111,7 @@
 
   .progress-fill {
     height: 100%;
-    background: var(--accent);
+    background: var(--teal);
     width: 0%;
     transition: width 0.25s ease;
   }
@@ -89,12 +119,12 @@
   .progress-label {
     font-size: 13px;
     color: var(--muted);
-    align-self: flex-end;
+    align-self: center;
   }
 
   .card-scene {
     width: 100%;
-    min-height: 260px;
+    min-height: 280px;
     perspective: 1200px;
     cursor: pointer;
   }
@@ -103,20 +133,18 @@
     position: relative;
     width: 100%;
     height: 100%;
-    min-height: 260px;
+    min-height: 280px;
     transition: transform 0.5s;
     transform-style: preserve-3d;
   }
 
-  .card-inner.flipped {
+  .card-inner.flip {
     transform: rotateY(180deg);
   }
 
   .card-face {
     position: absolute;
     inset: 0;
-    background: var(--card-bg);
-    border: 1px solid var(--border);
     border-radius: 16px;
     display: flex;
     align-items: center;
@@ -125,10 +153,27 @@
     padding: 32px 24px;
     backface-visibility: hidden;
     user-select: none;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.06);
+    border-top: 4px solid transparent;
+  }
+
+  .card-front {
+    background: var(--card-bg);
+    border-top-color: var(--accent);
   }
 
   .card-back {
+    background: #e6f7f3;
+    border-top-color: var(--teal);
     transform: rotateY(180deg);
+  }
+
+  .side-label {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    color: var(--muted);
+    margin-bottom: 14px;
   }
 
   .word {
@@ -137,34 +182,31 @@
   }
 
   .definition {
-    font-size: 18px;
-    color: var(--text);
-    line-height: 1.5;
+    font-size: 28px;
+    font-weight: 700;
+    line-height: 1.4;
   }
 
   .hint {
     font-size: 13px;
     color: var(--muted);
-    margin-top: 8px;
+    margin-top: 14px;
   }
 
-  .controls {
+  .rate-row {
     width: 100%;
     display: flex;
-    gap: 12px;
+    gap: 10px;
   }
 
-  button {
-    font-size: 16px;
-    font-weight: 600;
+  .rate-row button {
+    flex: 1;
+    font-size: 15px;
+    font-weight: 700;
     padding: 14px 0;
     border-radius: 10px;
     border: none;
     cursor: pointer;
-  }
-
-  .controls button {
-    flex: 1;
   }
 
   .dont-know {
@@ -172,14 +214,44 @@
     color: var(--bad);
   }
 
+  .almost-btn {
+    background: #fef3c7;
+    color: var(--almost);
+  }
+
   .know {
     background: #dcfce7;
     color: var(--good);
   }
 
+  .nav-row {
+    width: 100%;
+    display: flex;
+    gap: 10px;
+  }
+
+  .nav-row button {
+    flex: 1;
+    font-size: 15px;
+    font-weight: 600;
+    padding: 14px 0;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+
   .accent-btn {
     background: var(--accent);
     color: white;
+    border: none;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 14px 0;
+    border-radius: 10px;
+    cursor: pointer;
   }
 
   .done {
@@ -267,6 +339,8 @@
     font-size: 18px;
     padding: 4px 10px;
     line-height: 1;
+    border: none;
+    cursor: pointer;
   }
 
   .deck-count {
@@ -311,13 +385,32 @@
   let deck = loadDeck();
   let view = "practice"; // "practice" | "manage"
 
-  // practice state
-  let index = 0;
-  let flipped = false;
-  let known = 0;
-  let unknown = 0;
+  // practice session state
+  let firstSide = "term"; // "term" | "definition"
+  let order = [];
+  let pos = 0;
+  let side = "term"; // currently visible side for current card
+  let score = { gotit: 0, almost: 0, dontknow: 0 };
 
   const app = document.getElementById("app");
+
+  function resetPracticeSession() {
+    order = deck.map((_, i) => i);
+    pos = 0;
+    side = firstSide;
+    score = { gotit: 0, almost: 0, dontknow: 0 };
+  }
+
+  function shuffleOrder() {
+    for (let i = order.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [order[i], order[j]] = [order[j], order[i]];
+    }
+    pos = 0;
+    side = firstSide;
+  }
+
+  resetPracticeSession();
 
   function render() {
     app.innerHTML = `
@@ -330,10 +423,7 @@
 
     document.getElementById("tabPractice").addEventListener("click", () => {
       view = "practice";
-      index = 0;
-      flipped = false;
-      known = 0;
-      unknown = 0;
+      resetPracticeSession();
       render();
     });
     document.getElementById("tabManage").addEventListener("click", () => {
@@ -360,77 +450,143 @@
       return;
     }
 
-    if (index >= deck.length) {
-      root.innerHTML = `
-        <div class="done">
-          <h2>Done!</h2>
-          <p>You knew ${known} out of ${deck.length} words.</p>
-          <button class="accent-btn restart" id="restart">Practice again</button>
-        </div>
+    root.innerHTML = "";
+
+    const topbar = document.createElement("div");
+    topbar.className = "practice-topbar";
+    topbar.innerHTML = `
+      <div class="side-toggle">
+        <div class="side-toggle-btn ${firstSide === 'term' ? 'active' : ''}" id="termFirstBtn">Term first</div>
+        <div class="side-toggle-btn ${firstSide === 'definition' ? 'active' : ''}" id="defFirstBtn">Definition first</div>
+      </div>
+    `;
+    root.appendChild(topbar);
+    topbar.querySelector("#termFirstBtn").addEventListener("click", () => {
+      firstSide = "term";
+      side = "term";
+      render();
+    });
+    topbar.querySelector("#defFirstBtn").addEventListener("click", () => {
+      firstSide = "definition";
+      side = "definition";
+      render();
+    });
+
+    if (pos >= order.length) {
+      const totalRated = score.gotit + score.almost + score.dontknow;
+      const skipped = deck.length - totalRated;
+      const done = document.createElement("div");
+      done.className = "done";
+      done.innerHTML = `
+        <h2>Done!</h2>
+        <p>Got it: ${score.gotit} &nbsp;|&nbsp; Almost: ${score.almost} &nbsp;|&nbsp; Didn't know: ${score.dontknow}</p>
+        ${skipped > 0 ? `<p>Skipped: ${skipped}</p>` : ""}
+        <button class="accent-btn" id="restart">Practice again</button>
       `;
-      root.querySelector("#restart").addEventListener("click", () => {
-        index = 0;
-        flipped = false;
-        known = 0;
-        unknown = 0;
+      root.appendChild(done);
+      done.querySelector("#restart").addEventListener("click", () => {
+        resetPracticeSession();
         render();
       });
       return;
     }
 
-    const current = deck[index];
-    const progressPct = Math.round((index / deck.length) * 100);
+    const current = deck[order[pos]];
+    const progressPct = Math.round((pos / order.length) * 100);
 
-    root.innerHTML = `
-      <div class="progress-label">${index + 1} / ${deck.length}</div>
-      <div class="progress-track">
-        <div class="progress-fill" style="width:${progressPct}%"></div>
-      </div>
+    const progressLabel = document.createElement("div");
+    progressLabel.className = "progress-label";
+    progressLabel.textContent = `${pos + 1} / ${order.length}`;
+    root.appendChild(progressLabel);
 
-      <div class="card-scene" id="cardScene">
-        <div class="card-inner ${flipped ? 'flipped' : ''}" id="cardInner">
-          <div class="card-face card-front">
-            <div>
-              <div class="word">${current.word}</div>
-              <div class="hint">Tap to flip</div>
-            </div>
+    const progressTrack = document.createElement("div");
+    progressTrack.className = "progress-track";
+    progressTrack.innerHTML = `<div class="progress-fill" style="width:${progressPct}%"></div>`;
+    root.appendChild(progressTrack);
+
+    const scene = document.createElement("div");
+    scene.className = "card-scene";
+    scene.innerHTML = `
+      <div class="card-inner ${side !== firstSide ? 'flip' : ''}" id="cardInner">
+        <div class="card-face card-front">
+          <div>
+            <div class="side-label">TERM</div>
+            <div class="word">${escapeHtml(current.word)}</div>
+            <div class="hint">Tap to flip</div>
           </div>
-          <div class="card-face card-back">
-            <div>
-              <div class="definition">${current.definition}</div>
-              <div class="hint">Tap to flip back</div>
-            </div>
+        </div>
+        <div class="card-face card-back">
+          <div>
+            <div class="side-label">DEFINITION</div>
+            <div class="definition">${escapeHtml(current.definition)}</div>
+            <div class="hint">Tap to flip back</div>
           </div>
         </div>
       </div>
-
-      <div class="controls">
-        <button class="dont-know" id="dontKnow">Don't know</button>
-        <button class="know" id="know">Know it</button>
-      </div>
     `;
-
-    root.querySelector("#cardScene").addEventListener("click", () => {
-      flipped = !flipped;
+    root.appendChild(scene);
+    scene.addEventListener("click", () => {
+      side = side === "term" ? "definition" : "term";
       render();
     });
 
-    root.querySelector("#know").addEventListener("click", (e) => {
-      e.stopPropagation();
-      known++;
-      advance();
-    });
-    root.querySelector("#dontKnow").addEventListener("click", (e) => {
-      e.stopPropagation();
-      unknown++;
-      advance();
-    });
-  }
+    if (side === "definition") {
+      const rateRow = document.createElement("div");
+      rateRow.className = "rate-row";
+      rateRow.innerHTML = `
+        <button class="dont-know" id="dontKnow">Didn't know</button>
+        <button class="almost-btn" id="almost">Almost</button>
+        <button class="know" id="gotit">Got it</button>
+      `;
+      root.appendChild(rateRow);
+      rateRow.querySelector("#dontKnow").addEventListener("click", (e) => {
+        e.stopPropagation();
+        score.dontknow++;
+        pos++;
+        side = firstSide;
+        render();
+      });
+      rateRow.querySelector("#almost").addEventListener("click", (e) => {
+        e.stopPropagation();
+        score.almost++;
+        pos++;
+        side = firstSide;
+        render();
+      });
+      rateRow.querySelector("#gotit").addEventListener("click", (e) => {
+        e.stopPropagation();
+        score.gotit++;
+        pos++;
+        side = firstSide;
+        render();
+      });
+    }
 
-  function advance() {
-    index++;
-    flipped = false;
-    render();
+    const navRow = document.createElement("div");
+    navRow.className = "nav-row";
+    navRow.innerHTML = `
+      <button id="prevBtn">Prev</button>
+      <button id="shuffleBtn">Shuffle</button>
+      <button id="nextBtn">Next</button>
+    `;
+    root.appendChild(navRow);
+    navRow.querySelector("#prevBtn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      pos = Math.max(0, pos - 1);
+      side = firstSide;
+      render();
+    });
+    navRow.querySelector("#shuffleBtn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      shuffleOrder();
+      render();
+    });
+    navRow.querySelector("#nextBtn").addEventListener("click", (e) => {
+      e.stopPropagation();
+      pos++;
+      side = firstSide;
+      render();
+    });
   }
 
   function renderManage(root) {
