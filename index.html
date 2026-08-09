@@ -786,6 +786,7 @@
   let order = [];
   let pos = 0;
   let side = "term"; // currently visible side for current card
+  let practiceMode = "random"; // "random" | "missed"
   let score = { gotit: 0, almost: 0, dontknow: 0 };
   let results = {}; // original deck index -> "gotit" | "almost" | "dontknow" | "skipped"
 
@@ -793,6 +794,7 @@
 
   function resetPracticeSession(indices) {
     order = indices ? indices.slice() : deck.map((_, i) => i);
+    practiceMode = Array.isArray(indices) ? "missed" : "random";
     pos = 0;
     side = firstSide;
     score = { gotit: 0, almost: 0, dontknow: 0 };
@@ -961,7 +963,7 @@
     const sessionActions = document.createElement("div");
     sessionActions.className = "session-actions";
     sessionActions.innerHTML = `
-      <div class="progress-label">${pos + 1} / ${order.length} random words</div>
+      <div class="progress-label">${pos + 1} / ${order.length} ${practiceMode === "missed" ? "missed &amp; skipped words" : "random words"}</div>
       <button class="small-btn" id="newSessionBtn">New 10</button>
     `;
     root.appendChild(sessionActions);
