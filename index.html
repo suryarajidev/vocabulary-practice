@@ -108,51 +108,74 @@
   }
 
   .home-label {
-    font-size: 14px;
-    font-weight: 700;
-    letter-spacing: 1.5px;
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: 2px;
     text-transform: uppercase;
     color: var(--muted);
   }
 
   .home-welcome {
-    font-size: 22px;
-    font-weight: 700;
+    font-size: 38px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
   }
 
   .home-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
+    gap: 22px;
   }
 
   .home-card {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 14px;
+    gap: 20px;
     background: var(--card-bg);
     border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 28px 12px;
+    border-radius: 24px;
+    padding: 48px 20px;
     cursor: pointer;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.05);
+  }
+
+  .home-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 16px 30px rgba(37, 99, 235, 0.16);
   }
 
   .home-card-icon {
-    width: 64px;
-    height: 64px;
+    width: 108px;
+    height: 108px;
     border-radius: 50%;
-    background: var(--bg);
-    border: 1px solid var(--border);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 28px;
+    color: white;
+    box-shadow: 0 10px 22px rgba(0, 0, 0, 0.14);
+  }
+
+  .home-card-icon svg {
+    width: 48px;
+    height: 48px;
+  }
+
+  .home-card-icon.icon-dictionary {
+    background: linear-gradient(135deg, var(--accent), #1d4ed8);
+  }
+
+  .home-card-icon.icon-flashcards {
+    background: linear-gradient(135deg, var(--teal), #0f766e);
+  }
+
+  .home-card-icon.icon-games {
+    background: linear-gradient(135deg, var(--accent), #4f46e5);
   }
 
   .home-card-title {
-    font-size: 16px;
-    font-weight: 700;
+    font-size: 22px;
+    font-weight: 800;
     color: var(--text);
   }
 
@@ -1129,15 +1152,34 @@
         </div>
         <div class="home-grid">
           <button class="home-card" id="goDictionary">
-            <span class="home-card-icon">&#128214;</span>
+            <span class="home-card-icon icon-dictionary">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 5.5c-2.1-1.2-4.9-1.4-7-0.6v13c2.1-0.8 4.9-0.6 7 0.6"></path>
+                <path d="M12 5.5c2.1-1.2 4.9-1.4 7-0.6v13c-2.1-0.8-4.9-0.6-7 0.6"></path>
+                <line x1="12" y1="5.5" x2="12" y2="18.5"></line>
+              </svg>
+            </span>
             <span class="home-card-title">Dictionary</span>
           </button>
           <button class="home-card" id="goPractice">
-            <span class="home-card-icon">&#128194;</span>
+            <span class="home-card-icon icon-flashcards">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="9" width="14" height="10" rx="2"></rect>
+                <rect x="7" y="4" width="14" height="10" rx="2"></rect>
+              </svg>
+            </span>
             <span class="home-card-title">Flashcards</span>
           </button>
           <button class="home-card" id="goGames">
-            <span class="home-card-icon">&#127918;</span>
+            <span class="home-card-icon icon-games">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M7 6h10a4 4 0 0 1 4 4v4a4 4 0 0 1-4 4c-1 0-1.6-0.5-2.1-1.1l-0.8-0.9a3 3 0 0 0-2.1-1H10a3 3 0 0 0-2.1 1l-0.8 0.9C6.6 17.5 6 18 5 18a4 4 0 0 1-4-4v-4a4 4 0 0 1 4-4"></path>
+                <line x1="6.5" y1="10" x2="6.5" y2="14"></line>
+                <line x1="4.5" y1="12" x2="8.5" y2="12"></line>
+                <circle cx="16.5" cy="10" r="0.9" fill="currentColor" stroke="none"></circle>
+                <circle cx="18.5" cy="12.5" r="0.9" fill="currentColor" stroke="none"></circle>
+              </svg>
+            </span>
             <span class="home-card-title">Games</span>
           </button>
         </div>
