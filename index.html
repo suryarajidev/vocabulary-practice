@@ -85,13 +85,6 @@
     margin: auto;
   }
 
-  .app.home-mode {
-    max-width: none;
-    min-height: calc(100vh - 48px);
-    align-self: stretch;
-    margin: 0;
-  }
-
   .back-home-btn {
     align-self: flex-start;
     display: inline-flex;
@@ -108,25 +101,30 @@
 
   .home-view {
     width: 100%;
-    min-height: calc(100vh - 48px);
     display: flex;
     flex-direction: column;
     gap: 28px;
   }
 
   .home-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
+    height: 0;
   }
 
   .home-label {
+    position: fixed;
+    top: 24px;
+    left: 24px;
+    z-index: 5;
     font-size: 16px;
     font-weight: 700;
     color: var(--brand-dark);
   }
 
   .home-welcome {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    z-index: 5;
     font-size: 16px;
     font-weight: 400;
     color: var(--brand-muted);
@@ -151,7 +149,6 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 18px;
-    flex: 1;
   }
 
   .home-card {
@@ -164,7 +161,7 @@
     border: 1px solid var(--border);
     border-radius: 16px;
     padding: 30px 24px;
-    min-height: 220px;
+    min-height: 150px;
     cursor: pointer;
     box-shadow: 0 6px 18px rgba(0, 0, 0, 0.04);
   }
@@ -269,7 +266,7 @@
 
   .card-scene {
     width: 100%;
-    max-width: 480px;
+    max-width: 420px;
     margin: 0 auto;
     min-height: 320px;
     perspective: 1200px;
@@ -954,10 +951,7 @@
   }
 
   @media (max-width: 720px) {
-    .app.home-mode,
-    .home-view { min-height: auto; }
     .home-grid { grid-template-columns: 1fr; }
-    .home-card { min-height: 170px; }
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -1388,7 +1382,6 @@
   function render() {
     stopBubbleTimer();
     stopBubblePhysics();
-    app.classList.toggle("home-mode", view === "home");
     if (view === "home") {
       renderHome();
       return;
