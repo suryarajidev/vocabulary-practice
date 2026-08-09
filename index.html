@@ -11,7 +11,7 @@
     --muted: #6b7280;
     --card-bg: #fdfcf9;
     --border: #e5e1d3;
-    --accent: #2563eb;
+    --accent: #0d9488;
     --teal: #0d9488;
     --good: #16a34a;
     --almost: #b45309;
@@ -36,20 +36,20 @@
   button:hover,
   .side-toggle-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 7px 16px rgba(37, 99, 235, 0.14);
+    box-shadow: 0 7px 16px rgba(13, 148, 136, 0.14);
   }
 
   button:active,
   .side-toggle-btn:active {
     transform: translateY(1px) scale(0.97);
-    box-shadow: 0 2px 5px rgba(37, 99, 235, 0.12);
+    box-shadow: 0 2px 5px rgba(13, 148, 136, 0.12);
     transition-duration: 0.07s;
   }
 
   button:focus-visible,
   .side-toggle-btn:focus-visible,
   .card-scene:focus-visible {
-    outline: 3px solid rgba(37, 99, 235, 0.35);
+    outline: 3px solid rgba(13, 148, 136, 0.35);
     outline-offset: 3px;
   }
 
@@ -72,7 +72,7 @@
 
   .app {
     width: 100%;
-    max-width: none;
+    max-width: 760px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -96,8 +96,6 @@
 
   .home-view {
     width: 100%;
-    max-width: 760px;
-    margin: 0 auto;
     display: flex;
     flex-direction: column;
     gap: 28px;
@@ -106,19 +104,19 @@
   .home-header {
     display: flex;
     justify-content: space-between;
-    align-items: baseline;
+    align-items: flex-start;
   }
 
   .home-label {
-    font-size: 17px;
+    font-size: 15px;
     font-weight: 800;
     letter-spacing: 2px;
     text-transform: uppercase;
-    color: var(--muted);
+    color: var(--teal);
   }
 
   .home-welcome {
-    font-size: 38px;
+    font-size: 34px;
     font-weight: 800;
     letter-spacing: -0.01em;
   }
@@ -144,29 +142,7 @@
 
   .home-card:hover {
     transform: translateY(-5px);
-    box-shadow: 0 16px 30px rgba(37, 99, 235, 0.16);
-  }
-
-  .app-shell {
-    width: 100%;
-    display: block;
-  }
-
-  .sidebar {
-    position: fixed;
-    left: 18px;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 10;
-    width: 210px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding: 12px;
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.06);
+    box-shadow: 0 16px 30px rgba(13, 148, 136, 0.16);
   }
 
   .home-card-icon {
@@ -186,7 +162,7 @@
   }
 
   .home-card-icon.icon-dictionary {
-    background: linear-gradient(135deg, var(--accent), #1d4ed8);
+    background: linear-gradient(135deg, var(--accent), #0f766e);
   }
 
   .home-card-icon.icon-flashcards {
@@ -194,87 +170,13 @@
   }
 
   .home-card-icon.icon-games {
-    background: linear-gradient(135deg, var(--accent), #4f46e5);
+    background: linear-gradient(135deg, var(--accent), #0f766e);
   }
 
   .home-card-title {
     font-size: 22px;
     font-weight: 800;
     color: var(--text);
-  }
-
-  .sidebar-nav {
-    display: flex;
-    flex-direction: column;
-    gap: 7px;
-  }
-
-  .nav-btn {
-    width: 100%;
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    padding: 11px 12px;
-    border: 0;
-    border-radius: 10px;
-    background: transparent;
-    color: var(--muted);
-    font: inherit;
-    font-size: 16px;
-    font-weight: 700;
-    text-align: left;
-    cursor: pointer;
-  }
-
-  .nav-btn.active {
-    background: var(--accent);
-    color: white;
-    box-shadow: 0 6px 14px rgba(37, 99, 235, 0.22);
-  }
-
-  .nav-icon {
-    width: 22px;
-    text-align: center;
-    font-size: 17px;
-  }
-
-  .view-root {
-    width: 100%;
-    max-width: 760px;
-    min-width: 0;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 24px;
-  }
-
-  .tabs {
-    width: 100%;
-    display: flex;
-    gap: 10px;
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 6px;
-  }
-
-  .tab {
-    flex: 1;
-    text-align: center;
-    padding: 14px 0;
-    border: 0;
-    background: transparent;
-    border-radius: 9px;
-    font-weight: 600;
-    font-size: 17px;
-    cursor: pointer;
-    color: var(--muted);
-  }
-
-  .tab.active {
-    background: var(--accent);
-    color: white;
   }
 
   .practice-topbar {
@@ -292,9 +194,9 @@
   }
 
   .side-toggle-btn {
-    padding: 12px 22px;
+    padding: 7px 13px;
     border-radius: 999px;
-    font-size: 16px;
+    font-size: 12px;
     font-weight: 700;
     cursor: pointer;
     color: var(--muted);
@@ -321,14 +223,16 @@
   }
 
   .progress-label {
-    font-size: 16px;
+    font-size: 14px;
     color: var(--muted);
     align-self: center;
   }
 
   .card-scene {
     width: 100%;
-    min-height: 210px;
+    max-width: 420px;
+    margin: 0 auto;
+    min-height: 320px;
     perspective: 1200px;
     cursor: pointer;
     transition: transform 0.2s ease;
@@ -346,7 +250,7 @@
     position: relative;
     width: 100%;
     height: 100%;
-    min-height: 210px;
+    min-height: 320px;
     transition: transform 0.55s cubic-bezier(0.4, 0.2, 0.2, 1);
     transform-style: preserve-3d;
   }
@@ -496,13 +400,13 @@
     width: 100%;
     white-space: nowrap;
     margin: 10px 0 18px;
-    background: linear-gradient(135deg, var(--accent), #4f46e5);
-    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.24);
+    background: linear-gradient(135deg, var(--accent), #0f766e);
+    box-shadow: 0 8px 20px rgba(13, 148, 136, 0.24);
     letter-spacing: 0.01em;
   }
 
   .restart-btn:hover {
-    box-shadow: 0 12px 26px rgba(37, 99, 235, 0.3);
+    box-shadow: 0 12px 26px rgba(13, 148, 136, 0.3);
   }
 
   .missed-btn {
@@ -546,7 +450,7 @@
   }
 
   .result-group summary:hover {
-    background: rgba(37, 99, 235, 0.06);
+    background: rgba(13, 148, 136, 0.06);
   }
 
   .result-group.dont-know-group summary { color: var(--bad); }
@@ -627,7 +531,7 @@
 
   .dictionary-search:focus {
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
     outline: none;
   }
 
@@ -755,10 +659,10 @@
   .small-btn {
     border: 1px solid var(--border);
     background: var(--card-bg);
-    color: var(--accent);
-    border-radius: 10px;
-    padding: 12px 16px;
-    font-size: 15px;
+    color: var(--teal);
+    border-radius: 9px;
+    padding: 8px 12px;
+    font-size: 13px;
     font-weight: 700;
     cursor: pointer;
   }
@@ -804,9 +708,9 @@
     padding: 22px 20px;
     border-radius: 15px;
     background: linear-gradient(135deg, #eef4ff, #e7faf6);
-    border: 1px solid rgba(37, 99, 235, 0.16);
+    border: 1px solid rgba(13, 148, 136, 0.16);
     text-align: center;
-    box-shadow: 0 8px 20px rgba(37, 99, 235, 0.08);
+    box-shadow: 0 8px 20px rgba(13, 148, 136, 0.08);
   }
 
   .definition-prompt .side-label { margin-bottom: 9px; }
@@ -817,13 +721,13 @@
     width: 100%;
     height: 480px;
     overflow: hidden;
-    border: 1px solid rgba(37, 99, 235, 0.14);
+    border: 1px solid rgba(13, 148, 136, 0.16);
     border-radius: 18px;
     background:
-      linear-gradient(180deg, rgba(231, 250, 255, 0.05), rgba(21, 80, 48, 0.13)),
-      url("assets/bubble-meadow.png") center / cover no-repeat;
+      radial-gradient(circle at 18% 20%, rgba(255, 255, 255, 0.9), transparent 24%),
+      linear-gradient(180deg, #f5f1e2 0%, #fdfcf9 58%, #e6f7f3 100%);
     cursor: crosshair;
-    box-shadow: inset 0 0 42px rgba(16, 71, 44, 0.18), 0 14px 34px rgba(37, 99, 235, 0.1);
+    box-shadow: inset 0 0 35px rgba(13, 148, 136, 0.06);
   }
 
   .word-bubble {
@@ -844,9 +748,9 @@
     line-height: 1.15;
     text-align: center;
     cursor: crosshair;
-    box-shadow: inset -8px -10px 18px rgba(37, 99, 235, 0.12),
+    box-shadow: inset -8px -10px 18px rgba(13, 148, 136, 0.12),
       inset 7px 8px 14px rgba(255, 255, 255, 0.7),
-      0 10px 22px rgba(37, 99, 235, 0.14);
+      0 10px 22px rgba(13, 148, 136, 0.14);
     animation: bubbleRoam var(--duration) ease-in-out var(--delay) infinite;
     will-change: transform;
   }
@@ -864,17 +768,17 @@
     pointer-events: none;
   }
 
-  .word-bubble:nth-child(1) { background: linear-gradient(145deg, #c7e2ff, #9ed0ff); }
-  .word-bubble:nth-child(2) { background: linear-gradient(145deg, #c9f4e8, #93e2cf); }
+  .word-bubble:nth-child(1) { background: linear-gradient(145deg, #cdeee5, #93e2cf); }
+  .word-bubble:nth-child(2) { background: linear-gradient(145deg, #c9f4e8, #6fd0ba); }
   .word-bubble:nth-child(3) { background: linear-gradient(145deg, #fce2b7, #f7c978); }
-  .word-bubble:nth-child(4) { background: linear-gradient(145deg, #e5d5ff, #c5a6f6); }
+  .word-bubble:nth-child(4) { background: linear-gradient(145deg, #ede6d3, #d8ceac); }
 
   .word-bubble:hover {
     animation-play-state: paused;
     transform: scale(1.08);
-    box-shadow: inset -8px -10px 18px rgba(37, 99, 235, 0.12),
+    box-shadow: inset -8px -10px 18px rgba(13, 148, 136, 0.12),
       inset 7px 8px 14px rgba(255, 255, 255, 0.7),
-      0 16px 28px rgba(37, 99, 235, 0.2);
+      0 16px 28px rgba(13, 148, 136, 0.2);
   }
 
   .word-bubble.correct {
@@ -955,28 +859,6 @@
     0% { transform: scale(0.55); opacity: 0; }
     25% { opacity: 0.95; }
     100% { transform: scale(1.42); opacity: 0; }
-  }
-
-  @media (max-width: 1100px) {
-    body { padding: 14px; }
-
-    .app-shell {
-      display: block;
-    }
-
-    .sidebar {
-      position: static;
-      transform: none;
-      width: 100%;
-      max-width: 760px;
-      margin: 0 auto 14px;
-      padding: 12px;
-      gap: 10px;
-    }
-
-    .sidebar-nav { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
-    .nav-btn { flex-direction: column; gap: 3px; padding: 8px 3px; text-align: center; font-size: 11px; }
-    .nav-icon { font-size: 16px; }
   }
 
   @media (max-width: 390px) {
@@ -1340,35 +1222,14 @@
     }
 
     app.innerHTML = `
-      <div class="app-shell">
-        <aside class="sidebar">
-          <nav class="sidebar-nav" aria-label="Vocabulary activities">
-            <button class="nav-btn" data-view="home">
-              <span class="nav-icon" aria-hidden="true">&#8962;</span><span>Home</span>
-            </button>
-            <button class="nav-btn ${view === 'practice' ? 'active' : ''}" data-view="practice" aria-current="${view === 'practice' ? 'page' : 'false'}">
-              <span class="nav-icon" aria-hidden="true">&#9635;</span><span>Flashcards</span>
-            </button>
-            <button class="nav-btn ${view === 'games' ? 'active' : ''}" data-view="games" aria-current="${view === 'games' ? 'page' : 'false'}">
-              <span class="nav-icon" aria-hidden="true">&#9673;</span><span>Bubble Shot</span>
-            </button>
-            <button class="nav-btn ${view === 'dictionary' ? 'active' : ''}" data-view="dictionary" aria-current="${view === 'dictionary' ? 'page' : 'false'}">
-              <span class="nav-icon" aria-hidden="true">A</span><span>Dictionary</span>
-            </button>
-          </nav>
-        </aside>
-        <main id="viewRoot" class="view-root"></main>
-      </div>
+      <button class="back-home-btn" id="backHome">&#8249; Back to Home</button>
+      <div id="viewRoot" style="width:100%;display:flex;flex-direction:column;align-items:center;gap:20px;"></div>
     `;
 
-    app.querySelectorAll(".nav-btn").forEach((button) => {
-      button.addEventListener("click", () => {
-        playClickSound();
-        view = button.getAttribute("data-view");
-        if (view === "practice") resetPracticeSession();
-        if (view === "games" && !bubbleGame.answer) resetBubbleGame();
-        render();
-      });
+    app.querySelector("#backHome").addEventListener("click", () => {
+      playClickSound();
+      view = "home";
+      render();
     });
 
     const root = document.getElementById("viewRoot");
