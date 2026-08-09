@@ -724,16 +724,16 @@
     border: 1px solid rgba(13, 148, 136, 0.16);
     border-radius: 18px;
     background:
-      radial-gradient(circle at 18% 20%, rgba(255, 255, 255, 0.9), transparent 24%),
-      linear-gradient(180deg, #f5f1e2 0%, #fdfcf9 58%, #e6f7f3 100%);
+      linear-gradient(180deg, rgba(231, 250, 255, 0.04), rgba(21, 80, 48, 0.12)),
+      url("assets/bubble-meadow.png") center / cover no-repeat;
     cursor: crosshair;
     box-shadow: inset 0 0 35px rgba(13, 148, 136, 0.06);
   }
 
   .word-bubble {
     position: absolute;
-    left: var(--x);
-    top: var(--y);
+    left: 0;
+    top: 0;
     width: 148px;
     height: 148px;
     display: grid;
@@ -751,7 +751,6 @@
     box-shadow: inset -8px -10px 18px rgba(13, 148, 136, 0.12),
       inset 7px 8px 14px rgba(255, 255, 255, 0.7),
       0 10px 22px rgba(13, 148, 136, 0.14);
-    animation: bubbleRoam var(--duration) ease-in-out var(--delay) infinite;
     will-change: transform;
   }
 
@@ -774,8 +773,7 @@
   .word-bubble:nth-child(4) { background: linear-gradient(145deg, #ede6d3, #d8ceac); }
 
   .bubble-field:not(.round-locked) .word-bubble:hover {
-    animation-play-state: paused;
-    transform: scale(1.08);
+    filter: brightness(1.08);
     box-shadow: inset -8px -10px 18px rgba(13, 148, 136, 0.12),
       inset 7px 8px 14px rgba(255, 255, 255, 0.7),
       0 16px 28px rgba(13, 148, 136, 0.2);
@@ -803,6 +801,11 @@
     pointer-events: none;
     animation: bubblePop 760ms cubic-bezier(0.16, 0.8, 0.3, 1) forwards !important;
     z-index: 4;
+  }
+
+  .word-bubble.answer-reveal {
+    animation: correctReveal 620ms ease-in-out 2;
+    border-color: var(--good);
   }
 
   .word-bubble.hit::before {
@@ -880,10 +883,9 @@
     pointer-events: none;
   }
 
-  @keyframes bubbleRoam {
-    0%, 100% { transform: translate(0, 0) rotate(-2deg); }
-    32% { transform: translate(var(--dx), var(--dy)) rotate(2deg); }
-    68% { transform: translate(var(--dx2), var(--dy2)) rotate(-1deg); }
+  @keyframes correctReveal {
+    0%, 100% { background: #bbf7d0; box-shadow: 0 0 0 rgba(22, 163, 74, 0); }
+    50% { background: #63e892; box-shadow: 0 0 0 12px rgba(22, 163, 74, 0.22), 0 0 32px rgba(22, 163, 74, 0.55); }
   }
 
   @keyframes bubblePop {
@@ -1139,6 +1141,8 @@
   };
 
   let bubbleTimerId = null;
+  let bubblePhysicsFrame = null;
+  let bubblePhysicsBodies = [];
 
   const app = document.getElementById("app");
 
@@ -1195,18 +1199,8 @@
       3
     );
 
-    const motionLayouts = [
-      { x: "5%", y: "7%", dx: "55px", dy: "52px", dx2: "105px", dy2: "8px", duration: "7.2s", delay: "-1.1s" },
-      { x: "70%", y: "8%", dx: "-70px", dy: "62px", dx2: "-118px", dy2: "18px", duration: "8.1s", delay: "-3.4s" },
-      { x: "10%", y: "60%", dx: "80px", dy: "-58px", dx2: "125px", dy2: "-12px", duration: "8.8s", delay: "-5.2s" },
-      { x: "68%", y: "59%", dx: "-62px", dy: "-72px", dx2: "-120px", dy2: "-18px", duration: "7.7s", delay: "-2.2s" }
-    ];
-
     bubbleGame.answer = answer;
-    bubbleGame.choices = randomSample([answer, ...decoys], 4).map((choice, index) => ({
-      ...choice,
-      motion: motionLayouts[index]
-    }));
+    bubbleGame.choices = randomSample([answer, ...decoys], 4);
     bubbleGame.selectedWord = null;
     bubbleGame.feedback = "";
     bubbleGame.feedbackType = "";
@@ -1220,6 +1214,92 @@
       clearInterval(bubbleTimerId);
       bubbleTimerId = null;
     }
+  }
+
+  function stopBubblePhysics() {
+    if (bubblePhysicsFrame) cancelAnimationFrame(bubblePhysicsFrame);
+    bubblePhysicsFrame = null;
+    bubblePhysicsBodies = [];
+  }
+
+  function startBubblePhysics(field) {
+    stopBubblePhysics();
+    const bubbles = [...field.querySelectorAll(".word-bubble")];
+    if (!bubbles.length) return;
+
+    const fieldWidth = field.clientWidth;
+    const fieldHeight = field.clientHeight;
+    const starts = [
+      [0.08, 0.08], [0.72, 0.1], [0.12, 0.64], [0.7, 0.62]
+    ];
+    const speedFactor = matchMedia("(prefers-reduced-motion: reduce)").matches ? 0.35 : 1;
+
+    bubblePhysicsBodies = bubbles.map((element, index) => {
+      const size = element.offsetWidth;
+      const angle = Math.random() * Math.PI * 2;
+      const speed = (34 + Math.random() * 24) * speedFactor;
+      const x = Math.min(fieldWidth - size, Math.max(0, starts[index][0] * fieldWidth));
+      const y = Math.min(fieldHeight - size, Math.max(0, starts[index][1] * fieldHeight));
+      element.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+      return { element, x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, size };
+    });
+
+    let lastTime = performance.now();
+    const step = (now) => {
+      const dt = Math.min((now - lastTime) / 1000, 0.032);
+      lastTime = now;
+
+      for (const body of bubblePhysicsBodies) {
+        if (body.element.classList.contains("hit")) continue;
+        body.x += body.vx * dt;
+        body.y += body.vy * dt;
+        if (body.x <= 0 || body.x + body.size >= fieldWidth) {
+          body.x = Math.max(0, Math.min(fieldWidth - body.size, body.x));
+          body.vx *= -1;
+        }
+        if (body.y <= 0 || body.y + body.size >= fieldHeight) {
+          body.y = Math.max(0, Math.min(fieldHeight - body.size, body.y));
+          body.vy *= -1;
+        }
+      }
+
+      for (let i = 0; i < bubblePhysicsBodies.length; i++) {
+        const a = bubblePhysicsBodies[i];
+        if (a.element.classList.contains("hit")) continue;
+        for (let j = i + 1; j < bubblePhysicsBodies.length; j++) {
+          const b = bubblePhysicsBodies[j];
+          if (b.element.classList.contains("hit")) continue;
+          const dx = (b.x + b.size / 2) - (a.x + a.size / 2);
+          const dy = (b.y + b.size / 2) - (a.y + a.size / 2);
+          const distance = Math.hypot(dx, dy) || 0.001;
+          const minimum = (a.size + b.size) / 2;
+          if (distance >= minimum) continue;
+
+          const nx = dx / distance;
+          const ny = dy / distance;
+          const overlap = minimum - distance;
+          a.x -= nx * overlap / 2;
+          a.y -= ny * overlap / 2;
+          b.x += nx * overlap / 2;
+          b.y += ny * overlap / 2;
+          const approachSpeed = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+          if (approachSpeed < 0) {
+            a.vx += approachSpeed * nx;
+            a.vy += approachSpeed * ny;
+            b.vx -= approachSpeed * nx;
+            b.vy -= approachSpeed * ny;
+          }
+        }
+      }
+
+      for (const body of bubblePhysicsBodies) {
+        if (!body.element.classList.contains("hit")) {
+          body.element.style.transform = `translate3d(${body.x}px, ${body.y}px, 0)`;
+        }
+      }
+      if (view === "games" && field.isConnected) bubblePhysicsFrame = requestAnimationFrame(step);
+    };
+    bubblePhysicsFrame = requestAnimationFrame(step);
   }
 
   function startBubbleTimer() {
@@ -1261,6 +1341,7 @@
 
   function render() {
     stopBubbleTimer();
+    stopBubblePhysics();
     if (view === "home") {
       renderHome();
       return;
@@ -1378,12 +1459,10 @@
 
         <div class="bubble-field" aria-label="Word choices">
           ${bubbleGame.choices.map((choice, index) => {
-            const motion = choice.motion;
             return `
               <button
                 class="word-bubble"
                 data-choice-index="${index}"
-                style="--x:${motion.x};--y:${motion.y};--dx:${motion.dx};--dy:${motion.dy};--dx2:${motion.dx2};--dy2:${motion.dy2};--duration:${motion.duration};--delay:${motion.delay};"
                 ${bubbleGame.locked ? "disabled" : ""}
                 aria-label="Shoot ${escapeHtml(choice.word)}"
               ><span class="bubble-word">${escapeHtml(choice.word)}</span><span class="pop-spray" aria-hidden="true">${"<i></i>".repeat(12)}</span></button>
@@ -1403,6 +1482,8 @@
     `;
 
     startBubbleTimer();
+    const bubbleField = root.querySelector(".bubble-field");
+    startBubblePhysics(bubbleField);
 
     root.querySelectorAll(".word-bubble").forEach((button) => {
       button.addEventListener("click", () => {
@@ -1430,8 +1511,11 @@
           playGotItSound();
         } else {
           bubbleGame.streak = 0;
-          bubbleGame.score -= 250;
-          bubbleGame.feedback = `Wrong bubble: -250 points. The answer is ${bubbleGame.answer.word}.`;
+          const pointsLost = Math.min(250, bubbleGame.score);
+          bubbleGame.score = Math.max(0, bubbleGame.score - 250);
+          bubbleGame.feedback = pointsLost
+            ? `Wrong bubble: -${pointsLost} points. The answer is ${bubbleGame.answer.word}.`
+            : `Wrong bubble. Your score stays at 0. The answer is ${bubbleGame.answer.word}.`;
           bubbleGame.feedbackType = "wrong";
           playDontKnowSound();
         }
@@ -1443,6 +1527,10 @@
         button.style.left = `${bubbleRect.left + bubbleRect.width / 2 - fieldRect.left - button.offsetWidth / 2}px`;
         button.style.top = `${bubbleRect.top + bubbleRect.height / 2 - fieldRect.top - button.offsetHeight / 2}px`;
         button.classList.add(isCorrect ? "correct" : "wrong", "hit");
+        if (!isCorrect) {
+          const correctIndex = bubbleGame.choices.findIndex((item) => item.word === bubbleGame.answer.word);
+          root.querySelector(`.word-bubble[data-choice-index="${correctIndex}"]`)?.classList.add("answer-reveal");
+        }
         field.classList.add("round-locked");
         root.querySelectorAll(".word-bubble").forEach((bubble) => bubble.setAttribute("aria-disabled", "true"));
         root.querySelector("#gameScore").textContent = bubbleGame.score;
