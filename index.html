@@ -20,6 +20,44 @@
 
   * { box-sizing: border-box; }
 
+  button,
+  .tab,
+  .side-toggle-btn,
+  .card-scene {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  button,
+  .tab,
+  .side-toggle-btn {
+    transition: transform 0.16s ease, box-shadow 0.16s ease,
+      background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease;
+    transform: translateY(0) scale(1);
+  }
+
+  button:hover,
+  .tab:hover,
+  .side-toggle-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 7px 16px rgba(37, 99, 235, 0.14);
+  }
+
+  button:active,
+  .tab:active,
+  .side-toggle-btn:active {
+    transform: translateY(1px) scale(0.97);
+    box-shadow: 0 2px 5px rgba(37, 99, 235, 0.12);
+    transition-duration: 0.07s;
+  }
+
+  button:focus-visible,
+  .tab:focus-visible,
+  .side-toggle-btn:focus-visible,
+  .card-scene:focus-visible {
+    outline: 3px solid rgba(37, 99, 235, 0.35);
+    outline-offset: 3px;
+  }
+
   html, body {
     margin: 0;
     padding: 0;
@@ -61,6 +99,8 @@
     flex: 1;
     text-align: center;
     padding: 10px 0;
+    border: 0;
+    background: transparent;
     border-radius: 8px;
     font-weight: 600;
     font-size: 14px;
@@ -127,6 +167,15 @@
     min-height: 280px;
     perspective: 1200px;
     cursor: pointer;
+    transition: transform 0.2s ease;
+  }
+
+  .card-scene:hover {
+    transform: translateY(-3px);
+  }
+
+  .card-scene:active {
+    transform: translateY(0) scale(0.99);
   }
 
   .card-inner {
@@ -347,6 +396,101 @@
     font-size: 13px;
     color: var(--muted);
   }
+
+  /* Dictionary view */
+  .dictionary-view {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .dictionary-header h2 {
+    margin: 0 0 4px;
+  }
+
+  .dictionary-header p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+  }
+
+  .dictionary-search {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--card-bg);
+    color: var(--text);
+    font: inherit;
+    transition: border-color 0.16s ease, box-shadow 0.16s ease;
+  }
+
+  .dictionary-search:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    outline: none;
+  }
+
+  .dictionary-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 520px;
+    overflow-y: auto;
+    padding-right: 3px;
+  }
+
+  .dictionary-item {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+  }
+
+  .dictionary-item:hover {
+    transform: translateX(3px);
+    border-color: rgba(37, 99, 235, 0.38);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.08);
+  }
+
+  .dictionary-word {
+    font-weight: 750;
+    margin-bottom: 4px;
+  }
+
+  .dictionary-definition {
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.45;
+  }
+
+  .session-actions {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .small-btn {
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--accent);
+    border-radius: 9px;
+    padding: 9px 12px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+    }
+  }
 </style>
 </head>
 <body>
@@ -354,9 +498,11 @@
 <div class="app" id="app"></div>
 
 <script>
-  const STORAGE_KEY = "vocabPracticeDeck";
+  const STORAGE_KEY = "vocabPracticeCustomWords";
+  const LEGACY_STORAGE_KEY = "vocabPracticeDeck";
+  const SESSION_SIZE = 10;
 
-  const defaultDeck = [
+  const dictionary = [
     { word: "Ephemeral", definition: "Lasting for a very short time." },
     { word: "Ubiquitous", definition: "Present, appearing, or found everywhere." },
     { word: "Candid", definition: "Truthful and straightforward; frank." },
@@ -366,24 +512,82 @@
     { word: "Pragmatic", definition: "Dealing with things sensibly and realistically." },
     { word: "Eloquent", definition: "Fluent and persuasive in speaking or writing." },
     { word: "Tenacious", definition: "Persistent; not easily giving up." },
-    { word: "Superfluous", definition: "Unnecessary; more than what is required." }
+    { word: "Superfluous", definition: "Unnecessary; more than what is required." },
+    { word: "Benevolent", definition: "Well-meaning and kindly." },
+    { word: "Conundrum", definition: "A confusing and difficult problem or question." },
+    { word: "Diligent", definition: "Showing careful and persistent effort." },
+    { word: "Empathy", definition: "The ability to understand and share another person's feelings." },
+    { word: "Fortuitous", definition: "Happening by chance, often with a fortunate result." },
+    { word: "Gregarious", definition: "Fond of company; sociable." },
+    { word: "Impeccable", definition: "In accordance with the highest standards; faultless." },
+    { word: "Juxtapose", definition: "To place things close together for comparison or contrast." },
+    { word: "Lucid", definition: "Expressed clearly; easy to understand." },
+    { word: "Magnanimous", definition: "Generous or forgiving, especially toward a rival." },
+    { word: "Nuance", definition: "A subtle distinction or variation." },
+    { word: "Obsolete", definition: "No longer produced or used; out of date." },
+    { word: "Plausible", definition: "Seeming reasonable or probable." },
+    { word: "Quintessential", definition: "Representing the most perfect example of something." },
+    { word: "Scrutinize", definition: "To examine closely and carefully." },
+    { word: "Tranquil", definition: "Free from disturbance; calm." },
+    { word: "Unprecedented", definition: "Never done or known before." },
+    { word: "Venerable", definition: "Respected because of age, wisdom, or character." },
+    { word: "Whimsical", definition: "Playfully unusual or imaginative." },
+    { word: "Zealous", definition: "Showing energetic enthusiasm for a cause or goal." },
+    { word: "Amiable", definition: "Friendly and pleasant in manner." },
+    { word: "Clandestine", definition: "Kept secret, especially because it is illicit." },
+    { word: "Discerning", definition: "Showing good judgment and understanding." },
+    { word: "Exuberant", definition: "Full of energy, excitement, and cheerfulness." },
+    { word: "Frugal", definition: "Careful to avoid unnecessary spending or waste." },
+    { word: "Hinder", definition: "To create difficulties that slow or obstruct progress." },
+    { word: "Inevitable", definition: "Certain to happen; unavoidable." },
+    { word: "Novice", definition: "A person new to or inexperienced in a field." },
+    { word: "Paradox", definition: "A seemingly contradictory statement that may still be true." },
+    { word: "Sporadic", definition: "Occurring at irregular intervals." },
+    { word: "Versatile", definition: "Able to adapt to many different functions or activities." }
   ];
 
-  function loadDeck() {
+  function loadCustomWords() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) return JSON.parse(raw);
+
+      const legacyRaw = localStorage.getItem(LEGACY_STORAGE_KEY);
+      if (legacyRaw) {
+        const builtInWords = new Set(dictionary.map((item) => item.word.toLowerCase()));
+        const migrated = JSON.parse(legacyRaw).filter(
+          (item) => item && item.word && item.definition && !builtInWords.has(item.word.toLowerCase())
+        );
+        saveCustomWords(migrated);
+        return migrated;
+      }
     } catch (e) {}
-    saveDeck(defaultDeck);
-    return defaultDeck.slice();
+    return [];
   }
 
-  function saveDeck(deck) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(deck));
+  function saveCustomWords(words) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(words));
   }
 
-  let deck = loadDeck();
-  let view = "practice"; // "practice" | "manage"
+  function getAllWords() {
+    const unique = new Map();
+    [...dictionary, ...customWords].forEach((item) => {
+      unique.set(item.word.toLowerCase(), item);
+    });
+    return Array.from(unique.values()).sort((a, b) => a.word.localeCompare(b.word));
+  }
+
+  function randomSample(items, count) {
+    const shuffled = items.slice();
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled.slice(0, Math.min(count, shuffled.length));
+  }
+
+  let customWords = loadCustomWords();
+  let deck = randomSample(getAllWords(), SESSION_SIZE);
+  let view = "practice"; // "practice" | "dictionary" | "manage"
 
   // practice session state
   let firstSide = "term"; // "term" | "definition"
@@ -401,6 +605,11 @@
     score = { gotit: 0, almost: 0, dontknow: 0 };
   }
 
+  function generateNewSession() {
+    deck = randomSample(getAllWords(), SESSION_SIZE);
+    resetPracticeSession();
+  }
+
   function shuffleOrder() {
     for (let i = order.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -414,9 +623,10 @@
 
   function render() {
     app.innerHTML = `
-      <div class="tabs">
-        <div class="tab ${view === 'practice' ? 'active' : ''}" id="tabPractice">Practice</div>
-        <div class="tab ${view === 'manage' ? 'active' : ''}" id="tabManage">Manage Deck</div>
+      <div class="tabs" role="tablist" aria-label="Vocabulary sections">
+        <button class="tab ${view === 'practice' ? 'active' : ''}" id="tabPractice" role="tab" aria-selected="${view === 'practice'}">Practice</button>
+        <button class="tab ${view === 'dictionary' ? 'active' : ''}" id="tabDictionary" role="tab" aria-selected="${view === 'dictionary'}">Dictionary</button>
+        <button class="tab ${view === 'manage' ? 'active' : ''}" id="tabManage" role="tab" aria-selected="${view === 'manage'}">My Words</button>
       </div>
       <div id="viewRoot" style="width:100%;display:flex;flex-direction:column;align-items:center;gap:20px;"></div>
     `;
@@ -430,10 +640,16 @@
       view = "manage";
       render();
     });
+    document.getElementById("tabDictionary").addEventListener("click", () => {
+      view = "dictionary";
+      render();
+    });
 
     const root = document.getElementById("viewRoot");
     if (view === "practice") {
       renderPractice(root);
+    } else if (view === "dictionary") {
+      renderDictionary(root);
     } else {
       renderManage(root);
     }
@@ -494,10 +710,17 @@
     const current = deck[order[pos]];
     const progressPct = Math.round((pos / order.length) * 100);
 
-    const progressLabel = document.createElement("div");
-    progressLabel.className = "progress-label";
-    progressLabel.textContent = `${pos + 1} / ${order.length}`;
-    root.appendChild(progressLabel);
+    const sessionActions = document.createElement("div");
+    sessionActions.className = "session-actions";
+    sessionActions.innerHTML = `
+      <div class="progress-label">${pos + 1} / ${order.length} random words</div>
+      <button class="small-btn" id="newSessionBtn">New 10</button>
+    `;
+    root.appendChild(sessionActions);
+    sessionActions.querySelector("#newSessionBtn").addEventListener("click", () => {
+      generateNewSession();
+      render();
+    });
 
     const progressTrack = document.createElement("div");
     progressTrack.className = "progress-track";
@@ -506,6 +729,9 @@
 
     const scene = document.createElement("div");
     scene.className = "card-scene";
+    scene.tabIndex = 0;
+    scene.setAttribute("role", "button");
+    scene.setAttribute("aria-label", "Flip vocabulary card");
     scene.innerHTML = `
       <div class="card-inner ${side !== firstSide ? 'flip' : ''}" id="cardInner">
         <div class="card-face card-front">
@@ -528,6 +754,13 @@
     scene.addEventListener("click", () => {
       side = side === "term" ? "definition" : "term";
       render();
+    });
+    scene.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        side = side === "term" ? "definition" : "term";
+        render();
+      }
     });
 
     if (side === "definition") {
@@ -592,23 +825,27 @@
   function renderManage(root) {
     root.innerHTML = `
       <div class="manage">
+        <div class="dictionary-header">
+          <h2>My Words</h2>
+          <p>Add your own words to the built-in dictionary and future random sessions.</p>
+        </div>
         <div class="add-form">
           <input type="text" id="newWord" placeholder="Word" />
           <textarea id="newDef" placeholder="Definition" rows="2"></textarea>
           <button class="accent-btn" id="addBtn">Add card</button>
         </div>
 
-        <div class="deck-count">${deck.length} card${deck.length === 1 ? '' : 's'} in deck</div>
+        <div class="deck-count">${customWords.length} custom word${customWords.length === 1 ? '' : 's'}</div>
 
         <div class="deck-list" id="deckList"></div>
       </div>
     `;
 
     const list = root.querySelector("#deckList");
-    if (deck.length === 0) {
-      list.innerHTML = `<div class="empty-state">Your deck is empty. Add a word above.</div>`;
+    if (customWords.length === 0) {
+      list.innerHTML = `<div class="empty-state">No custom words yet. Add one above or explore the Dictionary tab.</div>`;
     } else {
-      deck.forEach((item, i) => {
+      customWords.forEach((item, i) => {
         const row = document.createElement("div");
         row.className = "deck-item";
         row.innerHTML = `
@@ -624,8 +861,9 @@
       list.querySelectorAll(".delete-btn").forEach((btn) => {
         btn.addEventListener("click", () => {
           const i = parseInt(btn.getAttribute("data-index"), 10);
-          deck.splice(i, 1);
-          saveDeck(deck);
+          customWords.splice(i, 1);
+          saveCustomWords(customWords);
+          generateNewSession();
           render();
         });
       });
@@ -637,10 +875,63 @@
       const word = wordInput.value.trim();
       const definition = defInput.value.trim();
       if (!word || !definition) return;
-      deck.push({ word, definition });
-      saveDeck(deck);
+      const duplicate = getAllWords().some((item) => item.word.toLowerCase() === word.toLowerCase());
+      if (duplicate) {
+        wordInput.setCustomValidity("That word is already in the dictionary.");
+        wordInput.reportValidity();
+        return;
+      }
+      customWords.push({ word, definition });
+      saveCustomWords(customWords);
+      generateNewSession();
       render();
     });
+  }
+
+  function renderDictionary(root) {
+    const allWords = getAllWords();
+    root.innerHTML = `
+      <div class="dictionary-view">
+        <div class="dictionary-header">
+          <h2>Dictionary</h2>
+          <p>${allWords.length} words available. Ten are selected randomly whenever the site loads.</p>
+        </div>
+        <input
+          class="dictionary-search"
+          id="dictionarySearch"
+          type="search"
+          placeholder="Search words or definitions"
+          aria-label="Search dictionary"
+        />
+        <div class="dictionary-list" id="dictionaryList"></div>
+      </div>
+    `;
+
+    const search = root.querySelector("#dictionarySearch");
+    const list = root.querySelector("#dictionaryList");
+
+    function drawDictionary(query = "") {
+      const normalized = query.trim().toLowerCase();
+      const matches = allWords.filter((item) =>
+        !normalized || item.word.toLowerCase().includes(normalized) ||
+        item.definition.toLowerCase().includes(normalized)
+      );
+
+      if (matches.length === 0) {
+        list.innerHTML = `<div class="empty-state">No matching words found.</div>`;
+        return;
+      }
+
+      list.innerHTML = matches.map((item) => `
+        <article class="dictionary-item">
+          <div class="dictionary-word">${escapeHtml(item.word)}</div>
+          <div class="dictionary-definition">${escapeHtml(item.definition)}</div>
+        </article>
+      `).join("");
+    }
+
+    search.addEventListener("input", () => drawDictionary(search.value));
+    drawDictionary();
   }
 
   function escapeHtml(str) {
