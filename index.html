@@ -1,18 +1,259 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>vocabulary-practice</title>
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      height: 100%;
-      background: #ffffff;
-    }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vocabulary Practice</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --text: #1a1a1a;
+    --muted: #6b7280;
+    --card-bg: #f7f7f8;
+    --border: #e5e7eb;
+    --accent: #2563eb;
+    --good: #16a34a;
+    --bad: #dc2626;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 24px;
+  }
+
+  .app {
+    width: 100%;
+    max-width: 420px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .progress-track {
+    width: 100%;
+    height: 6px;
+    background: var(--border);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    transition: width 0.25s ease;
+  }
+
+  .progress-label {
+    font-size: 13px;
+    color: var(--muted);
+    align-self: flex-end;
+  }
+
+  .card {
+    width: 100%;
+    min-height: 260px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 32px 24px;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .word {
+    font-size: 32px;
+    font-weight: 700;
+  }
+
+  .definition {
+    font-size: 18px;
+    color: var(--text);
+    line-height: 1.5;
+  }
+
+  .hint {
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .controls {
+    width: 100%;
+    display: flex;
+    gap: 12px;
+  }
+
+  button {
+    flex: 1;
+    font-size: 16px;
+    font-weight: 600;
+    padding: 14px 0;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+  }
+
+  .dont-know {
+    background: #fee2e2;
+    color: var(--bad);
+  }
+
+  .know {
+    background: #dcfce7;
+    color: var(--good);
+  }
+
+  .next {
+    background: var(--accent);
+    color: white;
+  }
+
+  .done {
+    text-align: center;
+  }
+
+  .done h2 {
+    margin-bottom: 8px;
+  }
+
+  .restart {
+    background: var(--accent);
+    color: white;
+    margin-top: 16px;
+  }
+</style>
 </head>
 <body>
+
+<div class="app" id="app"></div>
+
+<script>
+  const words = [
+    { word: "Ephemeral", definition: "Lasting for a very short time." },
+    { word: "Ubiquitous", definition: "Present, appearing, or found everywhere." },
+    { word: "Candid", definition: "Truthful and straightforward; frank." },
+    { word: "Meticulous", definition: "Showing great attention to detail; very careful." },
+    { word: "Resilient", definition: "Able to recover quickly from difficulties." },
+    { word: "Ambiguous", definition: "Open to more than one interpretation; unclear." },
+    { word: "Pragmatic", definition: "Dealing with things sensibly and realistically." },
+    { word: "Eloquent", definition: "Fluent and persuasive in speaking or writing." },
+    { word: "Tenacious", definition: "Persistent; not easily giving up." },
+    { word: "Superfluous", definition: "Unnecessary; more than what is required." }
+  ];
+
+  let index = 0;
+  let revealed = false;
+  let known = 0;
+  let unknown = 0;
+
+  const app = document.getElementById("app");
+
+  function render() {
+    if (index >= words.length) {
+      renderDone();
+      return;
+    }
+
+    const current = words[index];
+    const progressPct = Math.round((index / words.length) * 100);
+
+    app.innerHTML = `
+      <div class="progress-label">${index + 1} / ${words.length}</div>
+      <div class="progress-track">
+        <div class="progress-fill" style="width:${progressPct}%"></div>
+      </div>
+
+      <div class="card" id="card">
+        ${revealed
+          ? `<div class="definition">${current.definition}</div>`
+          : `<div>
+               <div class="word">${current.word}</div>
+               <div class="hint">Tap to reveal definition</div>
+             </div>`
+        }
+      </div>
+
+      <div class="controls">
+        ${revealed
+          ? `<button class="dont-know" id="dontKnow">Don't know</button>
+             <button class="know" id="know">Know it</button>`
+          : `<button class="next" id="reveal">Reveal</button>`
+        }
+      </div>
+    `;
+
+    document.getElementById("card").addEventListener("click", () => {
+      if (!revealed) {
+        revealed = true;
+        render();
+      }
+    });
+
+    if (revealed) {
+      document.getElementById("know").addEventListener("click", (e) => {
+        e.stopPropagation();
+        known++;
+        advance();
+      });
+      document.getElementById("dontKnow").addEventListener("click", (e) => {
+        e.stopPropagation();
+        unknown++;
+        advance();
+      });
+    } else {
+      document.getElementById("reveal").addEventListener("click", (e) => {
+        e.stopPropagation();
+        revealed = true;
+        render();
+      });
+    }
+  }
+
+  function advance() {
+    index++;
+    revealed = false;
+    render();
+  }
+
+  function renderDone() {
+    app.innerHTML = `
+      <div class="done">
+        <h2>Done!</h2>
+        <p>You knew ${known} out of ${words.length} words.</p>
+        <button class="restart" id="restart">Practice again</button>
+      </div>
+    `;
+    document.getElementById("restart").addEventListener("click", () => {
+      index = 0;
+      revealed = false;
+      known = 0;
+      unknown = 0;
+      render();
+    });
+  }
+
+  render();
+</script>
+
 </body>
 </html>
