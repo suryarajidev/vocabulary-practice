@@ -183,7 +183,7 @@
     width: 100%;
     height: 100%;
     min-height: 280px;
-    transition: transform 0.5s;
+    transition: transform 0.55s cubic-bezier(0.4, 0.2, 0.2, 1);
     transform-style: preserve-3d;
   }
 
@@ -305,10 +305,42 @@
 
   .done {
     text-align: center;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
   }
 
   .done h2 {
-    margin-bottom: 8px;
+    margin-bottom: 4px;
+  }
+
+  .restart-btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    font-size: 18px;
+    font-weight: 700;
+    padding: 18px 28px;
+    border-radius: 12px;
+    cursor: pointer;
+    width: 100%;
+    white-space: nowrap;
+    box-shadow: 0 6px 16px rgba(37, 99, 235, 0.25);
+  }
+
+  .missed-btn {
+    background: #fef3c7;
+    color: var(--almost);
+    border: none;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 14px 20px;
+    border-radius: 10px;
+    cursor: pointer;
+    width: 100%;
+    white-space: nowrap;
   }
 
   .empty-state {
@@ -623,6 +655,49 @@
     return shuffled.slice(0, Math.min(count, shuffled.length));
   }
 
+  // --- sound effects (synthesized, no audio files needed) ---
+  let audioCtx = null;
+  function getAudioCtx() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    return audioCtx;
+  }
+
+  function playTone(freq, duration, type, startGain) {
+    try {
+      const ctx = getAudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = type;
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(startGain, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + duration);
+    } catch (e) {}
+  }
+
+  function playFlipSound() {
+    playTone(500, 0.08, "sine", 0.1);
+    setTimeout(() => playTone(720, 0.08, "sine", 0.08), 40);
+  }
+  function playGotItSound() {
+    playTone(523.25, 0.1, "sine", 0.15);
+    setTimeout(() => playTone(783.99, 0.16, "sine", 0.15), 90);
+  }
+  function playAlmostSound() {
+    playTone(440, 0.16, "sine", 0.12);
+  }
+  function playDontKnowSound() {
+    playTone(300, 0.1, "sawtooth", 0.07);
+    setTimeout(() => playTone(220, 0.18, "sawtooth", 0.07), 70);
+  }
+  function playClickSound() {
+    playTone(600, 0.05, "square", 0.05);
+  }
+
   let customWords = loadCustomWords();
   let deck = randomSample(getAllWords(), SESSION_SIZE);
   let view = "practice"; // "practice" | "dictionary" | "manage"
@@ -634,14 +709,16 @@
   let pos = 0;
   let side = "term"; // currently visible side for current card
   let score = { gotit: 0, almost: 0, dontknow: 0 };
+  let results = {}; // original deck index -> "gotit" | "almost" | "dontknow" | "skipped"
 
   const app = document.getElementById("app");
 
-  function resetPracticeSession() {
-    order = deck.map((_, i) => i);
+  function resetPracticeSession(indices) {
+    order = indices ? indices.slice() : deck.map((_, i) => i);
     pos = 0;
     side = firstSide;
     score = { gotit: 0, almost: 0, dontknow: 0 };
+    results = {};
   }
 
   function generateNewSession() {
@@ -671,15 +748,18 @@
     `;
 
     document.getElementById("tabPractice").addEventListener("click", () => {
+      playClickSound();
       view = "practice";
       resetPracticeSession();
       render();
     });
     document.getElementById("tabManage").addEventListener("click", () => {
+      playClickSound();
       view = "manage";
       render();
     });
     document.getElementById("tabDictionary").addEventListener("click", () => {
+      playClickSound();
       view = "dictionary";
       render();
     });
@@ -699,7 +779,7 @@
       root.innerHTML = `
         <div class="empty-state">
           <p>No cards yet.</p>
-          <p>Add some in "Manage Deck" to start practicing.</p>
+          <p>Add some in "My Words" to start practicing.</p>
         </div>
       `;
       return;
@@ -717,11 +797,13 @@
     `;
     root.appendChild(topbar);
     topbar.querySelector("#termFirstBtn").addEventListener("click", () => {
+      playClickSound();
       firstSide = "term";
       side = "term";
       render();
     });
     topbar.querySelector("#defFirstBtn").addEventListener("click", () => {
+      playClickSound();
       firstSide = "definition";
       side = "definition";
       render();
@@ -730,19 +812,33 @@
     if (pos >= order.length) {
       const totalRated = score.gotit + score.almost + score.dontknow;
       const skipped = deck.length - totalRated;
+      const missedIndices = Object.keys(results)
+        .filter((k) => results[k] !== "gotit")
+        .map(Number);
+
       const done = document.createElement("div");
       done.className = "done";
       done.innerHTML = `
         <h2>Done!</h2>
         <p>Got it: ${score.gotit} &nbsp;|&nbsp; Almost: ${score.almost} &nbsp;|&nbsp; Didn't know: ${score.dontknow}</p>
         ${skipped > 0 ? `<p>Skipped: ${skipped}</p>` : ""}
-        <button class="accent-btn" id="restart">Practice again</button>
+        <button class="restart-btn" id="restart">Practice again</button>
+        ${missedIndices.length > 0 ? `<button class="missed-btn" id="practiceMissed">Practice missed &amp; skipped (${missedIndices.length})</button>` : ""}
       `;
       root.appendChild(done);
       done.querySelector("#restart").addEventListener("click", () => {
+        playClickSound();
         resetPracticeSession();
         render();
       });
+      const missedBtn = done.querySelector("#practiceMissed");
+      if (missedBtn) {
+        missedBtn.addEventListener("click", () => {
+          playClickSound();
+          resetPracticeSession(missedIndices);
+          render();
+        });
+      }
       return;
     }
 
@@ -762,6 +858,7 @@
     `;
     root.appendChild(sessionActions);
     sessionActions.querySelector("#newSessionBtn").addEventListener("click", () => {
+      playClickSound();
       generateNewSession();
       render();
     });
@@ -795,49 +892,28 @@
       </div>
     `;
     root.appendChild(scene);
-    scene.addEventListener("click", () => {
+
+    function flipCard() {
+      playFlipSound();
       side = side === "term" ? "definition" : "term";
-      render();
-    });
+      const inner = document.getElementById("cardInner");
+      if (inner) inner.classList.toggle("flip");
+      renderRateRow();
+    }
+
+    scene.addEventListener("click", flipCard);
     scene.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
-        side = side === "term" ? "definition" : "term";
-        render();
+        flipCard();
       }
     });
 
-    if (side === "definition") {
-      const rateRow = document.createElement("div");
-      rateRow.className = "rate-row";
-      rateRow.innerHTML = `
-        <button class="dont-know" id="dontKnow">Didn't know</button>
-        <button class="almost-btn" id="almost">Almost</button>
-        <button class="know" id="gotit">Got it</button>
-      `;
-      root.appendChild(rateRow);
-      rateRow.querySelector("#dontKnow").addEventListener("click", (e) => {
-        e.stopPropagation();
-        score.dontknow++;
-        pos++;
-        side = firstSide;
-        render();
-      });
-      rateRow.querySelector("#almost").addEventListener("click", (e) => {
-        e.stopPropagation();
-        score.almost++;
-        pos++;
-        side = firstSide;
-        render();
-      });
-      rateRow.querySelector("#gotit").addEventListener("click", (e) => {
-        e.stopPropagation();
-        score.gotit++;
-        pos++;
-        side = firstSide;
-        render();
-      });
-    }
+    const rateRowContainer = document.createElement("div");
+    rateRowContainer.id = "rateRowContainer";
+    rateRowContainer.style.width = "100%";
+    root.appendChild(rateRowContainer);
+    renderRateRow();
 
     const navRow = document.createElement("div");
     navRow.className = "nav-row";
@@ -849,17 +925,64 @@
     root.appendChild(navRow);
     navRow.querySelector("#prevBtn").addEventListener("click", (e) => {
       e.stopPropagation();
+      playClickSound();
       pos = Math.max(0, pos - 1);
       side = firstSide;
       render();
     });
     navRow.querySelector("#shuffleBtn").addEventListener("click", (e) => {
       e.stopPropagation();
+      playClickSound();
       shuffleOrder();
       render();
     });
     navRow.querySelector("#nextBtn").addEventListener("click", (e) => {
       e.stopPropagation();
+      playClickSound();
+      if (!(order[pos] in results)) results[order[pos]] = "skipped";
+      pos++;
+      side = firstSide;
+      render();
+    });
+  }
+
+  function renderRateRow() {
+    const container = document.getElementById("rateRowContainer");
+    if (!container) return;
+    if (side === firstSide) {
+      container.innerHTML = "";
+      return;
+    }
+    container.innerHTML = `
+      <div class="rate-row">
+        <button class="dont-know" id="dontKnow">Didn't know</button>
+        <button class="almost-btn" id="almost">Almost</button>
+        <button class="know" id="gotit">Got it</button>
+      </div>
+    `;
+    container.querySelector("#dontKnow").addEventListener("click", (e) => {
+      e.stopPropagation();
+      playDontKnowSound();
+      results[order[pos]] = "dontknow";
+      score.dontknow++;
+      pos++;
+      side = firstSide;
+      render();
+    });
+    container.querySelector("#almost").addEventListener("click", (e) => {
+      e.stopPropagation();
+      playAlmostSound();
+      results[order[pos]] = "almost";
+      score.almost++;
+      pos++;
+      side = firstSide;
+      render();
+    });
+    container.querySelector("#gotit").addEventListener("click", (e) => {
+      e.stopPropagation();
+      playGotItSound();
+      results[order[pos]] = "gotit";
+      score.gotit++;
       pos++;
       side = firstSide;
       render();
@@ -912,6 +1035,7 @@
 
       list.querySelectorAll(".edit-btn").forEach((btn) => {
         btn.addEventListener("click", () => {
+          playClickSound();
           editingIndex = parseInt(btn.getAttribute("data-index"), 10);
           render();
           document.getElementById("newWord").focus();
@@ -920,6 +1044,7 @@
 
       list.querySelectorAll(".delete-btn").forEach((btn) => {
         btn.addEventListener("click", () => {
+          playClickSound();
           const i = parseInt(btn.getAttribute("data-index"), 10);
           customWords.splice(i, 1);
           if (editingIndex === i) editingIndex = null;
@@ -937,6 +1062,7 @@
       wordInput.value = editingWord.word;
       defInput.value = editingWord.definition;
       root.querySelector("#cancelEditBtn").addEventListener("click", () => {
+        playClickSound();
         editingIndex = null;
         render();
       });
@@ -955,6 +1081,7 @@
         wordInput.reportValidity();
         return;
       }
+      playClickSound();
       if (editingIndex === null) {
         customWords.push({ word, definition });
       } else {
