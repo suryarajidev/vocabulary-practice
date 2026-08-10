@@ -620,6 +620,11 @@
     align-items: center;
   }
 
+  .dictionary-maintenance { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+  .danger-outline { color: var(--bad); border-color: rgba(220,38,38,.3); }
+  .danger-outline:hover { background: #fee2e2; }
+  .dictionary-maintenance button:disabled { opacity: .45; cursor: not-allowed; }
+
   .dictionary-search {
     flex: 1;
     width: 100%;
@@ -995,6 +1000,8 @@
     .setting-toggle { grid-column: 1; }
     .selection-tray { align-items: stretch; flex-direction: column; }
     .selection-actions { justify-content: flex-start; }
+    .dictionary-toolbar { flex-wrap: wrap; }
+    .dictionary-maintenance { justify-content: flex-start; }
     .game-menu, .question-options { grid-template-columns: 1fr; }
     .combatant-row { align-items: flex-end; }
     .combatant { width: 46%; }
@@ -2955,7 +2962,12 @@
       root.appendChild(done);
       done.querySelector("#restart").addEventListener("click", () => {
         playClickSound();
+        const previousOrder = order.join(",");
         resetPracticeSession();
+        shuffleOrder();
+        if (order.length > 1 && order.join(",") === previousOrder) {
+          [order[0], order[1]] = [order[1], order[0]];
+        }
         render();
       });
       const missedBtn = done.querySelector("#practiceMissed");
@@ -3148,6 +3160,10 @@
           </select>
           <button class="small-btn" id="toggleAddBtn">${showAddForm ? 'Close' : '+ Add word'}</button>
         </div>
+        <div class="dictionary-maintenance">
+          <button class="small-btn" id="resetDefaultWords">Reset all</button>
+          <button class="small-btn danger-outline" id="deleteCustomWords">Delete all custom words</button>
+        </div>
         <div class="selection-tray" id="selectionTray">
           <span class="selection-count" id="selectionCount">0 selected</span>
           <div class="selection-actions">
@@ -3203,6 +3219,39 @@
     root.querySelector("#sortSelect").addEventListener("change", (e) => {
       playClickSound();
       sortOrder = e.target.value;
+      render();
+    });
+
+    const builtInKeys = new Set(builtInWords.map((item) => item.word.toLowerCase()));
+    const missingDefaultCount = builtInWords.filter((item) => !words.some((word) => word.word.toLowerCase() === item.word.toLowerCase())).length;
+    const customWordCount = words.filter((item) => !builtInKeys.has(item.word.toLowerCase())).length;
+    const resetDefaultsButton = root.querySelector("#resetDefaultWords");
+    const deleteCustomButton = root.querySelector("#deleteCustomWords");
+    resetDefaultsButton.disabled = missingDefaultCount === 0;
+    resetDefaultsButton.title = missingDefaultCount ? `Restore ${missingDefaultCount} missing default word${missingDefaultCount === 1 ? "" : "s"}` : "All default words are present";
+    deleteCustomButton.disabled = customWordCount === 0;
+    deleteCustomButton.title = customWordCount ? `Delete ${customWordCount} custom word${customWordCount === 1 ? "" : "s"}` : "There are no custom words";
+
+    resetDefaultsButton.addEventListener("click", () => {
+      const existingKeys = new Set(words.map((item) => item.word.toLowerCase()));
+      builtInWords.forEach((item) => {
+        if (!existingKeys.has(item.word.toLowerCase())) words.push({ ...item });
+      });
+      saveWords(words);
+      generateNewSession();
+      playGotItSound();
+      render();
+    });
+
+    deleteCustomButton.addEventListener("click", () => {
+      if (!confirm(`Delete all ${customWordCount} custom word${customWordCount === 1 ? "" : "s"}? This cannot be undone.`)) return;
+      words = words.filter((item) => builtInKeys.has(item.word.toLowerCase()));
+      selectedDictionaryKeys = new Set([...selectedDictionaryKeys].filter((key) => builtInKeys.has(key)));
+      editingIndex = null;
+      showAddForm = false;
+      saveWords(words);
+      generateNewSession();
+      playClickSound();
       render();
     });
 
