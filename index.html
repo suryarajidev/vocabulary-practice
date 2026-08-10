@@ -721,6 +721,16 @@
     padding: 12px 14px;
   }
 
+  .word-selector { display: flex; align-items: center; gap: 11px; min-width: 0; flex: 1; cursor: pointer; }
+  .word-selector input { width: 18px; height: 18px; flex: 0 0 auto; accent-color: var(--accent); }
+  .selection-tray { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid rgba(13,148,136,.24); border-radius: 12px; background: #eaf8f5; }
+  .selection-count { font-weight: 800; color: var(--brand-dark); white-space: nowrap; }
+  .selection-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
+  .selection-actions button { padding: 8px 11px; }
+  .selection-actions button:disabled { opacity: .42; cursor: not-allowed; }
+
+  .game-record { display: block; margin-top: 12px; color: var(--accent) !important; font-size: 13px; font-weight: 850; }
+
   .deck-item-text {
     display: flex;
     flex-direction: column;
@@ -983,6 +993,8 @@
   @media (max-width: 600px) {
     .settings-grid { grid-template-columns: 1fr; }
     .setting-toggle { grid-column: 1; }
+    .selection-tray { align-items: stretch; flex-direction: column; }
+    .selection-actions { justify-content: flex-start; }
     .game-menu, .question-options { grid-template-columns: 1fr; }
     .combatant-row { align-items: flex-end; }
     .combatant { width: 46%; }
@@ -1409,7 +1421,9 @@
   const LEGACY_DECK_KEY = "vocabPracticeDeck";
   const SESSION_SIZE = 10;
   const FLASHCARD_SETTINGS_KEY = "vocabPracticeFlashcardSettings";
+  const HIGH_SCORES_KEY = "vocabPracticeHighScores";
   const defaultFlashcardSettings = { length: "standard", showPercentages: true, cardCount: SESSION_SIZE, firstSide: "term" };
+  const defaultHighScores = { bubble: 0, whack: 0, wordboundTurns: null };
 
   function loadFlashcardSettings() {
     try {
@@ -1421,6 +1435,18 @@
 
   function saveFlashcardSettings() {
     localStorage.setItem(FLASHCARD_SETTINGS_KEY, JSON.stringify(flashcardSettings));
+  }
+
+  function loadHighScores() {
+    try {
+      return { ...defaultHighScores, ...JSON.parse(localStorage.getItem(HIGH_SCORES_KEY) || "{}") };
+    } catch {
+      return { ...defaultHighScores };
+    }
+  }
+
+  function saveHighScores() {
+    localStorage.setItem(HIGH_SCORES_KEY, JSON.stringify(highScores));
   }
 
   const builtInWords = [
@@ -1546,6 +1572,10 @@
     return words.slice().sort((a, b) => a.word.localeCompare(b.word));
   }
 
+  function getSelectedDictionaryWords() {
+    return words.filter((item) => selectedDictionaryKeys.has(item.word.toLowerCase()));
+  }
+
   function sortWords(list, order) {
     const arr = list.slice();
     if (order === "za") return arr.sort((a, b) => b.word.localeCompare(a.word));
@@ -1610,11 +1640,16 @@
 
   let words = loadWords();
   let flashcardSettings = loadFlashcardSettings();
+  let highScores = loadHighScores();
   let deck = randomSample(getAllWords(), flashcardSettings.cardCount);
   let view = "home"; // "home" | "practice" | "dictionary" | "games" | "bubble" | "whack" | "boss"
   let editingIndex = null;
   let showAddForm = false;
   let sortOrder = "az"; // "az" | "za" | "newest" | "oldest"
+  let selectedDictionaryKeys = new Set();
+  let practiceWordPool = null;
+  let bubbleWordPool = null;
+  let whackWordPool = null;
 
   // practice session state
   let firstSide = flashcardSettings.firstSide; // "term" | "definition"
@@ -1771,13 +1806,15 @@
     `;
   }
 
-  function generateNewSession() {
-    deck = randomSample(getAllWords(), flashcardSettings.cardCount);
+  function generateNewSession(pool = null) {
+    practiceWordPool = Array.isArray(pool) ? pool.slice() : null;
+    const source = practiceWordPool || getAllWords();
+    deck = randomSample(source, practiceWordPool ? source.length : flashcardSettings.cardCount);
     resetPracticeSession();
   }
 
   function createBubbleRound() {
-    const pool = getAllWords();
+    const pool = bubbleWordPool || getAllWords();
     if (pool.length < 4) {
       bubbleGame.answer = null;
       bubbleGame.choices = [];
@@ -1946,7 +1983,7 @@
   }
 
   function createWhackRound() {
-    const pool = getAllWords();
+    const pool = whackWordPool || getAllWords();
     if (pool.length < 6) {
       whackGame.answer = null;
       whackGame.choices = [];
@@ -2384,7 +2421,7 @@
     app.querySelector("#goPractice").addEventListener("click", () => {
       playClickSound();
       view = "practice";
-      resetPracticeSession();
+      generateNewSession();
       render();
     });
     app.querySelector("#goGames").addEventListener("click", () => {
@@ -2404,26 +2441,29 @@
         <button class="game-choice" id="playBubbleShot">
           <span class="game-choice-icon">🫧</span><strong>Bubble Shot</strong>
           <span>Aim at the moving bubble that matches the definition.</span>
+          <span class="game-record">High score: ${highScores.bubble}</span>
         </button>
         <button class="game-choice" id="playBossBattle">
           <span class="game-choice-icon">🐉</span><strong>Wordbound</strong>
           <span>Answer vocabulary questions to activate cards and defeat the boss.</span>
+          <span class="game-record">Best win: ${highScores.wordboundTurns ? `${highScores.wordboundTurns} turns` : "—"}</span>
         </button>
         <button class="game-choice" id="playWhackWord">
           <span class="game-choice-icon">🔨</span><strong>Whack-a-Word</strong>
           <span>Whack the popping mole whose word matches the definition.</span>
+          <span class="game-record">High score: ${highScores.whack}</span>
         </button>
       </section>`;
     root.querySelector("#playBubbleShot").addEventListener("click", () => {
-      playClickSound(); view = "bubble";
-      if (!bubbleGame.answer) resetBubbleGame();
+      playClickSound(); view = "bubble"; bubbleWordPool = null;
+      resetBubbleGame();
       render();
     });
     root.querySelector("#playBossBattle").addEventListener("click", () => {
       playClickSound(); view = "boss"; startBossBattle(); render();
     });
     root.querySelector("#playWhackWord").addEventListener("click", () => {
-      playClickSound(); view = "whack"; resetWhackGame(); render();
+      playClickSound(); view = "whack"; whackWordPool = null; resetWhackGame(); render();
     });
   }
 
@@ -2441,6 +2481,10 @@
     if (!battleState) startBossBattle();
     if (battleState.result) {
       const won = battleState.result === "victory";
+      if (won && (!highScores.wordboundTurns || battleState.turn < highScores.wordboundTurns)) {
+        highScores.wordboundTurns = battleState.turn;
+        saveHighScores();
+      }
       root.innerHTML = `<section class="battle-ending">
         <div style="font-size:64px">${won ? "🏆" : "💀"}</div>
         <h3>${won ? "Boss defeated!" : "Battle lost"}</h3>
@@ -2474,6 +2518,7 @@
         </div>
       </div></div>
       <div class="battle-resource-row"><div class="energy-display">⚡ ${battleState.energy} energy</div><div class="battle-status">${escapeHtml(battleStatusText())}</div></div>
+      <div class="game-record">Best Wordbound win: ${highScores.wordboundTurns ? `${highScores.wordboundTurns} turns` : "—"}</div>
       <div class="battle-message" aria-live="polite">${escapeHtml(battleState.message)}</div>
       ${battleState.question ? `<div class="question-panel" aria-labelledby="questionTitle">
         <h3 id="questionTitle">What does “${escapeHtml(battleState.question.word)}” mean?</h3>
@@ -2526,6 +2571,7 @@
             <div class="stat-pill"><strong id="whackScore">${whackGame.score}</strong><span>Score</span></div>
             <div class="stat-pill"><strong id="whackStreak">${whackGame.streak}</strong><span>Streak</span></div>
             <div class="stat-pill"><strong id="whackTimer">${whackGame.elapsed.toFixed(1)}s</strong><span>Time</span></div>
+            <div class="stat-pill"><strong id="whackBest">${highScores.whack}</strong><span>Best</span></div>
           </div>
           <div class="bubble-heading-actions" style="justify-content:flex-end;margin-top:7px">
             <button class="small-btn" id="pauseWhack">Pause</button>
@@ -2573,6 +2619,10 @@
         const scoringTime = Math.max(0, responseTime - 2);
         const points = Math.max(100, Math.round(800 - scoringTime * 45)) + Math.min((whackGame.streak - 1) * 25, 200);
         whackGame.score += points;
+        if (whackGame.score > highScores.whack) {
+          highScores.whack = whackGame.score;
+          saveHighScores();
+        }
         whackGame.feedback = `Great whack! +${points} points.`;
         whackGame.feedbackType = "correct";
         button.classList.add("correct-mole");
@@ -2589,6 +2639,7 @@
       }
 
       root.querySelector("#whackScore").textContent = whackGame.score;
+      root.querySelector("#whackBest").textContent = highScores.whack;
       root.querySelector("#whackStreak").textContent = whackGame.streak;
       root.querySelector("#whackTimer").textContent = `${whackGame.elapsed.toFixed(1)}s`;
       const feedback = root.querySelector(".whack-feedback");
@@ -2656,6 +2707,7 @@
               <div class="stat-pill"><strong id="gameScore">${bubbleGame.score}</strong><span>Score</span></div>
               <div class="stat-pill"><strong id="gameStreak">${bubbleGame.streak}</strong><span>Streak</span></div>
               <div class="stat-pill"><strong id="roundTimer">${bubbleGame.elapsed.toFixed(1)}s</strong><span>Time</span></div>
+              <div class="stat-pill"><strong id="bubbleBest">${highScores.bubble}</strong><span>Best</span></div>
             </div>
             <div class="bubble-heading-actions" style="justify-content:flex-end;margin-top:7px">
               <button class="small-btn" id="pauseBubble">Pause</button>
@@ -2720,6 +2772,10 @@
           const streakBonus = Math.min((bubbleGame.streak - 1) * 25, 250);
           const pointsEarned = speedPoints + streakBonus;
           bubbleGame.score += pointsEarned;
+          if (bubbleGame.score > highScores.bubble) {
+            highScores.bubble = bubbleGame.score;
+            saveHighScores();
+          }
           bubbleGame.feedback = `Bullseye! +${pointsEarned} points in ${elapsed.toFixed(1)}s.`;
           bubbleGame.feedbackType = "correct";
           playGotItSound();
@@ -2748,6 +2804,7 @@
         field.classList.add("round-locked");
         root.querySelectorAll(".word-bubble").forEach((bubble) => bubble.setAttribute("aria-disabled", "true"));
         root.querySelector("#gameScore").textContent = bubbleGame.score;
+        root.querySelector("#bubbleBest").textContent = highScores.bubble;
         root.querySelector("#gameStreak").textContent = bubbleGame.streak;
         root.querySelector("#roundTimer").textContent = `${elapsed.toFixed(1)}s`;
         const feedback = root.querySelector(".game-feedback");
@@ -2850,8 +2907,7 @@
         if (!event.target.value) return;
         flashcardSettings.cardCount = Math.max(1, Math.min(getAllWords().length, Number(event.target.value) || SESSION_SIZE));
         saveFlashcardSettings();
-        generateNewSession();
-        render();
+        generateNewSession(practiceWordPool);
       });
       settingsPanel.querySelector("#termFirstBtn").addEventListener("click", () => {
         playClickSound();
@@ -2924,13 +2980,13 @@
     const sessionActions = document.createElement("div");
     sessionActions.className = "session-actions";
     sessionActions.innerHTML = `
-      <div class="progress-label">${pos + 1} / ${order.length} ${practiceMode === "missed" ? "missed &amp; skipped words" : "random words"}</div>
-      <button class="small-btn" id="newSessionBtn">New ${flashcardSettings.cardCount}</button>
+      <div class="progress-label">${pos + 1} / ${order.length} ${practiceMode === "missed" ? "missed &amp; skipped words" : practiceWordPool ? "selected words" : "random words"}</div>
+      <button class="small-btn" id="newSessionBtn">New ${practiceWordPool ? practiceWordPool.length : flashcardSettings.cardCount}</button>
     `;
     root.appendChild(sessionActions);
     sessionActions.querySelector("#newSessionBtn").addEventListener("click", () => {
       playClickSound();
-      generateNewSession();
+      generateNewSession(practiceWordPool);
       render();
     });
 
@@ -3092,6 +3148,16 @@
           </select>
           <button class="small-btn" id="toggleAddBtn">${showAddForm ? 'Close' : '+ Add word'}</button>
         </div>
+        <div class="selection-tray" id="selectionTray">
+          <span class="selection-count" id="selectionCount">0 selected</span>
+          <div class="selection-actions">
+            <button class="small-btn" id="selectAllWords">Select all</button>
+            <button class="small-btn" id="clearSelectedWords">Clear</button>
+            <button class="small-btn" id="practiceSelected">Flashcards (1+)</button>
+            <button class="small-btn" id="bubbleSelected">Bubble Shot (4+)</button>
+            <button class="small-btn" id="whackSelected">Whack-a-Word (6+)</button>
+          </div>
+        </div>
         ${showAddForm ? `
           <div class="add-form">
             <strong>${editingWord ? 'Edit word' : 'Add a word'}</strong>
@@ -3140,6 +3206,52 @@
       render();
     });
 
+    const updateSelectionTray = () => {
+      const count = getSelectedDictionaryWords().length;
+      root.querySelector("#selectionCount").textContent = `${count} selected`;
+      root.querySelector("#clearSelectedWords").disabled = count === 0;
+      root.querySelector("#practiceSelected").disabled = count < 1;
+      root.querySelector("#bubbleSelected").disabled = count < 4;
+      root.querySelector("#whackSelected").disabled = count < 6;
+    };
+
+    root.querySelector("#selectAllWords").addEventListener("click", () => {
+      words.forEach((item) => selectedDictionaryKeys.add(item.word.toLowerCase()));
+      drawList(root.querySelector("#dictionarySearch").value);
+      updateSelectionTray();
+    });
+    root.querySelector("#clearSelectedWords").addEventListener("click", () => {
+      selectedDictionaryKeys.clear();
+      drawList(root.querySelector("#dictionarySearch").value);
+      updateSelectionTray();
+    });
+    root.querySelector("#practiceSelected").addEventListener("click", () => {
+      const selected = getSelectedDictionaryWords();
+      if (selected.length < 1) return;
+      playClickSound();
+      generateNewSession(selected);
+      view = "practice";
+      render();
+    });
+    root.querySelector("#bubbleSelected").addEventListener("click", () => {
+      const selected = getSelectedDictionaryWords();
+      if (selected.length < 4) return;
+      playClickSound();
+      bubbleWordPool = selected;
+      resetBubbleGame();
+      view = "bubble";
+      render();
+    });
+    root.querySelector("#whackSelected").addEventListener("click", () => {
+      const selected = getSelectedDictionaryWords();
+      if (selected.length < 6) return;
+      playClickSound();
+      whackWordPool = selected;
+      resetWhackGame();
+      view = "whack";
+      render();
+    });
+
     if (showAddForm) {
       const wordInput = root.querySelector("#newWord");
       const defInput = root.querySelector("#newDef");
@@ -3171,7 +3283,10 @@
         if (editingIndex === null) {
           words.push({ word, definition });
         } else {
+          const previousKey = words[editingIndex].word.toLowerCase();
+          const wasSelected = selectedDictionaryKeys.delete(previousKey);
           words[editingIndex] = { word, definition };
+          if (wasSelected) selectedDictionaryKeys.add(word.toLowerCase());
         }
         saveWords(words);
         showAddForm = false;
@@ -3198,12 +3313,13 @@
 
       list.innerHTML = matches.map((item) => {
         const realIndex = words.indexOf(item);
+        const selectionKey = item.word.toLowerCase();
         return `
           <div class="deck-item">
-            <div class="deck-item-text">
-              <div class="deck-item-word">${escapeHtml(item.word)}</div>
-              <div class="deck-item-def">${escapeHtml(item.definition)}</div>
-            </div>
+            <label class="word-selector">
+              <input type="checkbox" class="word-select-checkbox" data-index="${realIndex}" ${selectedDictionaryKeys.has(selectionKey) ? "checked" : ""} aria-label="Select ${escapeHtml(item.word)}">
+              <span class="deck-item-text"><span class="deck-item-word">${escapeHtml(item.word)}</span><span class="deck-item-def">${escapeHtml(item.definition)}</span></span>
+            </label>
             <div class="deck-item-actions">
               <button class="edit-btn" data-index="${realIndex}" aria-label="Edit ${escapeHtml(item.word)}">Edit</button>
               <button class="delete-btn" data-index="${realIndex}" aria-label="Delete ${escapeHtml(item.word)}">&times;</button>
@@ -3211,6 +3327,17 @@
           </div>
         `;
       }).join("");
+
+      list.querySelectorAll(".word-select-checkbox").forEach((checkbox) => {
+        checkbox.addEventListener("change", () => {
+          const item = words[Number(checkbox.dataset.index)];
+          if (!item) return;
+          const key = item.word.toLowerCase();
+          if (checkbox.checked) selectedDictionaryKeys.add(key);
+          else selectedDictionaryKeys.delete(key);
+          updateSelectionTray();
+        });
+      });
 
       list.querySelectorAll(".edit-btn").forEach((btn) => {
         btn.addEventListener("click", () => {
@@ -3226,6 +3353,7 @@
         btn.addEventListener("click", () => {
           playClickSound();
           const i = parseInt(btn.getAttribute("data-index"), 10);
+          selectedDictionaryKeys.delete(words[i].word.toLowerCase());
           words.splice(i, 1);
           if (editingIndex === i) {
             editingIndex = null;
@@ -3242,6 +3370,7 @@
 
     search.addEventListener("input", () => drawList(search.value));
     drawList();
+    updateSelectionTray();
   }
 
   function escapeHtml(str) {
