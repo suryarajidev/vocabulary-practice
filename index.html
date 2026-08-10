@@ -219,8 +219,28 @@
 
   .settings-btn { display: inline-flex; align-items: center; gap: 7px; padding: 10px 14px; border: 1px solid var(--border); border-radius: 11px; background: var(--card-bg); color: var(--text); font: inherit; font-weight: 750; cursor: pointer; }
   .settings-btn:hover { border-color: var(--accent); color: var(--accent); }
-  .settings-panel { width: 100%; padding: 18px; border: 1px solid var(--border); border-radius: 16px; background: var(--card-bg); box-shadow: 0 12px 30px rgba(24, 38, 34, .09); }
-  .settings-panel[hidden] { display: none; }
+
+  .settings-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(4, 20, 17, 0.35);
+    z-index: 30;
+  }
+
+  .settings-panel {
+    position: fixed;
+    top: 90px;
+    right: 24px;
+    width: 420px;
+    max-width: calc(100vw - 48px);
+    padding: 18px;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--card-bg);
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.22);
+    z-index: 31;
+  }
+
   .settings-panel-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
   .settings-panel-header h3 { margin: 0; }
   .settings-close { border: 0; background: transparent; color: var(--muted); font-size: 24px; cursor: pointer; }
@@ -228,10 +248,14 @@
   .setting-field { display: flex; flex-direction: column; gap: 7px; }
   .setting-field > span { font-size: 13px; font-weight: 800; color: var(--muted); }
   .setting-field select, .setting-field input[type="number"] { width: 100%; padding: 11px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); font: inherit; }
-  .setting-field .side-toggle { width: 100%; }
+  .setting-field .side-toggle { width: 100%; background: var(--bg); }
   .setting-field .side-toggle-btn { flex: 1; text-align: center; border: 0; background: transparent; }
   .setting-field .side-toggle-btn.active { background: var(--teal); color: white; }
   .setting-toggle { flex-direction: row; justify-content: space-between; align-items: center; grid-column: 1 / -1; padding-top: 4px; }
+
+  @media (max-width: 480px) {
+    .settings-panel { top: 24px; right: 24px; left: 24px; width: auto; }
+  }
   .switch { position: relative; width: 48px; height: 27px; flex: 0 0 auto; }
   .switch input { opacity: 0; width: 0; height: 0; }
   .switch-slider { position: absolute; inset: 0; border-radius: 999px; background: #cbd5e1; cursor: pointer; transition: .2s ease; }
@@ -292,9 +316,9 @@
     transition: transform 0.2s ease;
   }
 
-  .card-scene.card-compact { max-width: 360px; }
-  .card-scene.card-standard { max-width: 480px; }
-  .card-scene.card-wide { max-width: 620px; }
+  .card-scene.card-compact { max-width: 340px; }
+  .card-scene.card-standard { max-width: 420px; }
+  .card-scene.card-wide { max-width: 540px; }
 
   .card-scene:hover {
     transform: translateY(-3px);
@@ -485,6 +509,7 @@
     flex-direction: column;
     gap: 9px;
     text-align: left;
+    width: 100%;
   }
 
   .percentage-summary { width: 100%; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
@@ -498,50 +523,63 @@
     text-align: center;
   }
 
-  .result-group {
-    border: 1px solid var(--border);
-    border-radius: 11px;
-    background: var(--card-bg);
-    overflow: hidden;
+  .results-columns {
+    display: flex;
+    gap: 10px;
+    width: 100%;
   }
 
-  .result-group summary {
-    padding: 12px 14px;
-    cursor: pointer;
-    font-weight: 750;
-    list-style-position: inside;
-    transition: background-color 0.16s ease;
-  }
-
-  .result-group summary:hover {
-    background: rgba(13, 148, 136, 0.06);
-  }
-
-  .result-group.dont-know-group summary { color: var(--bad); }
-  .result-group.almost-group summary { color: var(--almost); }
-  .result-group.got-it-group summary { color: var(--good); }
-
-  .result-items {
+  .result-column {
+    flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
     gap: 8px;
-    padding: 0 12px 12px;
+  }
+
+  .result-column-title {
+    font-size: 13px;
+    font-weight: 750;
+    text-align: center;
+    padding: 8px 6px;
+    border-radius: 9px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+  }
+
+  .result-column.dont-know-col .result-column-title { color: var(--bad); }
+  .result-column.almost-col .result-column-title { color: var(--almost); }
+  .result-column.got-it-col .result-column-title { color: var(--good); }
+
+  .result-column-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 280px;
+    overflow-y: auto;
   }
 
   .result-item {
-    border-top: 1px solid var(--border);
-    padding: 10px 2px 2px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    background: var(--card-bg);
   }
 
   .result-word {
     font-weight: 750;
+    font-size: 13px;
     margin-bottom: 3px;
   }
 
   .result-definition {
     color: var(--muted);
-    font-size: 13px;
+    font-size: 12px;
     line-height: 1.4;
+  }
+
+  @media (max-width: 560px) {
+    .results-columns { flex-direction: column; }
   }
 
   .result-empty {
@@ -1699,6 +1737,7 @@
     side = firstSide;
     score = { gotit: 0, almost: 0, dontknow: 0 };
     results = {};
+    flashcardSettingsOpen = false;
   }
 
   function getResultItems(category) {
@@ -1708,7 +1747,7 @@
       .filter(Boolean);
   }
 
-  function resultGroupHtml(title, items, className) {
+  function resultColumnHtml(title, items, className) {
     const itemMarkup = items.length
       ? items.map((item) => `
           <div class="result-item">
@@ -1716,13 +1755,13 @@
             <div class="result-definition">${escapeHtml(item.definition)}</div>
           </div>
         `).join("")
-      : `<div class="result-empty">No words in this group.</div>`;
+      : `<div class="result-empty">None</div>`;
 
     return `
-      <details class="result-group ${className}" ${items.length ? 'open' : ''}>
-        <summary>${title} (${items.length})</summary>
-        <div class="result-items">${itemMarkup}</div>
-      </details>
+      <div class="result-column ${className}">
+        <div class="result-column-title">${title} (${items.length})</div>
+        <div class="result-column-list">${itemMarkup}</div>
+      </div>
     `;
   }
 
@@ -2744,66 +2783,85 @@
     `;
     root.appendChild(topbar);
 
-    const settingsPanel = document.createElement("div");
-    settingsPanel.className = "settings-panel";
-    settingsPanel.hidden = !flashcardSettingsOpen;
-    settingsPanel.innerHTML = `
-      <div class="settings-panel-header"><h3>Flashcard settings</h3><button class="settings-close" id="closeFlashcardSettings" aria-label="Close settings">&times;</button></div>
-      <div class="settings-grid">
-        <label class="setting-field"><span>Flashcard length</span>
-          <select id="cardLengthSetting">
-            <option value="compact" ${flashcardSettings.length === "compact" ? "selected" : ""}>Compact</option>
-            <option value="standard" ${flashcardSettings.length === "standard" ? "selected" : ""}>Standard</option>
-            <option value="wide" ${flashcardSettings.length === "wide" ? "selected" : ""}>Wide</option>
-          </select>
-        </label>
-        <label class="setting-field"><span>Number of flashcards</span>
-          <input id="cardCountSetting" type="number" min="1" max="${getAllWords().length}" value="${flashcardSettings.cardCount}">
-        </label>
-        <div class="setting-field"><span>Card front</span>
-          <div class="side-toggle">
-            <button class="side-toggle-btn ${firstSide === "term" ? "active" : ""}" id="termFirstBtn">Term first</button>
-            <button class="side-toggle-btn ${firstSide === "definition" ? "active" : ""}" id="defFirstBtn">Definition first</button>
-          </div>
-        </div>
-        <label class="setting-field setting-toggle"><span>Show correct/incorrect percentages after practice</span>
-          <span class="switch"><input id="percentageSetting" type="checkbox" ${flashcardSettings.showPercentages ? "checked" : ""}><span class="switch-slider"></span></span>
-        </label>
-      </div>`;
-    root.appendChild(settingsPanel);
+    topbar.querySelector("#flashcardSettingsBtn").addEventListener("click", () => {
+      playClickSound();
+      flashcardSettingsOpen = !flashcardSettingsOpen;
+      render();
+    });
 
-    topbar.querySelector("#flashcardSettingsBtn").addEventListener("click", () => { playClickSound(); flashcardSettingsOpen = !flashcardSettingsOpen; render(); });
-    settingsPanel.querySelector("#closeFlashcardSettings").addEventListener("click", () => { flashcardSettingsOpen = false; render(); });
-    settingsPanel.querySelector("#cardLengthSetting").addEventListener("change", (event) => {
-      flashcardSettings.length = event.target.value;
-      saveFlashcardSettings();
-      render();
-    });
-    settingsPanel.querySelector("#percentageSetting").addEventListener("change", (event) => {
-      flashcardSettings.showPercentages = event.target.checked;
-      saveFlashcardSettings();
-    });
-    settingsPanel.querySelector("#cardCountSetting").addEventListener("input", (event) => {
-      if (!event.target.value) return;
-      flashcardSettings.cardCount = Math.max(1, Math.min(getAllWords().length, Number(event.target.value) || SESSION_SIZE));
-      saveFlashcardSettings();
-      generateNewSession();
-      render();
-    });
-    settingsPanel.querySelector("#termFirstBtn").addEventListener("click", () => {
-      playClickSound();
-      firstSide = flashcardSettings.firstSide = "term";
-      side = "term";
-      saveFlashcardSettings();
-      render();
-    });
-    settingsPanel.querySelector("#defFirstBtn").addEventListener("click", () => {
-      playClickSound();
-      firstSide = flashcardSettings.firstSide = "definition";
-      side = "definition";
-      saveFlashcardSettings();
-      render();
-    });
+    if (flashcardSettingsOpen) {
+      const backdrop = document.createElement("div");
+      backdrop.className = "settings-backdrop";
+      root.appendChild(backdrop);
+      backdrop.addEventListener("click", () => {
+        playClickSound();
+        flashcardSettingsOpen = false;
+        render();
+      });
+
+      const settingsPanel = document.createElement("div");
+      settingsPanel.className = "settings-panel";
+      settingsPanel.innerHTML = `
+        <div class="settings-panel-header"><h3>Flashcard settings</h3><button class="settings-close" id="closeFlashcardSettings" aria-label="Close settings">&times;</button></div>
+        <div class="settings-grid">
+          <label class="setting-field"><span>Flashcard length</span>
+            <select id="cardLengthSetting">
+              <option value="compact" ${flashcardSettings.length === "compact" ? "selected" : ""}>Compact</option>
+              <option value="standard" ${flashcardSettings.length === "standard" ? "selected" : ""}>Standard</option>
+              <option value="wide" ${flashcardSettings.length === "wide" ? "selected" : ""}>Wide</option>
+            </select>
+          </label>
+          <label class="setting-field"><span>Number of flashcards</span>
+            <input id="cardCountSetting" type="number" min="1" max="${getAllWords().length}" value="${flashcardSettings.cardCount}">
+          </label>
+          <div class="setting-field"><span>Card front</span>
+            <div class="side-toggle">
+              <button class="side-toggle-btn ${firstSide === "term" ? "active" : ""}" id="termFirstBtn">Term first</button>
+              <button class="side-toggle-btn ${firstSide === "definition" ? "active" : ""}" id="defFirstBtn">Definition first</button>
+            </div>
+          </div>
+          <label class="setting-field setting-toggle"><span>Show correct/incorrect percentages after practice</span>
+            <span class="switch"><input id="percentageSetting" type="checkbox" ${flashcardSettings.showPercentages ? "checked" : ""}><span class="switch-slider"></span></span>
+          </label>
+        </div>`;
+      root.appendChild(settingsPanel);
+
+      settingsPanel.querySelector("#closeFlashcardSettings").addEventListener("click", () => {
+        playClickSound();
+        flashcardSettingsOpen = false;
+        render();
+      });
+      settingsPanel.querySelector("#cardLengthSetting").addEventListener("change", (event) => {
+        flashcardSettings.length = event.target.value;
+        saveFlashcardSettings();
+        render();
+      });
+      settingsPanel.querySelector("#percentageSetting").addEventListener("change", (event) => {
+        flashcardSettings.showPercentages = event.target.checked;
+        saveFlashcardSettings();
+      });
+      settingsPanel.querySelector("#cardCountSetting").addEventListener("input", (event) => {
+        if (!event.target.value) return;
+        flashcardSettings.cardCount = Math.max(1, Math.min(getAllWords().length, Number(event.target.value) || SESSION_SIZE));
+        saveFlashcardSettings();
+        generateNewSession();
+        render();
+      });
+      settingsPanel.querySelector("#termFirstBtn").addEventListener("click", () => {
+        playClickSound();
+        firstSide = flashcardSettings.firstSide = "term";
+        side = "term";
+        saveFlashcardSettings();
+        render();
+      });
+      settingsPanel.querySelector("#defFirstBtn").addEventListener("click", () => {
+        playClickSound();
+        firstSide = flashcardSettings.firstSide = "definition";
+        side = "definition";
+        saveFlashcardSettings();
+        render();
+      });
+    }
 
     if (pos >= order.length) {
       const skipped = Object.values(results).filter((result) => result === "skipped").length;
@@ -2825,9 +2883,11 @@
         ${missedIndices.length > 0 ? `<button class="missed-btn" id="practiceMissed">Practice missed &amp; skipped (${missedIndices.length})</button>` : ""}
         <div class="results-review">
           <h3>Review your words</h3>
-          ${resultGroupHtml("Didn't know", getResultItems("dontknow"), "dont-know-group")}
-          ${resultGroupHtml("Almost got it", getResultItems("almost"), "almost-group")}
-          ${resultGroupHtml("Got it", getResultItems("gotit"), "got-it-group")}
+          <div class="results-columns">
+            ${resultColumnHtml("Didn't know", getResultItems("dontknow"), "dont-know-col")}
+            ${resultColumnHtml("Almost got it", getResultItems("almost"), "almost-col")}
+            ${resultColumnHtml("Got it", getResultItems("gotit"), "got-it-col")}
+          </div>
         </div>
       `;
       root.appendChild(done);
