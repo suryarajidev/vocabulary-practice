@@ -771,11 +771,16 @@
 
   .form-actions {
     display: flex;
+    justify-content: flex-end;
     gap: 8px;
   }
 
   .form-actions button {
-    flex: 1;
+    flex: 0 0 auto;
+    min-width: 88px;
+    padding: 8px 14px;
+    font-size: 14px;
+    border-radius: 9px;
   }
 
   .cancel-btn {
