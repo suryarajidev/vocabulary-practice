@@ -210,6 +210,94 @@
     color: #9fe1cb;
   }
 
+  .home-corner {
+    position: fixed;
+    top: 24px;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .home-corner-left { left: 24px; }
+  .home-corner-right { right: 24px; }
+
+  .home-corner-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 14px;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    background: var(--card-bg);
+    color: var(--text);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 750;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  }
+
+  .home-corner-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .home-corner-btn svg { width: 16px; height: 16px; }
+
+  .streak-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 14px;
+    border-radius: 11px;
+    background: linear-gradient(160deg, #fff4e2, var(--card-bg));
+    border: 1px solid var(--border);
+    font-weight: 800;
+    font-size: 14px;
+    color: var(--brand-dark);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+  }
+
+  .streak-pill .streak-flame { font-size: 16px; line-height: 1; }
+  .streak-pill span { color: var(--muted); font-weight: 700; font-size: 12px; }
+
+  @media (max-width: 620px) {
+    .home-corner { position: static; margin: 0 0 8px; }
+    .home-corner-right { justify-content: flex-end; }
+    .home-view { padding-top: 0; }
+  }
+
+  .progress-view {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .progress-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 14px;
+  }
+
+  .progress-card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px 16px;
+  }
+
+  .progress-card strong {
+    display: block;
+    font-size: 26px;
+    color: var(--accent);
+  }
+
+  .progress-card span {
+    display: block;
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 700;
+  }
+
   .practice-topbar {
     width: 100%;
     display: flex;
@@ -1461,8 +1549,14 @@
   const FLASHCARD_SETTINGS_KEY = "vocabPracticeFlashcardSettings";
   const HIGH_SCORES_KEY = "vocabPracticeHighScores";
   const WORD_EXPANSION_KEY = "vocabPracticeWordExpansion120";
+  const PROGRESS_KEY = "vocabPracticeProgress";
+  const STREAK_KEY = "vocabPracticeStreak";
+  const APP_SETTINGS_KEY = "vocabPracticeAppSettings";
   const defaultFlashcardSettings = { length: "standard", showPercentages: true, cardCount: SESSION_SIZE, firstSide: "term" };
   const defaultHighScores = { bubble: 0, whack: 0, wordboundTurns: null };
+  const defaultProgress = { sessionsCompleted: 0, gotit: 0, almost: 0, dontknow: 0 };
+  const defaultStreak = { count: 0, lastDate: null };
+  const defaultAppSettings = { soundEnabled: true };
 
   function loadFlashcardSettings() {
     try {
@@ -1486,6 +1580,59 @@
 
   function saveHighScores() {
     localStorage.setItem(HIGH_SCORES_KEY, JSON.stringify(highScores));
+  }
+
+  function loadProgress() {
+    try {
+      return { ...defaultProgress, ...JSON.parse(localStorage.getItem(PROGRESS_KEY) || "{}") };
+    } catch {
+      return { ...defaultProgress };
+    }
+  }
+
+  function saveProgress() {
+    localStorage.setItem(PROGRESS_KEY, JSON.stringify(progressStats));
+  }
+
+  function loadStreak() {
+    try {
+      return { ...defaultStreak, ...JSON.parse(localStorage.getItem(STREAK_KEY) || "{}") };
+    } catch {
+      return { ...defaultStreak };
+    }
+  }
+
+  function saveStreak() {
+    localStorage.setItem(STREAK_KEY, JSON.stringify(streak));
+  }
+
+  function todayStr() {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  function updateStreak() {
+    const today = todayStr();
+    if (streak.lastDate === today) return;
+    if (streak.lastDate) {
+      const diffDays = Math.round((new Date(today) - new Date(streak.lastDate)) / 86400000);
+      streak.count = diffDays === 1 ? streak.count + 1 : 1;
+    } else {
+      streak.count = 1;
+    }
+    streak.lastDate = today;
+    saveStreak();
+  }
+
+  function loadAppSettings() {
+    try {
+      return { ...defaultAppSettings, ...JSON.parse(localStorage.getItem(APP_SETTINGS_KEY) || "{}") };
+    } catch {
+      return { ...defaultAppSettings };
+    }
+  }
+
+  function saveAppSettings() {
+    localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(appSettings));
   }
 
   const builtInWords = [
@@ -1815,6 +1962,7 @@
   // Ramps gain up then down (instead of jumping straight to peak) so the
   // tone doesn't pop/click at the start or end.
   function playTone(freq, duration, type, peakGain) {
+    if (!appSettings.soundEnabled) return;
     try {
       const ctx = getAudioCtx();
       const osc = ctx.createOscillator();
@@ -1852,8 +2000,13 @@
   let words = loadWords();
   let flashcardSettings = loadFlashcardSettings();
   let highScores = loadHighScores();
+  let progressStats = loadProgress();
+  let streak = loadStreak();
+  let appSettings = loadAppSettings();
+  let appSettingsOpen = false;
+  updateStreak();
   let deck = randomSample(getAllWords(), flashcardSettings.cardCount);
-  let view = "home"; // "home" | "practice" | "dictionary" | "games" | "bubble" | "whack" | "boss" | "memory"
+  let view = "home"; // "home" | "practice" | "dictionary" | "games" | "bubble" | "whack" | "boss" | "memory" | "progress"
   let editingIndex = null;
   let showAddForm = false;
   let sortOrder = "az"; // "az" | "za" | "newest" | "oldest"
@@ -1873,6 +2026,7 @@
   let practiceMode = "random"; // "random" | "missed"
   let score = { gotit: 0, almost: 0, dontknow: 0 };
   let results = {}; // original deck index -> "gotit" | "almost" | "dontknow" | "skipped"
+  let sessionRecorded = false;
 
   let bubbleGame = {
     score: 0,
@@ -1995,6 +2149,7 @@
     score = { gotit: 0, almost: 0, dontknow: 0 };
     results = {};
     flashcardSettingsOpen = false;
+    sessionRecorded = false;
   }
 
   function getResultItems(category) {
@@ -2625,11 +2780,48 @@
       renderBossBattle(root);
     } else if (view === "memory") {
       renderMemoryGame(root);
+    } else if (view === "progress") {
+      renderProgress(root);
     }
   }
 
   function renderHome() {
     app.innerHTML = `
+      <div class="home-corner home-corner-left">
+        <button class="home-corner-btn" id="goProgress">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+            <path d="M4 20V10M11 20V4M18 20v-7"></path>
+          </svg>
+          Progress
+        </button>
+        <button class="home-corner-btn" id="openAppSettings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 9 19.35a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.65 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.65 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.65a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15 4.65a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.35 9a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.09A1.7 1.7 0 0 0 19.4 15z"></path>
+          </svg>
+          Settings
+        </button>
+      </div>
+      <div class="home-corner home-corner-right">
+        <span class="streak-pill"><span class="streak-flame">&#128293;</span>${streak.count}<span>day${streak.count === 1 ? "" : "s"}</span></span>
+      </div>
+      ${appSettingsOpen ? `
+        <div class="settings-backdrop" id="appSettingsBackdrop"></div>
+        <div class="settings-panel" id="appSettingsPanel">
+          <div class="settings-panel-header">
+            <h3>Settings</h3>
+            <button class="settings-close" id="closeAppSettings">&times;</button>
+          </div>
+          <div class="setting-field setting-toggle" style="margin-bottom: 14px;">
+            <span>Sound effects</span>
+            <label class="switch">
+              <input type="checkbox" id="soundSetting" ${appSettings.soundEnabled ? "checked" : ""}>
+              <span class="switch-slider"></span>
+            </label>
+          </div>
+          <button class="missed-btn" id="resetProgressBtn" style="width:100%;">Reset progress &amp; high scores</button>
+        </div>
+      ` : ""}
       <div class="home-view">
         <div class="brand-bar">
           <span class="brand">
@@ -2694,6 +2886,66 @@
       view = "games";
       render();
     });
+    app.querySelector("#goProgress").addEventListener("click", () => {
+      playClickSound();
+      view = "progress";
+      render();
+    });
+    app.querySelector("#openAppSettings").addEventListener("click", () => {
+      playClickSound();
+      appSettingsOpen = true;
+      render();
+    });
+    if (appSettingsOpen) {
+      const closeSettings = () => {
+        appSettingsOpen = false;
+        render();
+      };
+      app.querySelector("#appSettingsBackdrop").addEventListener("click", closeSettings);
+      app.querySelector("#closeAppSettings").addEventListener("click", () => {
+        playClickSound();
+        closeSettings();
+      });
+      app.querySelector("#soundSetting").addEventListener("change", (event) => {
+        appSettings.soundEnabled = event.target.checked;
+        saveAppSettings();
+        if (appSettings.soundEnabled) playClickSound();
+      });
+      app.querySelector("#resetProgressBtn").addEventListener("click", () => {
+        if (!confirm("Reset all progress, streak, and high scores? This can't be undone.")) return;
+        progressStats = { ...defaultProgress };
+        highScores = { ...defaultHighScores };
+        streak = { ...defaultStreak };
+        saveProgress();
+        saveHighScores();
+        saveStreak();
+        updateStreak();
+        appSettingsOpen = false;
+        playClickSound();
+        render();
+      });
+    }
+  }
+
+  function renderProgress(root) {
+    const totalReviewed = progressStats.gotit + progressStats.almost + progressStats.dontknow;
+    root.innerHTML = `
+      <div class="progress-view">
+        <h2>Your progress</h2>
+        <div class="progress-grid">
+          <div class="progress-card"><strong>${streak.count}</strong><span>Day streak</span></div>
+          <div class="progress-card"><strong>${getAllWords().length}</strong><span>Words in dictionary</span></div>
+          <div class="progress-card"><strong>${progressStats.sessionsCompleted}</strong><span>Flashcard sessions</span></div>
+          <div class="progress-card"><strong>${totalReviewed}</strong><span>Cards reviewed</span></div>
+          <div class="progress-card"><strong>${progressStats.gotit}</strong><span>Got it</span></div>
+          <div class="progress-card"><strong>${progressStats.almost}</strong><span>Almost</span></div>
+          <div class="progress-card"><strong>${progressStats.dontknow}</strong><span>Didn't know</span></div>
+          <div class="progress-card"><strong>${highScores.bubble}</strong><span>Bubble Shot best</span></div>
+          <div class="progress-card"><strong>${highScores.whack}</strong><span>Whack-a-Word best</span></div>
+          <div class="progress-card"><strong>${highScores.wordboundTurns ?? "—"}</strong><span>Best Wordbound win</span></div>
+        </div>
+      </div>
+    `;
   }
 
   function renderGameMenu(root) {
@@ -3251,6 +3503,14 @@
     }
 
     if (pos >= order.length) {
+      if (!sessionRecorded) {
+        sessionRecorded = true;
+        progressStats.sessionsCompleted++;
+        progressStats.gotit += score.gotit;
+        progressStats.almost += score.almost;
+        progressStats.dontknow += score.dontknow;
+        saveProgress();
+      }
       const skipped = Object.values(results).filter((result) => result === "skipped").length;
       const missedIndices = Object.keys(results)
         .filter((k) => results[k] !== "gotit")
