@@ -974,8 +974,8 @@
   .mole-hole:nth-child(1), .mole-hole:nth-child(4) { left: 23.3%; }
   .mole-hole:nth-child(2), .mole-hole:nth-child(5) { left: 50%; }
   .mole-hole:nth-child(3), .mole-hole:nth-child(6) { left: 76.3%; }
-  .mole-hole:nth-child(-n+3) { bottom: 39.6%; }
-  .mole-hole:nth-child(n+4) { bottom: 20.6%; }
+  .mole-hole:nth-child(-n+3) { bottom: 32.5%; }
+  .mole-hole:nth-child(n+4) { bottom: 13.5%; }
 
   .mole {
     position: absolute;
@@ -1084,7 +1084,8 @@
     align-items: stretch;
   }
 
-  .app.bubble-fullscreen {
+  .app.bubble-fullscreen,
+  .app.whack-fullscreen {
     position: fixed;
     inset: 0;
     z-index: 1000;
@@ -1094,6 +1095,12 @@
     overflow: auto;
     max-width: none;
     align-items: stretch;
+  }
+
+  .app.whack-fullscreen .whack-yard,
+  .app:fullscreen .whack-yard {
+    width: min(100%, calc((100vh - 250px) * 1.777));
+    margin-inline: auto;
   }
 
   .app:fullscreen .bubble-field,
@@ -1171,6 +1178,7 @@
       inset 7px 8px 14px rgba(255, 255, 255, 0.7),
       0 10px 22px rgba(13, 148, 136, 0.14);
     will-change: transform;
+    opacity: 0.88;
   }
 
   .word-bubble::after {
@@ -1214,7 +1222,7 @@
 
   .word-bubble:disabled { cursor: default; opacity: 0.72; }
   .word-bubble.correct:disabled,
-  .word-bubble.wrong:disabled { opacity: 1; }
+  .word-bubble.wrong:disabled { opacity: 0.96; }
 
   .word-bubble.hit {
     pointer-events: none;
@@ -1596,7 +1604,8 @@
   let whackGame = {
     score: 0, streak: 0, answer: null, choices: [],
     elapsed: 0, roundStartedAt: 0, locked: false,
-    feedback: "", feedbackType: ""
+    feedback: "", feedbackType: "", paused: false,
+    answerShownAt: 0, answerResponseElapsed: 0
   };
   let whackTimerId = null;
   let moleTimeouts = [];
@@ -1663,6 +1672,18 @@
     ]},
     { id: "disrupt", name: "Disrupt", type: "strategy", icon: "⚡", cost: 1, effect: "Cancel the boss's next move.", words: [
       bw("Chaotic", "Completely disordered or confused."), bw("Erratic", "Unpredictable and inconsistent."), bw("Anomalous", "Different from what is normal or expected."), bw("Volatile", "Liable to change rapidly and unpredictably."), bw("Disruptive", "Causing interruption or disorder.")
+    ]},
+    { id: "arcane-bolt", name: "Arcane Bolt", type: "attack", icon: "✨", cost: 1, effect: "Deal 8 damage.", words: [
+      bw("Incandescent", "Glowing or shining brightly."), bw("Radiant", "Sending out light or shining brightly."), bw("Luminous", "Full of or shedding light."), bw("Resplendent", "Attractive and impressive through rich color or brilliance."), bw("Scintillating", "Sparkling or brilliantly lively.")
+    ]},
+    { id: "sanctuary", name: "Sanctuary", type: "defense", icon: "🏛️", cost: 2, effect: "Gain 10 shield and restore 2 health.", words: [
+      bw("Refuge", "A safe place or protection from danger."), bw("Haven", "A place of safety or shelter."), bw("Solace", "Comfort during distress or sadness."), bw("Serene", "Calm, peaceful, and untroubled."), bw("Tranquil", "Free from disturbance; calm.")
+    ]},
+    { id: "renew", name: "Renew", type: "heal", icon: "🌿", cost: 2, effect: "Restore 8 health and draw 1 card.", words: [
+      bw("Replenish", "To fill something up again."), bw("Regenerate", "To regrow or restore after damage."), bw("Revive", "To restore to life, strength, or consciousness."), bw("Resuscitate", "To revive from unconsciousness or apparent death."), bw("Reinvigorate", "To give new energy or strength.")
+    ]},
+    { id: "gambit", name: "Scholar's Gambit", type: "strategy", icon: "♟️", cost: 1, effect: "Draw 2 cards.", words: [
+      bw("Calculated", "Planned carefully to achieve a particular result."), bw("Strategic", "Designed to achieve a long-term aim."), bw("Shrewd", "Showing sharp practical judgment."), bw("Cunning", "Skilled at achieving goals through cleverness."), bw("Tactical", "Relating to careful actions used to achieve an objective.")
     ]}
   ];
 
@@ -1893,6 +1914,9 @@
     whackGame.elapsed = 0;
     whackGame.roundStartedAt = performance.now();
     whackGame.locked = false;
+    whackGame.paused = false;
+    whackGame.answerShownAt = 0;
+    whackGame.answerResponseElapsed = 0;
     whackGame.feedback = "";
     whackGame.feedbackType = "";
   }
@@ -1904,22 +1928,45 @@
     createWhackRound();
   }
 
+  function pauseWhackGame(shouldRender = true) {
+    if (!whackGame.answer || whackGame.paused || whackGame.locked) return;
+    const now = performance.now();
+    whackGame.elapsed = Math.max(0, (now - whackGame.roundStartedAt) / 1000);
+    if (whackGame.answerShownAt) whackGame.answerResponseElapsed = Math.max(0, (now - whackGame.answerShownAt) / 1000);
+    whackGame.paused = true;
+    stopWhackTimers();
+    if (shouldRender && view === "whack") render();
+  }
+
+  function resumeWhackGame() {
+    const now = performance.now();
+    whackGame.paused = false;
+    whackGame.roundStartedAt = now - whackGame.elapsed * 1000;
+    whackGame.answerShownAt = 0;
+    whackGame.answerResponseElapsed = 0;
+    render();
+  }
+
   function scheduleMoleCycles(root) {
     stopWhackTimers();
     const moleButtons = [...root.querySelectorAll(".mole")];
 
     const scheduleUnderground = (button, index) => {
-      if (whackGame.locked || view !== "whack" || !button.isConnected) return;
+      if (whackGame.locked || whackGame.paused || view !== "whack" || !button.isConnected) return;
       button.classList.remove("up");
       button.disabled = true;
       visibleMoles.delete(index);
+      if (whackGame.choices[index].word === whackGame.answer.word) {
+        whackGame.answerShownAt = 0;
+        whackGame.answerResponseElapsed = 0;
+      }
       const undergroundTime = 2000 + Math.random() * 1000;
       const undergroundTimer = setTimeout(() => showMole(button, index), undergroundTime);
       moleTimeouts.push(undergroundTimer);
     };
 
     const showMole = (button, index) => {
-      if (whackGame.locked || view !== "whack" || !button.isConnected) return;
+      if (whackGame.locked || whackGame.paused || view !== "whack" || !button.isConnected) return;
       const columnBusy = [...visibleMoles].some((visibleIndex) => visibleIndex % 3 === index % 3);
       if (visibleMoles.size >= 3 || columnBusy) {
         const retryTimer = setTimeout(() => showMole(button, index), 220);
@@ -1929,6 +1976,10 @@
       visibleMoles.add(index);
       button.classList.add("up");
       button.disabled = false;
+      if (whackGame.choices[index].word === whackGame.answer.word) {
+        whackGame.answerShownAt = performance.now();
+        whackGame.answerResponseElapsed = 0;
+      }
       const visibleTime = 2000 + Math.random() * 1000;
       const visibleTimer = setTimeout(() => scheduleUnderground(button, index), visibleTime);
       moleTimeouts.push(visibleTimer);
@@ -1937,7 +1988,7 @@
     moleButtons.forEach((button, index) => scheduleUnderground(button, index));
     whackTimerId = setInterval(() => {
       const timer = root.querySelector("#whackTimer");
-      if (!timer || whackGame.locked || view !== "whack") return stopWhackTimers();
+      if (!timer || whackGame.locked || whackGame.paused || view !== "whack") return stopWhackTimers();
       whackGame.elapsed = (performance.now() - whackGame.roundStartedAt) / 1000;
       timer.textContent = `${whackGame.elapsed.toFixed(1)}s`;
     }, 100);
@@ -1948,7 +1999,10 @@
   }
 
   function createBattleCard(card, uid) {
-    return { ...card, uid, vocab: card.words[Math.floor(Math.random() * card.words.length)] };
+    const dictionary = getAllWords();
+    const useDictionaryWord = dictionary.length && Math.random() < 0.25;
+    const vocabPool = useDictionaryWord ? dictionary : card.words;
+    return { ...card, uid, vocab: vocabPool[Math.floor(Math.random() * vocabPool.length)], dictionaryWord: useDictionaryWord };
   }
 
   function chooseBossIntent() {
@@ -2055,6 +2109,10 @@
       case "insight": battleState.intentRevealed = true; drawBattleCards(1); result = "Revealed the boss's move and drew a card."; break;
       case "rally": battleState.energy += 1; battleState.attackBonus += 5; result = "Regained 1 energy; the next attack gains 5 damage."; break;
       case "disrupt": battleState.cancelBoss = true; result = "The boss's next move is cancelled."; break;
+      case "arcane-bolt": result = `Arcane Bolt dealt ${attackBoss(8)} damage.`; break;
+      case "sanctuary": battleState.shield += 10; healPlayer(2); result = "Gained 10 shield and restored 2 health."; break;
+      case "renew": healPlayer(8); drawBattleCards(1); result = "Restored 8 health and drew a card."; break;
+      case "gambit": drawBattleCards(2); result = "Drew 2 cards."; break;
     }
     return result;
   }
@@ -2068,8 +2126,11 @@
       return;
     }
     const choiceCount = battleState.focusNext ? 2 : 4;
+    const questionWords = [...allBattleWords, ...getAllWords()].filter((item, index, items) =>
+      items.findIndex((candidate) => candidate.word.toLowerCase() === item.word.toLowerCase()) === index
+    );
     const decoys = randomSample(
-      allBattleWords.filter((item) => item.word !== card.vocab.word && item.definition !== card.vocab.definition),
+      questionWords.filter((item) => item.word !== card.vocab.word && item.definition !== card.vocab.definition),
       choiceCount - 1
     );
     battleState.question = {
@@ -2165,14 +2226,23 @@
   function render() {
     if (view !== "bubble") {
       app.classList.remove("bubble-fullscreen");
-      if (document.fullscreenElement === app) document.exitFullscreen().catch(() => {});
     }
+    if (view !== "whack") app.classList.remove("whack-fullscreen");
+    if (view !== "bubble" && view !== "whack" && document.fullscreenElement === app) document.exitFullscreen().catch(() => {});
     if (view !== "bubble" && bubbleGame.answer && !bubbleGame.paused) {
       if (bubbleGame.locked) {
         createBubbleRound();
         bubbleGame.paused = true;
       } else {
         pauseBubbleGame(false);
+      }
+    }
+    if (view !== "whack" && whackGame.answer && !whackGame.paused) {
+      if (whackGame.locked) {
+        createWhackRound();
+        whackGame.paused = true;
+      } else {
+        pauseWhackGame(false);
       }
     }
     stopBubbleTimer();
@@ -2390,13 +2460,32 @@
       return;
     }
 
+    if (whackGame.paused) {
+      root.innerHTML = `<section class="whack-game" aria-labelledby="whackTitle">
+        <div class="game-heading">
+          <div><h2 id="whackTitle">Whack-a-Word</h2><p>Game paused — the moles and definition are hidden.</p></div>
+          <div class="bubble-heading-actions"><button class="small-btn" id="fullscreenWhack">⛶ Fullscreen</button></div>
+        </div>
+        <div class="bubble-pause-screen"><div><h3>Paused</h3><p>Your timer is frozen until you return.</p><button class="resume-bubble-btn" id="resumeWhack">Resume game</button></div></div>
+      </section>`;
+      root.querySelector("#resumeWhack").addEventListener("click", () => { playClickSound(); resumeWhackGame(); });
+      root.querySelector("#fullscreenWhack").addEventListener("click", toggleWhackFullscreen);
+      return;
+    }
+
     root.innerHTML = `<section class="whack-game" aria-labelledby="whackTitle">
       <div class="game-heading">
         <div><h2 id="whackTitle">Whack-a-Word</h2><p>Wait for the matching word to pop out, then whack it.</p></div>
-        <div class="game-stats" aria-label="Whack-a-Word score">
-          <div class="stat-pill"><strong id="whackScore">${whackGame.score}</strong><span>Score</span></div>
-          <div class="stat-pill"><strong id="whackStreak">${whackGame.streak}</strong><span>Streak</span></div>
-          <div class="stat-pill"><strong id="whackTimer">${whackGame.elapsed.toFixed(1)}s</strong><span>Time</span></div>
+        <div>
+          <div class="game-stats" aria-label="Whack-a-Word score">
+            <div class="stat-pill"><strong id="whackScore">${whackGame.score}</strong><span>Score</span></div>
+            <div class="stat-pill"><strong id="whackStreak">${whackGame.streak}</strong><span>Streak</span></div>
+            <div class="stat-pill"><strong id="whackTimer">${whackGame.elapsed.toFixed(1)}s</strong><span>Time</span></div>
+          </div>
+          <div class="bubble-heading-actions" style="justify-content:flex-end;margin-top:7px">
+            <button class="small-btn" id="pauseWhack">Pause</button>
+            <button class="small-btn" id="fullscreenWhack">⛶ Fullscreen</button>
+          </div>
         </div>
       </div>
       <div class="definition-prompt"><div class="side-label">WHACK THIS WORD</div><p>${escapeHtml(whackGame.answer.definition)}</p></div>
@@ -2435,7 +2524,9 @@
 
       if (correct) {
         whackGame.streak++;
-        const points = Math.max(100, Math.round(800 - whackGame.elapsed * 45)) + Math.min((whackGame.streak - 1) * 25, 200);
+        const responseTime = whackGame.answerShownAt ? (performance.now() - whackGame.answerShownAt) / 1000 : 0;
+        const scoringTime = Math.max(0, responseTime - 2);
+        const points = Math.max(100, Math.round(800 - scoringTime * 45)) + Math.min((whackGame.streak - 1) * 25, 200);
         whackGame.score += points;
         whackGame.feedback = `Great whack! +${points} points.`;
         whackGame.feedbackType = "correct";
@@ -2466,7 +2557,13 @@
       }, 1300);
     }));
 
+    root.querySelector("#pauseWhack").addEventListener("click", () => { playClickSound(); pauseWhackGame(); });
+    root.querySelector("#fullscreenWhack").addEventListener("click", toggleWhackFullscreen);
     root.querySelector("#newWhackGame").addEventListener("click", () => { playClickSound(); resetWhackGame(); render(); });
+  }
+
+  function toggleWhackFullscreen() {
+    app.classList.toggle("whack-fullscreen");
   }
 
   function toggleBubbleFullscreen() {
@@ -3141,6 +3238,9 @@
     if (document.hidden && view === "bubble" && !bubbleGame.paused && !bubbleGame.locked) {
       pauseBubbleGame();
     }
+    if (document.hidden && view === "whack" && !whackGame.paused && !whackGame.locked) {
+      pauseWhackGame();
+    }
   });
 
   document.addEventListener("fullscreenchange", () => {
@@ -3161,6 +3261,9 @@
           if (field) startBubblePhysics(field);
         });
       }
+    }
+    if (event.key === "Escape" && app.classList.contains("whack-fullscreen")) {
+      app.classList.remove("whack-fullscreen");
     }
   });
 
