@@ -741,6 +741,11 @@
     cursor: pointer;
   }
 
+  .sort-select {
+    flex-shrink: 0;
+    font-family: inherit;
+  }
+
   /* Games and Wordbound boss battle */
   .game-menu {
     width: 100%;
@@ -1427,6 +1432,14 @@
     return words.slice().sort((a, b) => a.word.localeCompare(b.word));
   }
 
+  function sortWords(list, order) {
+    const arr = list.slice();
+    if (order === "za") return arr.sort((a, b) => b.word.localeCompare(a.word));
+    if (order === "newest") return arr.reverse();
+    if (order === "oldest") return arr;
+    return arr.sort((a, b) => a.word.localeCompare(b.word));
+  }
+
   function randomSample(items, count) {
     const shuffled = items.slice();
     for (let i = shuffled.length - 1; i > 0; i--) {
@@ -1486,6 +1499,7 @@
   let view = "home"; // "home" | "practice" | "dictionary" | "games" | "bubble" | "whack" | "boss"
   let editingIndex = null;
   let showAddForm = false;
+  let sortOrder = "az"; // "az" | "za" | "newest" | "oldest"
 
   // practice session state
   let firstSide = "term"; // "term" | "definition"
@@ -2761,7 +2775,7 @@
   }
 
   function renderDictionary(root) {
-    const allWords = getAllWords();
+    const allWords = sortWords(words, sortOrder);
     const editingWord = editingIndex === null ? null : words[editingIndex];
 
     root.innerHTML = `
@@ -2778,6 +2792,12 @@
             placeholder="Search words or definitions"
             aria-label="Search dictionary"
           />
+          <select class="small-btn sort-select" id="sortSelect" aria-label="Sort dictionary">
+            <option value="az" ${sortOrder === "az" ? "selected" : ""}>A &rarr; Z</option>
+            <option value="za" ${sortOrder === "za" ? "selected" : ""}>Z &rarr; A</option>
+            <option value="newest" ${sortOrder === "newest" ? "selected" : ""}>Newest first</option>
+            <option value="oldest" ${sortOrder === "oldest" ? "selected" : ""}>Oldest first</option>
+          </select>
           <button class="small-btn" id="toggleAddBtn">${showAddForm ? 'Close' : '+ Add word'}</button>
         </div>
         ${showAddForm ? `
@@ -2819,6 +2839,12 @@
       playClickSound();
       showAddForm = !showAddForm;
       if (!showAddForm) editingIndex = null;
+      render();
+    });
+
+    root.querySelector("#sortSelect").addEventListener("change", (e) => {
+      playClickSound();
+      sortOrder = e.target.value;
       render();
     });
 
