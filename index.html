@@ -951,11 +951,8 @@
   .whack-game { width: 100%; display: flex; flex-direction: column; gap: 15px; }
   .whack-yard {
     position: relative;
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px 24px;
-    min-height: 440px;
-    padding: 150px 34px 22px;
+    width: 100%;
+    aspect-ratio: 1672 / 941;
     border-radius: 20px;
     border: 1px solid rgba(73, 95, 35, 0.24);
     background: url("assets/whack-field.png") center / cover no-repeat;
@@ -964,13 +961,21 @@
   }
 
   .mole-hole {
-    position: relative;
-    min-height: 145px;
+    position: absolute;
+    width: 26%;
+    height: 160px;
+    transform: translateX(-50%);
     overflow: hidden;
     display: flex;
     justify-content: center;
     align-items: flex-end;
   }
+
+  .mole-hole:nth-child(1), .mole-hole:nth-child(4) { left: 23.3%; }
+  .mole-hole:nth-child(2), .mole-hole:nth-child(5) { left: 50%; }
+  .mole-hole:nth-child(3), .mole-hole:nth-child(6) { left: 76.3%; }
+  .mole-hole:nth-child(-n+3) { bottom: 39.6%; }
+  .mole-hole:nth-child(n+4) { bottom: 20.6%; }
 
   .mole {
     position: absolute;
@@ -1025,9 +1030,9 @@
   .whack-feedback.wrong { color: var(--bad); }
 
   @media (max-width: 600px) {
-    .whack-yard { padding: 120px 8px 14px; gap: 8px; }
-    .mole-hole { min-height: 145px; }
-    .mole { width: 106px; height: 118px; padding: 76px 5px 8px; font-size: 11px; }
+    .mole-hole { width: 29%; height: 105px; }
+    .mole { width: 82px; height: 92px; padding: 57px 3px 6px; font-size: 9px; }
+    .mole-word { padding: 3px 5px; }
   }
   @media (pointer: coarse) {
     .whack-yard, .mole { cursor: pointer; }
@@ -1915,7 +1920,8 @@
 
     const showMole = (button, index) => {
       if (whackGame.locked || view !== "whack" || !button.isConnected) return;
-      if (visibleMoles.size >= 3) {
+      const columnBusy = [...visibleMoles].some((visibleIndex) => visibleIndex % 3 === index % 3);
+      if (visibleMoles.size >= 3 || columnBusy) {
         const retryTimer = setTimeout(() => showMole(button, index), 220);
         moleTimeouts.push(retryTimer);
         return;
