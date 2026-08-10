@@ -661,7 +661,8 @@
   }
 
   .add-form input,
-  .add-form textarea {
+  .add-form textarea,
+  .add-form select {
     font-size: 15px;
     padding: 10px;
     border: 1px solid var(--border);
@@ -669,6 +670,10 @@
     font-family: inherit;
     resize: vertical;
   }
+
+  .part-of-speech { display: inline-block; width: fit-content; margin: 3px 0 5px; padding: 3px 7px; border-radius: 999px; background: #e5f4f1; color: var(--brand-dark); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
+  .card-part-of-speech { margin: 9px auto 0; }
+  .battle-card-part { margin-top: 4px; color: var(--muted); font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
 
   .field-row {
     display: flex;
@@ -1673,11 +1678,34 @@
 
   builtInWords.push(...expandedBuiltInWords);
 
+  const partOfSpeechOverrides = {
+    empathy: "noun", conundrum: "noun", juxtapose: "verb", nuance: "noun", novice: "noun", paradox: "noun",
+    scrutinize: "verb", hinder: "verb", aberration: "noun", acquiesce: "verb", anomaly: "noun", debilitate: "verb",
+    deference: "noun", idiosyncrasy: "noun", mitigate: "verb", reconcile: "verb", substantiate: "verb", undermine: "verb",
+    abate: "verb", abdicate: "verb", abhor: "verb", adversity: "noun", advocate: "noun / verb", aesthetic: "adjective / noun",
+    alacrity: "noun", ameliorate: "verb", amicable: "adjective", anachronism: "noun", antipathy: "noun", apathy: "noun",
+    appease: "verb", articulate: "adjective / verb", ascetic: "adjective / noun", avarice: "noun", bastion: "noun", brevity: "noun",
+    candor: "noun", censure: "noun / verb", chide: "verb", coalesce: "verb", commend: "verb", concede: "verb",
+    contemplate: "verb", decorum: "noun", denounce: "verb", deride: "verb", embellish: "verb", emulate: "verb",
+    engender: "verb", equanimity: "noun", evoke: "verb", exacerbate: "verb", expedite: "verb", extol: "verb",
+    guile: "noun", inhibit: "verb", lament: "noun / verb", maverick: "noun", meander: "verb", myriad: "noun / adjective",
+    penchant: "noun", rancor: "noun", revere: "verb", tirade: "noun", vacillate: "verb", vindicate: "verb",
+    impair: "verb", incapacitate: "verb", sap: "verb", fortify: "verb", mend: "verb", focus: "noun / verb",
+    rally: "noun / verb", disrupt: "verb", refuge: "noun", haven: "noun", solace: "noun", replenish: "verb",
+    regenerate: "verb", revive: "verb", resuscitate: "verb", reinvigorate: "verb"
+  };
+
+  function defaultPartOfSpeech(word) {
+    return partOfSpeechOverrides[word.toLowerCase()] || "adjective";
+  }
+
+  builtInWords.forEach((item) => { item.partOfSpeech = defaultPartOfSpeech(item.word); });
+
   function loadWords() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
-        const saved = JSON.parse(raw);
+        let saved = JSON.parse(raw);
         if (localStorage.getItem(WORD_EXPANSION_KEY) !== "1") {
           const savedKeys = new Set(saved.map((item) => item.word.toLowerCase()));
           expandedBuiltInWords.forEach((item) => {
@@ -1686,6 +1714,14 @@
           localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
           localStorage.setItem(WORD_EXPANSION_KEY, "1");
         }
+        const defaultByWord = new Map(builtInWords.map((item) => [item.word.toLowerCase(), item.partOfSpeech]));
+        let addedParts = false;
+        saved = saved.map((item) => {
+          if (item.partOfSpeech) return item;
+          addedParts = true;
+          return { ...item, partOfSpeech: defaultByWord.get(item.word.toLowerCase()) || "Not specified" };
+        });
+        if (addedParts) localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
         return saved;
       }
     } catch (e) {}
@@ -1711,7 +1747,11 @@
     (legacyCustom || []).forEach((item) => {
       if (item && item.word && item.definition) merged.set(item.word.toLowerCase(), item);
     });
-    const initialWords = Array.from(merged.values());
+    const defaultByWord = new Map(builtInWords.map((item) => [item.word.toLowerCase(), item.partOfSpeech]));
+    const initialWords = Array.from(merged.values()).map((item) => ({
+      ...item,
+      partOfSpeech: item.partOfSpeech || defaultByWord.get(item.word.toLowerCase()) || "Not specified"
+    }));
     saveWords(initialWords);
     localStorage.setItem(WORD_EXPANSION_KEY, "1");
     return initialWords;
@@ -1845,7 +1885,7 @@
   let moleTimeouts = [];
   let visibleMoles = new Set();
 
-  const bw = (word, definition) => ({ word, definition });
+  const bw = (word, definition) => ({ word, definition, partOfSpeech: defaultPartOfSpeech(word) });
   const battleCards = [
     { id: "tackle", name: "Tackle", type: "attack", icon: "⚔️", cost: 1, effect: "Deal 6 damage.", words: [
       bw("Belligerent", "Hostile and eager to fight."), bw("Clandestine", "Kept secret or done secretly."), bw("Debilitate", "To make someone or something weak."), bw("Ephemeral", "Lasting for a very short time."), bw("Aggressive", "Ready or likely to attack or confront.")
@@ -1948,6 +1988,7 @@
       ? items.map((item) => `
           <div class="result-item">
             <div class="result-word">${escapeHtml(item.word)}</div>
+            <div class="part-of-speech">${escapeHtml(item.partOfSpeech || "Not specified")}</div>
             <div class="result-definition">${escapeHtml(item.definition)}</div>
           </div>
         `).join("")
@@ -2375,6 +2416,7 @@
     battleState.question = {
       uid,
       word: card.vocab.word,
+      partOfSpeech: card.vocab.partOfSpeech,
       correctDefinition: card.vocab.definition,
       choices: randomSample([card.vocab, ...decoys], choiceCount)
     };
@@ -2679,11 +2721,13 @@
       <div class="battle-message" aria-live="polite">${escapeHtml(battleState.message)}</div>
       ${battleState.question ? `<div class="question-panel" aria-labelledby="questionTitle">
         <h3 id="questionTitle">What does “${escapeHtml(battleState.question.word)}” mean?</h3>
+        <div class="part-of-speech">${escapeHtml(battleState.question.partOfSpeech || "Not specified")}</div>
         <p>Choose the correct definition to activate the card.</p>
         <div class="question-options">${battleState.question.choices.map((choice, index) => `<button class="question-option" data-answer-index="${index}">${escapeHtml(choice.definition)}</button>`).join("")}</div>
       </div>` : `<div class="battle-hand" aria-label="Your hand">
         ${battleState.hand.map((card) => `<button class="battle-card ${card.type} ${card.cost > battleState.energy ? "unaffordable" : ""}" data-card-uid="${card.uid}" ${card.cost > battleState.energy ? "disabled" : ""}>
           <span class="battle-card-cost">${card.cost}</span><span class="battle-card-word">${escapeHtml(card.vocab.word)}</span>
+          <span class="battle-card-part">${escapeHtml(card.vocab.partOfSpeech || "Not specified")}</span>
           <span class="battle-card-name">${escapeHtml(card.name)}</span><span class="battle-card-art">${card.icon}</span>
           <span class="battle-card-effect">${escapeHtml(card.effect)}</span>
         </button>`).join("")}
@@ -3201,6 +3245,7 @@
           <div>
             <div class="side-label">${frontLabel}</div>
             <div class="${frontIsTerm ? 'word' : 'definition'}">${escapeHtml(frontValue)}</div>
+            ${frontIsTerm ? `<div class="part-of-speech card-part-of-speech">${escapeHtml(current.partOfSpeech || "Not specified")}</div>` : ""}
             <div class="hint">Tap to flip</div>
           </div>
         </div>
@@ -3208,6 +3253,7 @@
           <div>
             <div class="side-label">${backLabel}</div>
             <div class="${frontIsTerm ? 'definition' : 'word'}">${escapeHtml(backValue)}</div>
+            ${!frontIsTerm ? `<div class="part-of-speech card-part-of-speech">${escapeHtml(current.partOfSpeech || "Not specified")}</div>` : ""}
             <div class="hint">Tap to flip back</div>
           </div>
         </div>
@@ -3372,6 +3418,21 @@
                 </svg>
               </button>
             </div>
+            <select id="newPart" aria-label="Part of speech">
+              <option value="noun">Noun</option>
+              <option value="verb">Verb</option>
+              <option value="adjective">Adjective</option>
+              <option value="adverb">Adverb</option>
+              <option value="pronoun">Pronoun</option>
+              <option value="preposition">Preposition</option>
+              <option value="conjunction">Conjunction</option>
+              <option value="interjection">Interjection</option>
+              <option value="noun / verb">Noun / verb</option>
+              <option value="adjective / noun">Adjective / noun</option>
+              <option value="adjective / verb">Adjective / verb</option>
+              <option value="noun / adjective">Noun / adjective</option>
+              <option value="phrase / other">Phrase / other</option>
+            </select>
             <div class="field-row">
               <textarea id="newDef" placeholder="Definition" rows="2"></textarea>
               <button type="button" class="mic-btn" id="micDef" aria-label="Dictate definition" title="Speak the definition">
@@ -3488,9 +3549,11 @@
     if (showAddForm) {
       const wordInput = root.querySelector("#newWord");
       const defInput = root.querySelector("#newDef");
+      const partInput = root.querySelector("#newPart");
       if (editingWord) {
         wordInput.value = editingWord.word;
         defInput.value = editingWord.definition;
+        partInput.value = editingWord.partOfSpeech || "phrase / other";
       }
       attachDictation(root.querySelector("#micWord"), wordInput);
       attachDictation(root.querySelector("#micDef"), defInput);
@@ -3503,6 +3566,7 @@
       root.querySelector("#addBtn").addEventListener("click", () => {
         const word = wordInput.value.trim();
         const definition = defInput.value.trim();
+        const partOfSpeech = partInput.value;
         if (!word || !definition) return;
         const duplicate = words.some(
           (item, i) => i !== editingIndex && item.word.toLowerCase() === word.toLowerCase()
@@ -3514,11 +3578,11 @@
         }
         playClickSound();
         if (editingIndex === null) {
-          words.push({ word, definition });
+          words.push({ word, definition, partOfSpeech });
         } else {
           const previousKey = words[editingIndex].word.toLowerCase();
           const wasSelected = selectedDictionaryKeys.delete(previousKey);
-          words[editingIndex] = { word, definition };
+          words[editingIndex] = { word, definition, partOfSpeech };
           if (wasSelected) selectedDictionaryKeys.add(word.toLowerCase());
         }
         saveWords(words);
@@ -3536,7 +3600,8 @@
       const normalized = query.trim().toLowerCase();
       const matches = allWords.filter((item) =>
         !normalized || item.word.toLowerCase().includes(normalized) ||
-        item.definition.toLowerCase().includes(normalized)
+        item.definition.toLowerCase().includes(normalized) ||
+        (item.partOfSpeech || "").toLowerCase().includes(normalized)
       );
 
       if (matches.length === 0) {
@@ -3551,7 +3616,7 @@
           <div class="deck-item">
             <label class="word-selector">
               <input type="checkbox" class="word-select-checkbox" data-index="${realIndex}" ${selectedDictionaryKeys.has(selectionKey) ? "checked" : ""} aria-label="Select ${escapeHtml(item.word)}">
-              <span class="deck-item-text"><span class="deck-item-word">${escapeHtml(item.word)}</span><span class="deck-item-def">${escapeHtml(item.definition)}</span></span>
+              <span class="deck-item-text"><span class="deck-item-word">${escapeHtml(item.word)}</span><span class="part-of-speech">${escapeHtml(item.partOfSpeech || "Not specified")}</span><span class="deck-item-def">${escapeHtml(item.definition)}</span></span>
             </label>
             <div class="deck-item-actions">
               <button class="edit-btn" data-index="${realIndex}" aria-label="Edit ${escapeHtml(item.word)}">Edit</button>
