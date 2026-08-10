@@ -1429,6 +1429,7 @@
   const SESSION_SIZE = 10;
   const FLASHCARD_SETTINGS_KEY = "vocabPracticeFlashcardSettings";
   const HIGH_SCORES_KEY = "vocabPracticeHighScores";
+  const WORD_EXPANSION_KEY = "vocabPracticeWordExpansion120";
   const defaultFlashcardSettings = { length: "standard", showPercentages: true, cardCount: SESSION_SIZE, firstSide: "term" };
   const defaultHighScores = { bubble: 0, whack: 0, wordboundTurns: null };
 
@@ -1539,10 +1540,146 @@
     { word: "Wary", definition: "Cautious about possible danger or problems." }
   ];
 
+  const expandedBuiltInWords = [
+    { word: "Abate", definition: "To become less intense or widespread." },
+    { word: "Abdicate", definition: "To give up a position of power or responsibility." },
+    { word: "Abhor", definition: "To regard with intense dislike or disgust." },
+    { word: "Abstruse", definition: "Difficult to understand; obscure." },
+    { word: "Adversity", definition: "A difficult or unpleasant situation." },
+    { word: "Advocate", definition: "To publicly support or recommend something." },
+    { word: "Aesthetic", definition: "Concerned with beauty or artistic appreciation." },
+    { word: "Affable", definition: "Friendly, approachable, and easy to talk to." },
+    { word: "Alacrity", definition: "Brisk and cheerful readiness." },
+    { word: "Ameliorate", definition: "To make something bad or unsatisfactory better." },
+    { word: "Amicable", definition: "Friendly and without disagreement." },
+    { word: "Anachronism", definition: "Something placed in a time period where it does not belong." },
+    { word: "Antipathy", definition: "A strong feeling of dislike." },
+    { word: "Apathy", definition: "A lack of interest, enthusiasm, or concern." },
+    { word: "Appease", definition: "To calm or satisfy someone by meeting their demands." },
+    { word: "Arduous", definition: "Requiring great effort; difficult and tiring." },
+    { word: "Articulate", definition: "Able to express ideas clearly and effectively." },
+    { word: "Ascetic", definition: "Practicing strict self-discipline and avoiding luxury." },
+    { word: "Astute", definition: "Having an ability to accurately assess situations." },
+    { word: "Audacious", definition: "Showing boldness and a willingness to take risks." },
+    { word: "Avarice", definition: "Extreme greed for wealth or material gain." },
+    { word: "Banal", definition: "So ordinary or overused that it lacks originality." },
+    { word: "Bastion", definition: "A place or institution that strongly protects an idea." },
+    { word: "Boisterous", definition: "Noisy, energetic, and cheerful." },
+    { word: "Brevity", definition: "Concise and exact use of words." },
+    { word: "Candor", definition: "The quality of being open and honest." },
+    { word: "Caustic", definition: "Sarcastic in a scathing and bitter way." },
+    { word: "Censure", definition: "To express severe disapproval of someone or something." },
+    { word: "Chide", definition: "To scold or rebuke someone mildly." },
+    { word: "Circumspect", definition: "Careful to consider every possible consequence." },
+    { word: "Coalesce", definition: "To come together and form one whole." },
+    { word: "Commend", definition: "To praise formally or publicly." },
+    { word: "Compelling", definition: "Powerfully convincing or irresistibly interesting." },
+    { word: "Concede", definition: "To admit that something is true after resisting it." },
+    { word: "Conscientious", definition: "Careful, responsible, and guided by a sense of duty." },
+    { word: "Contemplate", definition: "To think carefully about something for a long time." },
+    { word: "Contrite", definition: "Feeling and expressing remorse for wrongdoing." },
+    { word: "Convivial", definition: "Friendly, lively, and enjoyable." },
+    { word: "Cryptic", definition: "Having a meaning that is mysterious or difficult to understand." },
+    { word: "Cursory", definition: "Hasty and not thorough or detailed." },
+    { word: "Dauntless", definition: "Showing determination and an absence of fear." },
+    { word: "Decorum", definition: "Proper and polite behavior." },
+    { word: "Deleterious", definition: "Causing harm or damage." },
+    { word: "Demure", definition: "Reserved, modest, and shy in manner." },
+    { word: "Denounce", definition: "To publicly declare something to be wrong or evil." },
+    { word: "Deride", definition: "To express contempt for someone through ridicule." },
+    { word: "Despondent", definition: "In low spirits because of a loss of hope." },
+    { word: "Didactic", definition: "Intended to teach, sometimes in an overly instructive way." },
+    { word: "Diffident", definition: "Modest or shy because of a lack of confidence." },
+    { word: "Disparate", definition: "Essentially different in kind; not comparable." },
+    { word: "Dogmatic", definition: "Expressing opinions as unquestionably true." },
+    { word: "Dubious", definition: "Doubtful or uncertain." },
+    { word: "Ebullient", definition: "Cheerful and full of energy." },
+    { word: "Efficacious", definition: "Successful in producing the intended result." },
+    { word: "Elated", definition: "Extremely happy and excited." },
+    { word: "Elusive", definition: "Difficult to find, catch, or achieve." },
+    { word: "Embellish", definition: "To make something more attractive by adding details." },
+    { word: "Emulate", definition: "To match or surpass someone by imitation." },
+    { word: "Enervate", definition: "To cause someone to feel drained of energy." },
+    { word: "Engender", definition: "To cause or give rise to a feeling or condition." },
+    { word: "Equanimity", definition: "Mental calmness, especially in a difficult situation." },
+    { word: "Esoteric", definition: "Understood by only a small group with specialized knowledge." },
+    { word: "Evoke", definition: "To bring a feeling, memory, or image to mind." },
+    { word: "Exacerbate", definition: "To make a problem or situation worse." },
+    { word: "Exemplary", definition: "Serving as an excellent model or example." },
+    { word: "Expedite", definition: "To make an action or process happen sooner." },
+    { word: "Explicit", definition: "Stated clearly and in detail, leaving no confusion." },
+    { word: "Extol", definition: "To praise enthusiastically." },
+    { word: "Facetious", definition: "Treating a serious issue with deliberately inappropriate humor." },
+    { word: "Fallacious", definition: "Based on a mistaken belief or unsound reasoning." },
+    { word: "Fervent", definition: "Having or displaying passionate intensity." },
+    { word: "Flagrant", definition: "Conspicuously offensive or obviously wrong." },
+    { word: "Formidable", definition: "Inspiring fear or respect through great strength." },
+    { word: "Garrulous", definition: "Excessively talkative, especially about unimportant matters." },
+    { word: "Gratuitous", definition: "Unnecessary or given without a good reason." },
+    { word: "Guile", definition: "Clever and often deceptive intelligence." },
+    { word: "Hapless", definition: "Unfortunate or unlucky." },
+    { word: "Imminent", definition: "About to happen very soon." },
+    { word: "Immutable", definition: "Unable to be changed." },
+    { word: "Impetuous", definition: "Acting quickly without thought or care." },
+    { word: "Inane", definition: "Silly, pointless, or lacking meaning." },
+    { word: "Incisive", definition: "Clear, direct, and intelligently analytical." },
+    { word: "Indignant", definition: "Angered by something perceived as unfair." },
+    { word: "Indolent", definition: "Wanting to avoid activity or exertion; lazy." },
+    { word: "Ineffable", definition: "Too great or extreme to be expressed in words." },
+    { word: "Inhibit", definition: "To hinder, restrain, or prevent an action." },
+    { word: "Innate", definition: "Existing naturally from birth rather than learned." },
+    { word: "Insidious", definition: "Proceeding gradually while causing harmful effects." },
+    { word: "Judicious", definition: "Showing sensible and careful judgment." },
+    { word: "Lament", definition: "To express sorrow, regret, or disappointment." },
+    { word: "Loquacious", definition: "Tending to talk a great deal." },
+    { word: "Malevolent", definition: "Having or showing a desire to cause harm." },
+    { word: "Maverick", definition: "An independent-minded person who rejects convention." },
+    { word: "Meander", definition: "To follow a winding course or wander without direction." },
+    { word: "Mercurial", definition: "Subject to sudden and unpredictable changes of mood." },
+    { word: "Morose", definition: "Sullen, gloomy, or bad-tempered." },
+    { word: "Myriad", definition: "A countless or extremely great number." },
+    { word: "Nonchalant", definition: "Appearing casually calm and unconcerned." },
+    { word: "Ominous", definition: "Suggesting that something bad is going to happen." },
+    { word: "Opulent", definition: "Rich, luxurious, and lavish." },
+    { word: "Pedantic", definition: "Overly concerned with minor details or rules." },
+    { word: "Penchant", definition: "A strong or habitual liking for something." },
+    { word: "Pernicious", definition: "Having a harmful effect, especially gradually." },
+    { word: "Precarious", definition: "Not securely held and likely to become dangerous." },
+    { word: "Prescient", definition: "Having knowledge of events before they happen." },
+    { word: "Prosaic", definition: "Ordinary and lacking imagination or excitement." },
+    { word: "Rancor", definition: "A lasting feeling of bitterness or resentment." },
+    { word: "Reclusive", definition: "Avoiding the company of other people." },
+    { word: "Redundant", definition: "No longer needed or unnecessarily repetitive." },
+    { word: "Revere", definition: "To feel deep respect or admiration for something." },
+    { word: "Robust", definition: "Strong, healthy, and able to withstand difficulty." },
+    { word: "Sanguine", definition: "Optimistic, especially in a difficult situation." },
+    { word: "Skeptical", definition: "Not easily convinced; having doubts." },
+    { word: "Stoic", definition: "Enduring hardship without showing distress." },
+    { word: "Subtle", definition: "Delicate or precise and not immediately obvious." },
+    { word: "Terse", definition: "Using few words, sometimes seeming unfriendly." },
+    { word: "Tirade", definition: "A long, angry speech of criticism." },
+    { word: "Vacillate", definition: "To alternate between different opinions or actions." },
+    { word: "Vehement", definition: "Showing strong and forceful feeling." },
+    { word: "Vindicate", definition: "To clear someone of blame or suspicion." }
+  ];
+
+  builtInWords.push(...expandedBuiltInWords);
+
   function loadWords() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) return JSON.parse(raw);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        if (localStorage.getItem(WORD_EXPANSION_KEY) !== "1") {
+          const savedKeys = new Set(saved.map((item) => item.word.toLowerCase()));
+          expandedBuiltInWords.forEach((item) => {
+            if (!savedKeys.has(item.word.toLowerCase())) saved.push({ ...item });
+          });
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+          localStorage.setItem(WORD_EXPANSION_KEY, "1");
+        }
+        return saved;
+      }
     } catch (e) {}
 
     let legacyCustom = [];
@@ -1568,6 +1705,7 @@
     });
     const initialWords = Array.from(merged.values());
     saveWords(initialWords);
+    localStorage.setItem(WORD_EXPANSION_KEY, "1");
     return initialWords;
   }
 
@@ -1653,6 +1791,7 @@
   let editingIndex = null;
   let showAddForm = false;
   let sortOrder = "az"; // "az" | "za" | "newest" | "oldest"
+  let dictionarySearchQuery = "";
   let selectedDictionaryKeys = new Set();
   let practiceWordPool = null;
   let bubbleWordPool = null;
@@ -3151,6 +3290,7 @@
             type="search"
             placeholder="Search words or definitions"
             aria-label="Search dictionary"
+            value="${escapeHtml(dictionarySearchQuery)}"
           />
           <select class="small-btn sort-select" id="sortSelect" aria-label="Sort dictionary">
             <option value="az" ${sortOrder === "az" ? "selected" : ""}>A &rarr; Z</option>
@@ -3401,6 +3541,8 @@
       list.querySelectorAll(".delete-btn").forEach((btn) => {
         btn.addEventListener("click", () => {
           playClickSound();
+          const listScrollPosition = list.scrollTop;
+          const pageScrollPosition = window.scrollY;
           const i = parseInt(btn.getAttribute("data-index"), 10);
           selectedDictionaryKeys.delete(words[i].word.toLowerCase());
           words.splice(i, 1);
@@ -3413,12 +3555,20 @@
           saveWords(words);
           generateNewSession();
           render();
+          requestAnimationFrame(() => {
+            const refreshedList = document.getElementById("deckList");
+            if (refreshedList) refreshedList.scrollTop = listScrollPosition;
+            window.scrollTo(0, pageScrollPosition);
+          });
         });
       });
     }
 
-    search.addEventListener("input", () => drawList(search.value));
-    drawList();
+    search.addEventListener("input", () => {
+      dictionarySearchQuery = search.value;
+      drawList(dictionarySearchQuery);
+    });
+    drawList(dictionarySearchQuery);
     updateSelectionTray();
   }
 
