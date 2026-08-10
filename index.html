@@ -229,8 +229,9 @@
 
   .settings-panel {
     position: fixed;
-    top: 90px;
-    right: 24px;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
     width: 420px;
     max-width: calc(100vw - 48px);
     padding: 18px;
@@ -254,7 +255,7 @@
   .setting-toggle { flex-direction: row; justify-content: space-between; align-items: center; grid-column: 1 / -1; padding-top: 4px; }
 
   @media (max-width: 480px) {
-    .settings-panel { top: 24px; right: 24px; left: 24px; width: auto; }
+    .settings-panel { top: 24px; right: 24px; left: 24px; width: auto; transform: none; }
   }
   .switch { position: relative; width: 48px; height: 27px; flex: 0 0 auto; }
   .switch input { opacity: 0; width: 0; height: 0; }
