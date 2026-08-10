@@ -745,7 +745,7 @@
   .game-menu {
     width: 100%;
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 18px;
   }
 
@@ -893,6 +893,7 @@
   #battleAgain { padding: 14px 28px; margin-top: 8px; }
 
   @media (max-width: 850px) {
+    .game-menu { grid-template-columns: 1fr; }
     .battle-hand { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .battle-card { min-height: 210px; }
   }
@@ -904,6 +905,85 @@
     .combatant-figure { font-size: 52px; }
     .battle-hand { grid-template-columns: 1fr; }
     .battle-card { min-height: 170px; }
+  }
+
+  /* Whack-a-Word game */
+  .whack-game { width: 100%; display: flex; flex-direction: column; gap: 15px; }
+  .whack-yard {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 22px 28px;
+    min-height: 440px;
+    padding: 34px 32px 24px;
+    border-radius: 20px;
+    border: 1px solid rgba(73, 95, 35, 0.24);
+    background:
+      radial-gradient(circle at 50% 110%, rgba(244, 205, 92, 0.45), transparent 42%),
+      linear-gradient(180deg, #bce7ee 0 32%, #88bf62 32% 100%);
+    overflow: hidden;
+  }
+
+  .mole-hole {
+    position: relative;
+    min-height: 170px;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+  }
+
+  .mole-hole::after {
+    content: "";
+    position: absolute;
+    left: 8%;
+    right: 8%;
+    bottom: 5px;
+    height: 38px;
+    border-radius: 50%;
+    background: #3f3025;
+    box-shadow: inset 0 8px 10px rgba(0,0,0,0.42), 0 5px 0 rgba(55, 87, 35, 0.5);
+    z-index: 4;
+  }
+
+  .mole {
+    position: absolute;
+    bottom: 17px;
+    z-index: 1;
+    width: 128px;
+    height: 130px;
+    padding: 42px 12px 16px;
+    border: 0;
+    border-radius: 55% 55% 38% 38%;
+    background: linear-gradient(145deg, #956a45, #654126);
+    color: white;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 850;
+    line-height: 1.12;
+    cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32'%3E%3Ctext y='25' font-size='25'%3E🔨%3C/text%3E%3C/svg%3E") 8 25, pointer;
+    transform: translateY(125%);
+    transition: transform 180ms cubic-bezier(0.22, 0.8, 0.32, 1);
+    box-shadow: inset 8px 8px 12px rgba(255,255,255,0.12), 0 9px 15px rgba(43, 38, 24, 0.22);
+  }
+
+  .mole::before,
+  .mole::after { content: ""; position: absolute; top: 17px; width: 12px; height: 12px; border-radius: 50%; background: #17120f; box-shadow: 0 0 0 3px #d7b48e; }
+  .mole::before { left: 31px; }
+  .mole::after { right: 31px; }
+  .mole.up { transform: translateY(0); z-index: 3; }
+  .mole:disabled { cursor: default; }
+  .mole.bonked { transform: translateY(8px) scale(0.88) rotate(-5deg); background: #ef4444; }
+  .mole.correct-mole { background: #22a65a; box-shadow: 0 0 0 8px rgba(34,166,90,0.2), 0 10px 24px rgba(22,101,52,0.34); }
+  .mole-word { position: relative; z-index: 1; overflow-wrap: anywhere; }
+
+  .whack-feedback { min-height: 24px; text-align: center; font-weight: 800; }
+  .whack-feedback.correct { color: var(--good); }
+  .whack-feedback.wrong { color: var(--bad); }
+
+  @media (max-width: 600px) {
+    .whack-yard { grid-template-columns: repeat(2, 1fr); padding: 22px 14px; gap: 14px; }
+    .mole-hole { min-height: 155px; }
+    .mole { width: 112px; height: 118px; font-size: 12px; }
   }
 
   /* Bubble Shot game */
@@ -1403,7 +1483,7 @@
 
   let words = loadWords();
   let deck = randomSample(getAllWords(), SESSION_SIZE);
-  let view = "home"; // "home" | "practice" | "dictionary" | "games" | "bubble" | "boss"
+  let view = "home"; // "home" | "practice" | "dictionary" | "games" | "bubble" | "whack" | "boss"
   let editingIndex = null;
   let showAddForm = false;
 
@@ -1434,6 +1514,15 @@
   let bubbleTimerId = null;
   let bubblePhysicsFrame = null;
   let bubblePhysicsBodies = [];
+
+  let whackGame = {
+    score: 0, streak: 0, answer: null, choices: [],
+    elapsed: 0, roundStartedAt: 0, locked: false,
+    feedback: "", feedbackType: ""
+  };
+  let whackTimerId = null;
+  let moleTimeouts = [];
+  let visibleMoles = new Set();
 
   const bw = (word, definition) => ({ word, definition });
   const battleCards = [
@@ -1581,6 +1670,7 @@
     bubbleGame.paused = true;
     stopBubbleTimer();
     stopBubblePhysics();
+    stopWhackTimers();
     if (shouldRender && view === "bubble") render();
   }
 
@@ -1701,6 +1791,77 @@
     bubbleGame.streak = 0;
     bubbleGame.paused = false;
     createBubbleRound();
+  }
+
+  function stopWhackTimers() {
+    if (whackTimerId) clearInterval(whackTimerId);
+    whackTimerId = null;
+    moleTimeouts.forEach(clearTimeout);
+    moleTimeouts = [];
+    visibleMoles.clear();
+  }
+
+  function createWhackRound() {
+    const pool = getAllWords();
+    if (pool.length < 6) {
+      whackGame.answer = null;
+      whackGame.choices = [];
+      return;
+    }
+    const answer = pool[Math.floor(Math.random() * pool.length)];
+    const decoys = randomSample(pool.filter((item) => item.word.toLowerCase() !== answer.word.toLowerCase()), 5);
+    whackGame.answer = answer;
+    whackGame.choices = randomSample([answer, ...decoys], 6);
+    whackGame.elapsed = 0;
+    whackGame.roundStartedAt = performance.now();
+    whackGame.locked = false;
+    whackGame.feedback = "";
+    whackGame.feedbackType = "";
+  }
+
+  function resetWhackGame() {
+    stopWhackTimers();
+    whackGame.score = 0;
+    whackGame.streak = 0;
+    createWhackRound();
+  }
+
+  function scheduleMoleCycles(root) {
+    stopWhackTimers();
+    const moleButtons = [...root.querySelectorAll(".mole")];
+
+    const scheduleUnderground = (button, index) => {
+      if (whackGame.locked || view !== "whack" || !button.isConnected) return;
+      button.classList.remove("up");
+      button.disabled = true;
+      visibleMoles.delete(index);
+      const undergroundTime = 2000 + Math.random() * 1000;
+      const undergroundTimer = setTimeout(() => showMole(button, index), undergroundTime);
+      moleTimeouts.push(undergroundTimer);
+    };
+
+    const showMole = (button, index) => {
+      if (whackGame.locked || view !== "whack" || !button.isConnected) return;
+      if (visibleMoles.size >= 3) {
+        const retryTimer = setTimeout(() => showMole(button, index), 220);
+        moleTimeouts.push(retryTimer);
+        return;
+      }
+      visibleMoles.add(index);
+      button.classList.add("up");
+      button.disabled = false;
+      const visibleTime = 1000 + Math.random() * 1000;
+      const visibleTimer = setTimeout(() => scheduleUnderground(button, index), visibleTime);
+      moleTimeouts.push(visibleTimer);
+    };
+
+    moleButtons.forEach((button, index) => scheduleUnderground(button, index));
+    whackTimerId = setInterval(() => {
+      const timer = root.querySelector("#whackTimer");
+      if (!timer || whackGame.locked || view !== "whack") return stopWhackTimers();
+      whackGame.elapsed = (performance.now() - whackGame.roundStartedAt) / 1000;
+      timer.textContent = `${whackGame.elapsed.toFixed(1)}s`;
+    }, 100);
   }
 
   function shuffleBattleDeck(items) {
@@ -1943,7 +2104,7 @@
       return;
     }
 
-    const backToGames = view === "bubble" || view === "boss";
+    const backToGames = view === "bubble" || view === "whack" || view === "boss";
     app.innerHTML = `
       <button class="back-home-btn" id="backHome">&#8249; Back to ${backToGames ? "Games" : "Home"}</button>
       <div id="viewRoot" style="width:100%;display:flex;flex-direction:column;align-items:center;gap:20px;"></div>
@@ -1964,6 +2125,8 @@
       renderGameMenu(root);
     } else if (view === "bubble") {
       renderGames(root);
+    } else if (view === "whack") {
+      renderWhackGame(root);
     } else if (view === "boss") {
       renderBossBattle(root);
     }
@@ -2052,6 +2215,10 @@
           <span class="game-choice-icon">🐉</span><strong>Wordbound</strong>
           <span>Answer vocabulary questions to activate cards and defeat the boss.</span>
         </button>
+        <button class="game-choice" id="playWhackWord">
+          <span class="game-choice-icon">🔨</span><strong>Whack-a-Word</strong>
+          <span>Whack the popping mole whose word matches the definition.</span>
+        </button>
       </section>`;
     root.querySelector("#playBubbleShot").addEventListener("click", () => {
       playClickSound(); view = "bubble";
@@ -2060,6 +2227,9 @@
     });
     root.querySelector("#playBossBattle").addEventListener("click", () => {
       playClickSound(); view = "boss"; startBossBattle(); render();
+    });
+    root.querySelector("#playWhackWord").addEventListener("click", () => {
+      playClickSound(); view = "whack"; resetWhackGame(); render();
     });
   }
 
@@ -2132,6 +2302,78 @@
       const choice = battleState.question.choices[Number(button.dataset.answerIndex)];
       resolveBattleQuestion(choice.definition);
     }));
+  }
+
+  function renderWhackGame(root) {
+    if (!whackGame.answer) createWhackRound();
+    if (!whackGame.answer) {
+      root.innerHTML = `<div class="empty-state">Add at least six words in the Dictionary to play Whack-a-Word.</div>`;
+      return;
+    }
+
+    root.innerHTML = `<section class="whack-game" aria-labelledby="whackTitle">
+      <div class="game-heading">
+        <div><h2 id="whackTitle">Whack-a-Word</h2><p>Wait for the matching word to pop out, then whack it.</p></div>
+        <div class="game-stats" aria-label="Whack-a-Word score">
+          <div class="stat-pill"><strong id="whackScore">${whackGame.score}</strong><span>Score</span></div>
+          <div class="stat-pill"><strong id="whackStreak">${whackGame.streak}</strong><span>Streak</span></div>
+          <div class="stat-pill"><strong id="whackTimer">${whackGame.elapsed.toFixed(1)}s</strong><span>Time</span></div>
+        </div>
+      </div>
+      <div class="definition-prompt"><div class="side-label">WHACK THIS WORD</div><p>${escapeHtml(whackGame.answer.definition)}</p></div>
+      <div class="whack-yard" aria-label="Mole holes">
+        ${whackGame.choices.map((choice, index) => `<div class="mole-hole"><button class="mole" data-mole-index="${index}" disabled aria-label="Whack ${escapeHtml(choice.word)}"><span class="mole-word">${escapeHtml(choice.word)}</span></button></div>`).join("")}
+      </div>
+      <div class="whack-feedback ${whackGame.feedbackType}" aria-live="polite">${escapeHtml(whackGame.feedback)}</div>
+      <div class="game-footer"><button class="small-btn" id="newWhackGame">New game</button></div>
+    </section>`;
+
+    scheduleMoleCycles(root);
+    root.querySelectorAll(".mole").forEach((button) => button.addEventListener("click", () => {
+      if (whackGame.locked || button.disabled || !button.classList.contains("up")) return;
+      const index = Number(button.dataset.moleIndex);
+      const choice = whackGame.choices[index];
+      const correct = choice.word === whackGame.answer.word;
+      whackGame.locked = true;
+      whackGame.elapsed = (performance.now() - whackGame.roundStartedAt) / 1000;
+      stopWhackTimers();
+      button.classList.add("bonked", "up");
+      root.querySelectorAll(".mole").forEach((mole) => { mole.disabled = true; });
+
+      if (correct) {
+        whackGame.streak++;
+        const points = Math.max(100, Math.round(800 - whackGame.elapsed * 45)) + Math.min((whackGame.streak - 1) * 25, 200);
+        whackGame.score += points;
+        whackGame.feedback = `Great whack! +${points} points.`;
+        whackGame.feedbackType = "correct";
+        button.classList.add("correct-mole");
+        playGotItSound();
+      } else {
+        whackGame.streak = 0;
+        const lost = Math.min(100, whackGame.score);
+        whackGame.score = Math.max(0, whackGame.score - 100);
+        whackGame.feedback = `Wrong mole${lost ? `: -${lost} points` : ""}. The answer is ${whackGame.answer.word}.`;
+        whackGame.feedbackType = "wrong";
+        const answerIndex = whackGame.choices.findIndex((item) => item.word === whackGame.answer.word);
+        root.querySelector(`.mole[data-mole-index="${answerIndex}"]`)?.classList.add("up", "correct-mole");
+        playDontKnowSound();
+      }
+
+      root.querySelector("#whackScore").textContent = whackGame.score;
+      root.querySelector("#whackStreak").textContent = whackGame.streak;
+      root.querySelector("#whackTimer").textContent = `${whackGame.elapsed.toFixed(1)}s`;
+      const feedback = root.querySelector(".whack-feedback");
+      feedback.className = `whack-feedback ${whackGame.feedbackType}`;
+      feedback.textContent = whackGame.feedback;
+      setTimeout(() => {
+        if (view === "whack" && whackGame.locked) {
+          createWhackRound();
+          render();
+        }
+      }, 1300);
+    }));
+
+    root.querySelector("#newWhackGame").addEventListener("click", () => { playClickSound(); resetWhackGame(); render(); });
   }
 
   function toggleBubbleFullscreen() {
