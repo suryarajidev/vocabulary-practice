@@ -519,6 +519,13 @@
   .percentage-card.correct { background: #dcfce7; color: var(--good); }
   .percentage-card.incorrect { background: #fee2e2; color: var(--bad); }
 
+  .completion-games { width: 100%; padding: 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--card-bg); }
+  .completion-games h3 { margin: 0 0 4px; }
+  .completion-games p { margin: 0 0 12px; color: var(--muted); font-size: 13px; }
+  .completion-game-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+  .completion-game-actions button { padding: 12px 10px; }
+  .completion-game-actions button:disabled { opacity: .44; cursor: not-allowed; }
+
   .results-review h3 {
     margin: 4px 0;
     text-align: center;
@@ -1002,6 +1009,7 @@
     .selection-actions { justify-content: flex-start; }
     .dictionary-toolbar { flex-wrap: wrap; }
     .dictionary-maintenance { justify-content: flex-start; }
+    .completion-game-actions { grid-template-columns: 1fr; }
     .game-menu, .question-options { grid-template-columns: 1fr; }
     .combatant-row { align-items: flex-end; }
     .combatant { width: 46%; }
@@ -1796,6 +1804,7 @@
   let practiceWordPool = null;
   let bubbleWordPool = null;
   let whackWordPool = null;
+  let battleWordPool = null;
 
   // practice session state
   let firstSide = flashcardSettings.firstSide; // "term" | "definition"
@@ -2228,8 +2237,9 @@
 
   function createBattleCard(card, uid) {
     const dictionary = getAllWords();
-    const useDictionaryWord = dictionary.length && Math.random() < 0.25;
-    const vocabPool = useDictionaryWord ? dictionary : card.words;
+    const useSessionWord = battleWordPool && battleWordPool.length;
+    const useDictionaryWord = !useSessionWord && dictionary.length && Math.random() < 0.25;
+    const vocabPool = useSessionWord ? battleWordPool : useDictionaryWord ? dictionary : card.words;
     return { ...card, uid, vocab: vocabPool[Math.floor(Math.random() * vocabPool.length)], dictionaryWord: useDictionaryWord };
   }
 
@@ -2354,7 +2364,8 @@
       return;
     }
     const choiceCount = battleState.focusNext ? 2 : 4;
-    const questionWords = [...allBattleWords, ...getAllWords()].filter((item, index, items) =>
+    const questionSource = battleWordPool && battleWordPool.length >= choiceCount ? battleWordPool : [...allBattleWords, ...getAllWords()];
+    const questionWords = questionSource.filter((item, index, items) =>
       items.findIndex((candidate) => candidate.word.toLowerCase() === item.word.toLowerCase()) === index
     );
     const decoys = randomSample(
@@ -2606,7 +2617,7 @@
       render();
     });
     root.querySelector("#playBossBattle").addEventListener("click", () => {
-      playClickSound(); view = "boss"; startBossBattle(); render();
+      playClickSound(); view = "boss"; battleWordPool = null; startBossBattle(); render();
     });
     root.querySelector("#playWhackWord").addEventListener("click", () => {
       playClickSound(); view = "whack"; whackWordPool = null; resetWhackGame(); render();
@@ -3076,6 +3087,7 @@
       const missedIndices = Object.keys(results)
         .filter((k) => results[k] !== "gotit")
         .map(Number);
+      const completedWords = order.map((index) => deck[index]).filter(Boolean);
       const totalCards = order.length;
       const correctPercent = totalCards ? Math.round((score.gotit / totalCards) * 100) : 0;
       const incorrectPercent = 100 - correctPercent;
@@ -3089,6 +3101,15 @@
         ${flashcardSettings.showPercentages ? `<div class="percentage-summary"><div class="percentage-card correct"><strong>${correctPercent}%</strong>Correct</div><div class="percentage-card incorrect"><strong>${incorrectPercent}%</strong>Incorrect</div></div>` : ""}
         <button class="accent-btn restart-btn" id="restart">&#8635; Practice again</button>
         ${missedIndices.length > 0 ? `<button class="missed-btn" id="practiceMissed">Practice missed &amp; skipped (${missedIndices.length})</button>` : ""}
+        <div class="completion-games">
+          <h3>Keep playing with this deck</h3>
+          <p>Use these ${completedWords.length} words in a game.</p>
+          <div class="completion-game-actions">
+            <button class="small-btn" id="deckBubble" ${completedWords.length < 4 ? "disabled" : ""}>🫧 Bubble Shot</button>
+            <button class="small-btn" id="deckWhack" ${completedWords.length < 6 ? "disabled" : ""}>🔨 Whack-a-Word</button>
+            <button class="small-btn" id="deckWordbound">🐉 Wordbound</button>
+          </div>
+        </div>
         <div class="results-review">
           <h3>Review your words</h3>
           <div class="results-columns">
@@ -3117,6 +3138,29 @@
           render();
         });
       }
+      done.querySelector("#deckBubble").addEventListener("click", () => {
+        if (completedWords.length < 4) return;
+        playClickSound();
+        bubbleWordPool = completedWords;
+        resetBubbleGame();
+        view = "bubble";
+        render();
+      });
+      done.querySelector("#deckWhack").addEventListener("click", () => {
+        if (completedWords.length < 6) return;
+        playClickSound();
+        whackWordPool = completedWords;
+        resetWhackGame();
+        view = "whack";
+        render();
+      });
+      done.querySelector("#deckWordbound").addEventListener("click", () => {
+        playClickSound();
+        battleWordPool = completedWords;
+        startBossBattle();
+        view = "boss";
+        render();
+      });
       return;
     }
 
