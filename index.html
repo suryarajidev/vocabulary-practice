@@ -23,6 +23,28 @@
     --chip-bg: #e1f5ee;
   }
 
+  [data-theme="dark"] {
+    --bg: #15201c;
+    --text: #eef2ef;
+    --muted: #93a8a0;
+    --card-bg: #1c2b26;
+    --border: #2c3d37;
+    --accent: #2dd4bf;
+    --teal: #2dd4bf;
+    --good: #4ade80;
+    --almost: #fbbf24;
+    --bad: #f87171;
+    --brand-dark: #eef2ef;
+    --brand-muted: #93a8a0;
+    --brand-icon: #5eead4;
+    --teal-hero: #114f3f;
+    --chip-bg: #1f3b34;
+  }
+
+  [data-theme="dark"] .card-back { background: #16332c; }
+  [data-theme="dark"] .home-card { background: linear-gradient(160deg, #223530, var(--card-bg)); }
+  [data-theme="dark"] .streak-pill { background: linear-gradient(160deg, #3a2f1a, var(--card-bg)); }
+
   * { box-sizing: border-box; }
 
   button,
@@ -1556,7 +1578,7 @@
   const defaultHighScores = { bubble: 0, whack: 0, wordboundTurns: null };
   const defaultProgress = { sessionsCompleted: 0, gotit: 0, almost: 0, dontknow: 0 };
   const defaultStreak = { count: 0, lastDate: null };
-  const defaultAppSettings = { soundEnabled: true };
+  const defaultAppSettings = { soundEnabled: true, theme: "light" };
 
   function loadFlashcardSettings() {
     try {
@@ -1633,6 +1655,10 @@
 
   function saveAppSettings() {
     localStorage.setItem(APP_SETTINGS_KEY, JSON.stringify(appSettings));
+  }
+
+  function applyTheme() {
+    document.documentElement.setAttribute("data-theme", appSettings.theme === "dark" ? "dark" : "light");
   }
 
   const builtInWords = [
@@ -2004,6 +2030,7 @@
   let streak = loadStreak();
   let appSettings = loadAppSettings();
   let appSettingsOpen = false;
+  applyTheme();
   updateStreak();
   let deck = randomSample(getAllWords(), flashcardSettings.cardCount);
   let view = "home"; // "home" | "practice" | "dictionary" | "games" | "bubble" | "whack" | "boss" | "memory" | "progress"
@@ -2819,6 +2846,13 @@
               <span class="switch-slider"></span>
             </label>
           </div>
+          <div class="setting-field setting-toggle" style="margin-bottom: 14px;">
+            <span>Dark mode</span>
+            <label class="switch">
+              <input type="checkbox" id="themeSetting" ${appSettings.theme === "dark" ? "checked" : ""}>
+              <span class="switch-slider"></span>
+            </label>
+          </div>
           <button class="missed-btn" id="resetProgressBtn" style="width:100%;">Reset progress &amp; high scores</button>
         </div>
       ` : ""}
@@ -2911,6 +2945,12 @@
         saveAppSettings();
         if (appSettings.soundEnabled) playClickSound();
       });
+      app.querySelector("#themeSetting").addEventListener("change", (event) => {
+        appSettings.theme = event.target.checked ? "dark" : "light";
+        saveAppSettings();
+        applyTheme();
+        playClickSound();
+      });
       app.querySelector("#resetProgressBtn").addEventListener("click", () => {
         if (!confirm("Reset all progress, streak, and high scores? This can't be undone.")) return;
         progressStats = { ...defaultProgress };
@@ -2933,13 +2973,9 @@
       <div class="progress-view">
         <h2>Your progress</h2>
         <div class="progress-grid">
-          <div class="progress-card"><strong>${streak.count}</strong><span>Day streak</span></div>
           <div class="progress-card"><strong>${getAllWords().length}</strong><span>Words in dictionary</span></div>
-          <div class="progress-card"><strong>${progressStats.sessionsCompleted}</strong><span>Flashcard sessions</span></div>
-          <div class="progress-card"><strong>${totalReviewed}</strong><span>Cards reviewed</span></div>
-          <div class="progress-card"><strong>${progressStats.gotit}</strong><span>Got it</span></div>
-          <div class="progress-card"><strong>${progressStats.almost}</strong><span>Almost</span></div>
-          <div class="progress-card"><strong>${progressStats.dontknow}</strong><span>Didn't know</span></div>
+          <div class="progress-card"><strong>${progressStats.gotit}</strong><span>Words mastered</span></div>
+          <div class="progress-card"><strong>${totalReviewed}</strong><span>Flashcards reviewed</span></div>
           <div class="progress-card"><strong>${highScores.bubble}</strong><span>Bubble Shot best</span></div>
           <div class="progress-card"><strong>${highScores.whack}</strong><span>Whack-a-Word best</span></div>
           <div class="progress-card"><strong>${highScores.wordboundTurns ?? "—"}</strong><span>Best Wordbound win</span></div>
