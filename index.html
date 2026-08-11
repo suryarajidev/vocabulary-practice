@@ -997,7 +997,7 @@
 
   .game-choice-icon { display: block; font-size: 42px; margin-bottom: 22px; }
   .game-choice strong { display: block; font-size: 23px; margin-bottom: 8px; color: var(--text); }
-  .game-choice span:last-child { color: var(--muted); line-height: 1.5; }
+  .game-choice-desc { color: var(--muted); line-height: 1.5; }
 
   .memory-game { width: 100%; display: flex; flex-direction: column; gap: 15px; }
   .memory-scoreboard { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; }
@@ -3010,22 +3010,22 @@
         </div>
         <button class="game-choice" id="playBubbleShot">
           <span class="game-choice-icon">🫧</span><strong>Bubble Shot</strong>
-          <span>Aim at the moving bubble that matches the definition.</span>
+          <span class="game-choice-desc">Aim at the moving bubble that matches the definition.</span>
           <span class="game-record">High score: ${highScores.bubble}</span>
         </button>
         <button class="game-choice" id="playBossBattle">
           <span class="game-choice-icon">🐉</span><strong>Wordbound</strong>
-          <span>Answer vocabulary questions to activate cards and defeat the boss.</span>
+          <span class="game-choice-desc">Answer vocabulary questions to activate cards and defeat the boss.</span>
           <span class="game-record">Best win: ${highScores.wordboundTurns ? `${highScores.wordboundTurns} turns` : "—"}</span>
         </button>
         <button class="game-choice" id="playWhackWord">
           <span class="game-choice-icon">🔨</span><strong>Whack-a-Word</strong>
-          <span>Whack the popping mole whose word matches the definition.</span>
+          <span class="game-choice-desc">Whack the popping mole whose word matches the definition.</span>
           <span class="game-record">High score: ${highScores.whack}</span>
         </button>
         <button class="game-choice" id="playMemory">
           <span class="game-choice-icon">🧠</span><strong>Memory Match</strong>
-          <span>Two players take turns matching each word with its definition.</span>
+          <span class="game-choice-desc">Two players take turns matching each word with its definition.</span>
         </button>
       </section>`;
     root.querySelector("#playBubbleShot").addEventListener("click", () => {
