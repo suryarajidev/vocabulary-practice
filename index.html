@@ -24,26 +24,39 @@
   }
 
   [data-theme="dark"] {
-    --bg: #15201c;
-    --text: #eef2ef;
-    --muted: #93a8a0;
-    --card-bg: #1c2b26;
-    --border: #2c3d37;
+    --bg: #121212;
+    --text: #f2f2f2;
+    --muted: #a0a0a0;
+    --card-bg: #1e1e1e;
+    --border: #333333;
     --accent: #2dd4bf;
     --teal: #2dd4bf;
     --good: #4ade80;
     --almost: #fbbf24;
     --bad: #f87171;
-    --brand-dark: #eef2ef;
-    --brand-muted: #93a8a0;
+    --brand-dark: #f2f2f2;
+    --brand-muted: #a0a0a0;
     --brand-icon: #5eead4;
     --teal-hero: #114f3f;
-    --chip-bg: #1f3b34;
+    --chip-bg: #24322e;
   }
 
   [data-theme="dark"] .card-back { background: #16332c; }
-  [data-theme="dark"] .home-card { background: linear-gradient(160deg, #223530, var(--card-bg)); }
-  [data-theme="dark"] .streak-pill { background: linear-gradient(160deg, #3a2f1a, var(--card-bg)); }
+  [data-theme="dark"] .home-card { background: linear-gradient(160deg, #202020, var(--card-bg)); }
+  [data-theme="dark"] .streak-pill { background: linear-gradient(160deg, #2e2718, var(--card-bg)); }
+
+  /* These elements keep a fixed light/pastel background in both themes, so their text
+     must stay a fixed dark color instead of following --text/--brand-dark/etc. */
+  [data-theme="dark"] .part-of-speech,
+  [data-theme="dark"] .selection-count { color: #0b3b31; }
+  [data-theme="dark"] .resume-bubble-btn { color: #04342c; }
+  [data-theme="dark"] .question-option { color: #1a1a1a; }
+  [data-theme="dark"] .percentage-card.correct { color: #15803d; }
+  [data-theme="dark"] .percentage-card.incorrect { color: #b91c1c; }
+  [data-theme="dark"] .missed-btn { color: #92400e; }
+  [data-theme="dark"] .danger-outline:hover { color: #b91c1c; }
+  [data-theme="dark"] .battle-card-cost { color: #1a1a1a; }
+  [data-theme="dark"] .definition-prompt { color: #14301f; }
 
   * { box-sizing: border-box; }
 
