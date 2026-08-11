@@ -646,6 +646,9 @@
   .completion-games h3 { margin: 0 0 4px; }
   .completion-games p { margin: 0 0 12px; color: var(--muted); font-size: 13px; }
   .completion-save-btn { width: 100%; padding: 13px 16px; }
+  .completion-game-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+  .completion-game-actions button { padding: 12px 10px; }
+  .completion-game-actions button:disabled { opacity: .44; cursor: not-allowed; }
 
   .results-review h3 {
     margin: 4px 0;
@@ -1199,6 +1202,7 @@
     .batch-panel-header { flex-direction: column; }
     .batch-header-actions { width: 100%; }
     .batch-header-actions button { flex: 1; }
+    .completion-game-actions { grid-template-columns: 1fr; }
     .game-menu, .question-options { grid-template-columns: 1fr; }
     .memory-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .combatant-row { align-items: flex-end; }
@@ -3737,6 +3741,7 @@
         .filter((k) => results[k] !== "gotit")
         .map(Number);
       const completedWords = order.map((index) => deck[index]).filter(Boolean);
+      const isBatchPractice = practiceReturnView === "batches";
       const totalCards = order.length;
       const correctPercent = totalCards ? Math.round((score.gotit / totalCards) * 100) : 0;
       const incorrectPercent = 100 - correctPercent;
@@ -3751,9 +3756,16 @@
         <button class="accent-btn restart-btn" id="restart">&#8635; Practice again</button>
         ${missedIndices.length > 0 ? `<button class="missed-btn" id="practiceMissed">Practice missed &amp; skipped (${missedIndices.length})</button>` : ""}
         <div class="completion-games">
-          <h3>Keep this deck</h3>
+          ${isBatchPractice ? `<h3>Play a game with this batch</h3>
+          <p>Keep practicing these ${completedWords.length} words in a game.</p>
+          <div class="completion-game-actions">
+            <button class="small-btn" id="deckBubble" ${completedWords.length < 4 ? "disabled" : ""}>🫧 Bubble Shot</button>
+            <button class="small-btn" id="deckWordbound">🐉 Wordbound</button>
+            <button class="small-btn" id="deckWhack" ${completedWords.length < 6 ? "disabled" : ""}>🔨 Whack-a-Word</button>
+            <button class="small-btn" id="deckMemory" ${completedWords.length < 2 ? "disabled" : ""}>🧠 Memory Match</button>
+          </div>` : `<h3>Keep this deck</h3>
           <p>Save these ${completedWords.length} words as a reusable batch.</p>
-          <button class="accent-btn completion-save-btn" id="saveCompletedBatch">Save as batch</button>
+          <button class="accent-btn completion-save-btn" id="saveCompletedBatch">Save as batch</button>`}
         </div>
         <div class="results-review">
           <h3>Review your words</h3>
@@ -3783,10 +3795,48 @@
           render();
         });
       }
-      done.querySelector("#saveCompletedBatch").addEventListener("click", () => {
-        playClickSound();
-        showBatchSaveDialog(completedWords, "Flashcard batch");
-      });
+      if (isBatchPractice) {
+        done.querySelector("#deckBubble").addEventListener("click", () => {
+          if (completedWords.length < 4) return;
+          playClickSound();
+          gameReturnView = "batches";
+          bubbleWordPool = completedWords;
+          resetBubbleGame();
+          view = "bubble";
+          render();
+        });
+        done.querySelector("#deckWordbound").addEventListener("click", () => {
+          playClickSound();
+          gameReturnView = "batches";
+          battleWordPool = completedWords;
+          startBossBattle();
+          view = "boss";
+          render();
+        });
+        done.querySelector("#deckWhack").addEventListener("click", () => {
+          if (completedWords.length < 6) return;
+          playClickSound();
+          gameReturnView = "batches";
+          whackWordPool = completedWords;
+          resetWhackGame();
+          view = "whack";
+          render();
+        });
+        done.querySelector("#deckMemory").addEventListener("click", () => {
+          if (completedWords.length < 2) return;
+          playClickSound();
+          gameReturnView = "batches";
+          memoryWordPool = completedWords;
+          startMemoryGame();
+          view = "memory";
+          render();
+        });
+      } else {
+        done.querySelector("#saveCompletedBatch").addEventListener("click", () => {
+          playClickSound();
+          showBatchSaveDialog(completedWords, "Flashcard batch");
+        });
+      }
       return;
     }
 
