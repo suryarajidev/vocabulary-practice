@@ -313,11 +313,15 @@
   }
 
   .progress-card {
+    position: relative;
     background: var(--card-bg);
     border: 1px solid var(--border);
     border-radius: 14px;
     padding: 18px 16px;
+    cursor: help;
   }
+
+  .progress-card:focus-visible { outline: 3px solid rgba(13, 148, 136, 0.35); outline-offset: 3px; }
 
   .progress-card strong {
     display: block;
@@ -331,6 +335,43 @@
     font-size: 13px;
     color: var(--muted);
     font-weight: 700;
+  }
+
+  .progress-card .progress-info {
+    position: absolute;
+    top: 10px;
+    right: 11px;
+    margin: 0;
+    color: var(--accent);
+    font-size: 14px;
+  }
+
+  .progress-card .progress-tooltip {
+    position: absolute;
+    z-index: 20;
+    left: 50%;
+    bottom: calc(100% + 9px);
+    width: min(250px, calc(100vw - 48px));
+    margin: 0;
+    padding: 10px 12px;
+    border-radius: 9px;
+    background: var(--brand-dark);
+    color: white;
+    box-shadow: 0 10px 24px rgba(4, 52, 44, .24);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.45;
+    text-align: left;
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, 6px);
+    transition: opacity .15s ease, transform .15s ease;
+  }
+
+  .progress-card:hover .progress-tooltip,
+  .progress-card:focus .progress-tooltip {
+    opacity: 1;
+    transform: translate(-50%, 0);
   }
 
   .practice-topbar {
@@ -3162,12 +3203,12 @@
       <div class="progress-view">
         <h2>Your progress</h2>
         <div class="progress-grid">
-          <div class="progress-card"><strong>${getAllWords().length}</strong><span>Words in dictionary</span></div>
-          <div class="progress-card"><strong>${progressStats.gotit}</strong><span>Words mastered</span></div>
-          <div class="progress-card"><strong>${totalReviewed}</strong><span>Flashcards reviewed</span></div>
-          <div class="progress-card"><strong>${highScores.bubble}</strong><span>Bubble Shot best</span></div>
-          <div class="progress-card"><strong>${highScores.whack}</strong><span>Whack-a-Word best</span></div>
-          <div class="progress-card"><strong>${highScores.wordboundTurns ?? "—"}</strong><span>Best Wordbound win</span></div>
+          <div class="progress-card" tabindex="0" aria-describedby="dictionaryStatHelp"><strong>${getAllWords().length}</strong><span>Words in dictionary</span><span class="progress-info" aria-hidden="true">ⓘ</span><span class="progress-tooltip" id="dictionaryStatHelp" role="tooltip">The total number of default and custom words currently in your dictionary.</span></div>
+          <div class="progress-card" tabindex="0" aria-describedby="masteredStatHelp"><strong>${progressStats.gotit}</strong><span>Words mastered</span><span class="progress-info" aria-hidden="true">ⓘ</span><span class="progress-tooltip" id="masteredStatHelp" role="tooltip">The total number of flashcards you marked “Got it” in completed sessions. A word counts again each time you master it.</span></div>
+          <div class="progress-card" tabindex="0" aria-describedby="reviewedStatHelp"><strong>${totalReviewed}</strong><span>Flashcards reviewed</span><span class="progress-info" aria-hidden="true">ⓘ</span><span class="progress-tooltip" id="reviewedStatHelp" role="tooltip">All flashcards rated “Got it,” “Almost got it,” or “Didn't know” in completed sessions. Skipped cards are not counted.</span></div>
+          <div class="progress-card" tabindex="0" aria-describedby="bubbleStatHelp"><strong>${highScores.bubble}</strong><span>Bubble Shot best</span><span class="progress-info" aria-hidden="true">ⓘ</span><span class="progress-tooltip" id="bubbleStatHelp" role="tooltip">Your highest Bubble Shot score saved on this device.</span></div>
+          <div class="progress-card" tabindex="0" aria-describedby="whackStatHelp"><strong>${highScores.whack}</strong><span>Whack-a-Word best</span><span class="progress-info" aria-hidden="true">ⓘ</span><span class="progress-tooltip" id="whackStatHelp" role="tooltip">Your highest Whack-a-Word score saved on this device.</span></div>
+          <div class="progress-card" tabindex="0" aria-describedby="wordboundStatHelp"><strong>${highScores.wordboundTurns ?? "—"}</strong><span>Best Wordbound win</span><span class="progress-info" aria-hidden="true">ⓘ</span><span class="progress-tooltip" id="wordboundStatHelp" role="tooltip">The fewest turns you have taken to defeat the Wordbound boss. A dash means you have not won yet.</span></div>
         </div>
       </div>
     `;
