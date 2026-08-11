@@ -645,9 +645,7 @@
   .completion-games { width: 100%; padding: 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--card-bg); }
   .completion-games h3 { margin: 0 0 4px; }
   .completion-games p { margin: 0 0 12px; color: var(--muted); font-size: 13px; }
-  .completion-game-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
-  .completion-game-actions button { padding: 12px 10px; }
-  .completion-game-actions button:disabled { opacity: .44; cursor: not-allowed; }
+  .completion-save-btn { width: 100%; padding: 13px 16px; }
 
   .results-review h3 {
     margin: 4px 0;
@@ -732,6 +730,8 @@
     flex-direction: column;
     gap: 16px;
   }
+
+  .dictionary-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 
   .dictionary-header h2 {
     margin: 0 0 4px;
@@ -868,6 +868,46 @@
   .selection-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
   .selection-actions button { padding: 8px 11px; }
   .selection-actions button:disabled { opacity: .42; cursor: not-allowed; }
+
+  .batches-view { width: 100%; display: flex; flex-direction: column; gap: 16px; }
+  .batches-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .batches-header h2 { margin: 0 0 4px; }
+  .batches-header p { margin: 0; color: var(--muted); font-size: 14px; }
+  .batch-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+  .batch-tab { padding: 10px 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--card-bg); color: var(--text); cursor: pointer; font-weight: 750; }
+  .batch-tab.active { border-color: var(--accent); background: #dff5ef; color: var(--brand-dark); }
+  .batch-panel { display: flex; flex-direction: column; gap: 14px; padding: 18px; border: 1px solid var(--border); border-radius: 16px; background: rgba(253,252,249,.72); }
+  .batch-panel-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .batch-panel-header h3 { margin: 0 0 3px; font-size: 24px; }
+  .batch-panel-header p { margin: 0; color: var(--muted); font-size: 13px; }
+  .batch-header-actions { display: flex; gap: 7px; }
+  .batch-play-menu { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+  .batch-play-menu button { padding: 10px 7px; font-size: 12px; }
+  .batch-play-menu button:disabled { opacity: .42; cursor: not-allowed; }
+  .batch-add-area { padding: 14px; border: 1px dashed rgba(13,148,136,.38); border-radius: 12px; background: #f4fbf8; }
+  .batch-add-search { display: flex; align-items: center; gap: 8px; }
+  .batch-search-results { display: flex; flex-direction: column; gap: 6px; max-height: 230px; margin-top: 10px; overflow-y: auto; }
+  .batch-search-result { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 9px; background: var(--card-bg); }
+  .batch-search-result strong { display: block; }
+  .batch-search-result span { color: var(--muted); font-size: 12px; }
+  .batch-word-list { display: flex; flex-direction: column; gap: 8px; }
+  .batch-word { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--card-bg); }
+  .batch-word-copy { min-width: 0; }
+  .batch-word-copy strong { display: block; }
+  .batch-word-copy p { margin: 4px 0 0; color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .batch-empty { padding: 34px 18px; border: 1px dashed var(--border); border-radius: 14px; color: var(--muted); text-align: center; }
+
+  .batch-modal-backdrop { position: fixed; inset: 0; z-index: 1200; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(4,52,44,.48); }
+  .batch-modal { width: min(470px, 100%); max-height: calc(100vh - 40px); overflow-y: auto; padding: 22px; border-radius: 16px; background: var(--card-bg); box-shadow: 0 24px 60px rgba(4,52,44,.28); }
+  .batch-modal h3 { margin: 0 0 5px; }
+  .batch-modal > p { margin: 0 0 16px; color: var(--muted); font-size: 14px; }
+  .batch-modal label { display: flex; flex-direction: column; gap: 6px; font-weight: 750; }
+  .batch-modal input { width: 100%; padding: 11px 12px; border: 1px solid var(--border); border-radius: 9px; font: inherit; }
+  .batch-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+  .batch-replace { margin-top: 18px; padding-top: 15px; border-top: 1px solid var(--border); }
+  .batch-replace p { margin: 0 0 9px; color: var(--muted); font-size: 13px; }
+  .batch-replace-list { display: flex; flex-direction: column; gap: 7px; }
+  .batch-replace-list button { display: flex; justify-content: space-between; width: 100%; padding: 10px 12px; }
 
   .game-record { display: block; margin-top: 12px; color: var(--accent) !important; font-size: 13px; font-weight: 850; }
 
@@ -1153,7 +1193,10 @@
     .selection-actions { justify-content: flex-start; }
     .dictionary-toolbar { flex-wrap: wrap; }
     .dictionary-maintenance { justify-content: flex-start; }
-    .completion-game-actions { grid-template-columns: 1fr; }
+    .batch-play-menu { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .batch-panel-header { flex-direction: column; }
+    .batch-header-actions { width: 100%; }
+    .batch-header-actions button { flex: 1; }
     .game-menu, .question-options { grid-template-columns: 1fr; }
     .memory-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .combatant-row { align-items: flex-end; }
@@ -1583,10 +1626,12 @@
   const SESSION_SIZE = 10;
   const FLASHCARD_SETTINGS_KEY = "vocabPracticeFlashcardSettings";
   const HIGH_SCORES_KEY = "vocabPracticeHighScores";
+  const BATCHES_KEY = "vocabPracticeBatches";
   const WORD_EXPANSION_KEY = "vocabPracticeWordExpansion120";
   const PROGRESS_KEY = "vocabPracticeProgress";
   const STREAK_KEY = "vocabPracticeStreak";
   const APP_SETTINGS_KEY = "vocabPracticeAppSettings";
+  const MAX_BATCHES = 5;
   const defaultFlashcardSettings = { length: "standard", showPercentages: true, cardCount: SESSION_SIZE, firstSide: "term" };
   const defaultHighScores = { bubble: 0, whack: 0, wordboundTurns: null };
   const defaultProgress = { sessionsCompleted: 0, gotit: 0, almost: 0, dontknow: 0 };
@@ -1676,6 +1721,24 @@
 
   function applyTheme() {
     document.documentElement.setAttribute("data-theme", appSettings.theme === "dark" ? "dark" : "light");
+  }
+
+  function loadBatches() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(BATCHES_KEY) || "[]");
+      if (!Array.isArray(saved)) return [];
+      return saved.slice(0, MAX_BATCHES).filter((batch) => batch && batch.id && batch.name && Array.isArray(batch.wordKeys)).map((batch) => ({
+        id: String(batch.id),
+        name: String(batch.name).slice(0, 40),
+        wordKeys: [...new Set(batch.wordKeys.map((key) => String(key).toLowerCase()))]
+      }));
+    } catch {
+      return [];
+    }
+  }
+
+  function saveBatches() {
+    localStorage.setItem(BATCHES_KEY, JSON.stringify(batches));
   }
 
   const builtInWords = [
@@ -1977,6 +2040,96 @@
     return words.filter((item) => selectedDictionaryKeys.has(item.word.toLowerCase()));
   }
 
+  function getBatchWords(batch) {
+    if (!batch) return [];
+    const byKey = new Map(words.map((item) => [item.word.toLowerCase(), item]));
+    return batch.wordKeys.map((key) => byKey.get(key)).filter(Boolean);
+  }
+
+  function removeWordFromBatches(wordKey) {
+    let changed = false;
+    batches.forEach((batch) => {
+      const filtered = batch.wordKeys.filter((key) => key !== wordKey);
+      if (filtered.length !== batch.wordKeys.length) {
+        batch.wordKeys = filtered;
+        changed = true;
+      }
+    });
+    if (changed) saveBatches();
+  }
+
+  function replaceWordInBatches(previousKey, nextKey) {
+    let changed = false;
+    batches.forEach((batch) => {
+      if (!batch.wordKeys.includes(previousKey)) return;
+      batch.wordKeys = [...new Set(batch.wordKeys.map((key) => key === previousKey ? nextKey : key))];
+      changed = true;
+    });
+    if (changed) saveBatches();
+  }
+
+  function makeBatchId() {
+    return `batch-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  function showBatchSaveDialog(items, suggestedName = "") {
+    const availableKeys = new Set(words.map((item) => item.word.toLowerCase()));
+    const wordKeys = [...new Set(items.map((item) => item.word.toLowerCase()))].filter((key) => availableKeys.has(key));
+    if (!wordKeys.length) return;
+
+    document.querySelector(".batch-modal-backdrop")?.remove();
+    const backdrop = document.createElement("div");
+    backdrop.className = "batch-modal-backdrop";
+    backdrop.innerHTML = `<div class="batch-modal" role="dialog" aria-modal="true" aria-labelledby="batchSaveTitle">
+      <h3 id="batchSaveTitle">Save as batch</h3>
+      <p>Save these ${wordKeys.length} word${wordKeys.length === 1 ? "" : "s"} together. You can keep up to ${MAX_BATCHES} batches.</p>
+      <label>Batch name<input id="batchNameInput" maxlength="40" placeholder="For example: Chapter 4"></label>
+      <div class="batch-modal-actions">
+        <button class="small-btn" id="cancelBatchSave">Cancel</button>
+        <button class="accent-btn" id="createSavedBatch" ${batches.length >= MAX_BATCHES ? "disabled" : ""}>Create batch</button>
+      </div>
+      ${batches.length ? `<div class="batch-replace"><p>${batches.length >= MAX_BATCHES ? "You have five batches. Replace one to save these words:" : "Or replace the words in an existing batch:"}</p><div class="batch-replace-list">
+        ${batches.map((batch) => `<button class="small-btn replace-batch-btn" data-batch-id="${batch.id}"><span>${escapeHtml(batch.name)}</span><span>${getBatchWords(batch).length} words</span></button>`).join("")}
+      </div></div>` : ""}
+    </div>`;
+    document.body.appendChild(backdrop);
+
+    const nameInput = backdrop.querySelector("#batchNameInput");
+    nameInput.value = suggestedName || `Batch ${batches.length + 1}`;
+    nameInput.focus();
+    nameInput.select();
+    const close = () => backdrop.remove();
+    backdrop.querySelector("#cancelBatchSave").addEventListener("click", close);
+    backdrop.addEventListener("click", (event) => { if (event.target === backdrop) close(); });
+    backdrop.querySelector("#createSavedBatch").addEventListener("click", () => {
+      if (batches.length >= MAX_BATCHES) return;
+      const name = nameInput.value.trim();
+      if (!name) {
+        nameInput.setCustomValidity("Give this batch a name.");
+        nameInput.reportValidity();
+        return;
+      }
+      nameInput.setCustomValidity("");
+      const batch = { id: makeBatchId(), name, wordKeys };
+      batches.push(batch);
+      activeBatchId = batch.id;
+      saveBatches();
+      playGotItSound();
+      close();
+      if (["dictionary", "practice", "batches"].includes(view)) render();
+    });
+    backdrop.querySelectorAll(".replace-batch-btn").forEach((button) => button.addEventListener("click", () => {
+      const batch = batches.find((item) => item.id === button.dataset.batchId);
+      if (!batch || !confirm(`Replace the words in “${batch.name}” with these ${wordKeys.length} words?`)) return;
+      batch.wordKeys = wordKeys;
+      activeBatchId = batch.id;
+      saveBatches();
+      playGotItSound();
+      close();
+      if (["dictionary", "practice", "batches"].includes(view)) render();
+    }));
+  }
+
   function sortWords(list, order) {
     const arr = list.slice();
     if (order === "za") return arr.sort((a, b) => b.word.localeCompare(a.word));
@@ -2049,8 +2202,9 @@
   let appSettingsOpen = false;
   applyTheme();
   updateStreak();
+  let batches = loadBatches();
   let deck = randomSample(getAllWords(), flashcardSettings.cardCount);
-  let view = "home"; // "home" | "practice" | "dictionary" | "games" | "bubble" | "whack" | "boss" | "memory" | "progress"
+  let view = "home"; // "home" | "practice" | "dictionary" | "batches" | "games" | "bubble" | "whack" | "boss" | "memory" | "progress"
   let editingIndex = null;
   let showAddForm = false;
   let sortOrder = "az"; // "az" | "za" | "newest" | "oldest"
@@ -2060,6 +2214,12 @@
   let bubbleWordPool = null;
   let whackWordPool = null;
   let battleWordPool = null;
+  let memoryWordPool = null;
+  let activeBatchId = batches[0]?.id || null;
+  let batchAddOpen = false;
+  let batchSearchQuery = "";
+  let practiceReturnView = "home";
+  let gameReturnView = "games";
 
   // practice session state
   let firstSide = flashcardSettings.firstSide; // "term" | "definition"
@@ -2729,7 +2889,7 @@
 
   function startMemoryGame() {
     stopMemoryTimer();
-    const pairs = randomSample(getAllWords(), 6);
+    const pairs = randomSample(memoryWordPool || getAllWords(), 6);
     const cards = pairs.flatMap((item, pairIndex) => [
       { pairIndex, kind: "term", content: item.word, partOfSpeech: item.partOfSpeech },
       { pairIndex, kind: "definition", content: item.definition, partOfSpeech: item.partOfSpeech }
@@ -2797,15 +2957,17 @@
       return;
     }
 
-    const backToGames = view === "bubble" || view === "whack" || view === "boss" || view === "memory";
+    const gameViews = ["bubble", "whack", "boss", "memory"];
+    const backTarget = view === "batches" ? "dictionary" : view === "practice" ? practiceReturnView : gameViews.includes(view) ? gameReturnView : "home";
+    const backLabel = backTarget === "games" ? "Games" : backTarget === "batches" ? "Batches" : backTarget === "dictionary" ? "Dictionary" : "Home";
     app.innerHTML = `
-      <button class="back-home-btn" id="backHome">&#8249; Back to ${backToGames ? "Games" : "Home"}</button>
+      <button class="back-home-btn" id="backHome">&#8249; Back to ${backLabel}</button>
       <div id="viewRoot" style="width:100%;display:flex;flex-direction:column;align-items:center;gap:20px;"></div>
     `;
 
     app.querySelector("#backHome").addEventListener("click", () => {
       playClickSound();
-      view = backToGames ? "games" : "home";
+      view = backTarget;
       render();
     });
 
@@ -2814,6 +2976,8 @@
       renderPractice(root);
     } else if (view === "dictionary") {
       renderDictionary(root);
+    } else if (view === "batches") {
+      renderBatches(root);
     } else if (view === "games") {
       renderGameMenu(root);
     } else if (view === "bubble") {
@@ -2928,12 +3092,14 @@
     });
     app.querySelector("#goPractice").addEventListener("click", () => {
       playClickSound();
+      practiceReturnView = "home";
       view = "practice";
       generateNewSession();
       render();
     });
     app.querySelector("#goGames").addEventListener("click", () => {
       playClickSound();
+      gameReturnView = "games";
       view = "games";
       render();
     });
@@ -3029,18 +3195,18 @@
         </button>
       </section>`;
     root.querySelector("#playBubbleShot").addEventListener("click", () => {
-      playClickSound(); view = "bubble"; bubbleWordPool = null;
+      playClickSound(); view = "bubble"; gameReturnView = "games"; bubbleWordPool = null;
       resetBubbleGame();
       render();
     });
     root.querySelector("#playBossBattle").addEventListener("click", () => {
-      playClickSound(); view = "boss"; battleWordPool = null; startBossBattle(); render();
+      playClickSound(); view = "boss"; gameReturnView = "games"; battleWordPool = null; startBossBattle(); render();
     });
     root.querySelector("#playWhackWord").addEventListener("click", () => {
-      playClickSound(); view = "whack"; whackWordPool = null; resetWhackGame(); render();
+      playClickSound(); view = "whack"; gameReturnView = "games"; whackWordPool = null; resetWhackGame(); render();
     });
     root.querySelector("#playMemory").addEventListener("click", () => {
-      playClickSound(); view = "memory"; startMemoryGame(); render();
+      playClickSound(); view = "memory"; gameReturnView = "games"; memoryWordPool = null; startMemoryGame(); render();
     });
   }
 
@@ -3583,13 +3749,9 @@
         <button class="accent-btn restart-btn" id="restart">&#8635; Practice again</button>
         ${missedIndices.length > 0 ? `<button class="missed-btn" id="practiceMissed">Practice missed &amp; skipped (${missedIndices.length})</button>` : ""}
         <div class="completion-games">
-          <h3>Keep playing with this deck</h3>
-          <p>Use these ${completedWords.length} words in a game.</p>
-          <div class="completion-game-actions">
-            <button class="small-btn" id="deckBubble" ${completedWords.length < 4 ? "disabled" : ""}>🫧 Bubble Shot</button>
-            <button class="small-btn" id="deckWhack" ${completedWords.length < 6 ? "disabled" : ""}>🔨 Whack-a-Word</button>
-            <button class="small-btn" id="deckWordbound">🐉 Wordbound</button>
-          </div>
+          <h3>Keep this deck</h3>
+          <p>Save these ${completedWords.length} words as a reusable batch.</p>
+          <button class="accent-btn completion-save-btn" id="saveCompletedBatch">Save as batch</button>
         </div>
         <div class="results-review">
           <h3>Review your words</h3>
@@ -3619,28 +3781,9 @@
           render();
         });
       }
-      done.querySelector("#deckBubble").addEventListener("click", () => {
-        if (completedWords.length < 4) return;
+      done.querySelector("#saveCompletedBatch").addEventListener("click", () => {
         playClickSound();
-        bubbleWordPool = completedWords;
-        resetBubbleGame();
-        view = "bubble";
-        render();
-      });
-      done.querySelector("#deckWhack").addEventListener("click", () => {
-        if (completedWords.length < 6) return;
-        playClickSound();
-        whackWordPool = completedWords;
-        resetWhackGame();
-        view = "whack";
-        render();
-      });
-      done.querySelector("#deckWordbound").addEventListener("click", () => {
-        playClickSound();
-        battleWordPool = completedWords;
-        startBossBattle();
-        view = "boss";
-        render();
+        showBatchSaveDialog(completedWords, "Flashcard batch");
       });
       return;
     }
@@ -3800,6 +3943,155 @@
     });
   }
 
+  function renderBatches(root) {
+    if (!batches.some((batch) => batch.id === activeBatchId)) activeBatchId = batches[0]?.id || null;
+    const activeBatch = batches.find((batch) => batch.id === activeBatchId) || null;
+    const batchWords = getBatchWords(activeBatch);
+
+    root.innerHTML = `<section class="batches-view" aria-labelledby="batchesTitle">
+      <div class="batches-header">
+        <div><h2 id="batchesTitle">Batches</h2><p>Keep up to ${MAX_BATCHES} reusable groups of vocabulary words.</p></div>
+        <span class="part-of-speech">${batches.length} / ${MAX_BATCHES} saved</span>
+      </div>
+      ${batches.length ? `<div class="batch-tabs" aria-label="Saved batches">
+        ${batches.map((batch) => `<button class="batch-tab ${batch.id === activeBatchId ? "active" : ""}" data-batch-id="${batch.id}">${escapeHtml(batch.name)} <span>(${getBatchWords(batch).length})</span></button>`).join("")}
+      </div>` : ""}
+      ${activeBatch ? `<div class="batch-panel">
+        <div class="batch-panel-header">
+          <div><h3>${escapeHtml(activeBatch.name)}</h3><p>${batchWords.length} word${batchWords.length === 1 ? "" : "s"} in this batch</p></div>
+          <div class="batch-header-actions"><button class="small-btn" id="renameBatch">Rename</button><button class="small-btn danger-outline" id="deleteBatch">Delete</button></div>
+        </div>
+        <div class="batch-play-menu" aria-label="Study this batch">
+          <button class="small-btn" id="batchFlashcards" ${batchWords.length < 1 ? "disabled" : ""}>Flashcards</button>
+          <button class="small-btn" id="batchBubble" ${batchWords.length < 4 ? "disabled" : ""}>Bubble Shot</button>
+          <button class="small-btn" id="batchWordbound" ${batchWords.length < 1 ? "disabled" : ""}>Wordbound</button>
+          <button class="small-btn" id="batchWhack" ${batchWords.length < 6 ? "disabled" : ""}>Whack-a-Word</button>
+          <button class="small-btn" id="batchMemory" ${batchWords.length < 2 ? "disabled" : ""}>Memory Match</button>
+        </div>
+        <button class="accent-btn" id="toggleBatchAdd">${batchAddOpen ? "Close search" : "+ Add card"}</button>
+        ${batchAddOpen ? `<div class="batch-add-area">
+          <div class="batch-add-search"><input class="dictionary-search" id="batchWordSearch" type="search" placeholder="Search the dictionary" aria-label="Search dictionary to add a card"><button class="small-btn" id="clearBatchSearch">Clear</button></div>
+          <div class="batch-search-results" id="batchSearchResults"></div>
+        </div>` : ""}
+        ${batchWords.length ? `<div class="batch-word-list">
+          ${batchWords.map((item, index) => `<div class="batch-word"><div class="batch-word-copy"><strong>${escapeHtml(item.word)}</strong><span class="part-of-speech">${escapeHtml(item.partOfSpeech || "Not specified")}</span><p>${escapeHtml(item.definition)}</p></div><button class="delete-btn batch-remove-word" data-batch-word-index="${index}" aria-label="Remove card">&times;</button></div>`).join("")}
+        </div>` : `<div class="batch-empty">This batch is empty. Select “Add card” to search your dictionary.</div>`}
+      </div>` : `<div class="batch-empty">No batches yet. Select words in the Dictionary and choose “Save as batch” to create your first one.</div>`}
+    </section>`;
+
+    root.querySelectorAll(".batch-tab").forEach((button) => button.addEventListener("click", () => {
+      playClickSound();
+      activeBatchId = button.dataset.batchId;
+      batchAddOpen = false;
+      batchSearchQuery = "";
+      render();
+    }));
+    if (!activeBatch) return;
+
+    root.querySelector("#renameBatch").addEventListener("click", () => {
+      const name = prompt("Rename this batch:", activeBatch.name)?.trim();
+      if (!name) return;
+      activeBatch.name = name.slice(0, 40);
+      saveBatches();
+      playClickSound();
+      render();
+    });
+    root.querySelector("#deleteBatch").addEventListener("click", () => {
+      if (!confirm(`Delete the batch “${activeBatch.name}”?`)) return;
+      batches = batches.filter((batch) => batch.id !== activeBatch.id);
+      activeBatchId = batches[0]?.id || null;
+      batchAddOpen = false;
+      batchSearchQuery = "";
+      saveBatches();
+      playClickSound();
+      render();
+    });
+    root.querySelector("#batchFlashcards").addEventListener("click", () => {
+      if (!batchWords.length) return;
+      playClickSound();
+      practiceReturnView = "batches";
+      generateNewSession(batchWords);
+      view = "practice";
+      render();
+    });
+    root.querySelector("#batchBubble").addEventListener("click", () => {
+      if (batchWords.length < 4) return;
+      playClickSound();
+      gameReturnView = "batches";
+      bubbleWordPool = batchWords;
+      resetBubbleGame();
+      view = "bubble";
+      render();
+    });
+    root.querySelector("#batchWordbound").addEventListener("click", () => {
+      if (!batchWords.length) return;
+      playClickSound();
+      gameReturnView = "batches";
+      battleWordPool = batchWords;
+      startBossBattle();
+      view = "boss";
+      render();
+    });
+    root.querySelector("#batchWhack").addEventListener("click", () => {
+      if (batchWords.length < 6) return;
+      playClickSound();
+      gameReturnView = "batches";
+      whackWordPool = batchWords;
+      resetWhackGame();
+      view = "whack";
+      render();
+    });
+    root.querySelector("#batchMemory").addEventListener("click", () => {
+      if (batchWords.length < 2) return;
+      playClickSound();
+      gameReturnView = "batches";
+      memoryWordPool = batchWords;
+      startMemoryGame();
+      view = "memory";
+      render();
+    });
+    root.querySelector("#toggleBatchAdd").addEventListener("click", () => {
+      playClickSound();
+      batchAddOpen = !batchAddOpen;
+      if (!batchAddOpen) batchSearchQuery = "";
+      render();
+    });
+    root.querySelectorAll(".batch-remove-word").forEach((button) => button.addEventListener("click", () => {
+      const item = batchWords[Number(button.dataset.batchWordIndex)];
+      if (!item) return;
+      activeBatch.wordKeys = activeBatch.wordKeys.filter((key) => key !== item.word.toLowerCase());
+      saveBatches();
+      playClickSound();
+      render();
+    }));
+
+    if (batchAddOpen) {
+      const search = root.querySelector("#batchWordSearch");
+      const results = root.querySelector("#batchSearchResults");
+      search.value = batchSearchQuery;
+      const drawBatchSearch = () => {
+        const query = search.value.trim().toLowerCase();
+        batchSearchQuery = search.value;
+        const existingKeys = new Set(activeBatch.wordKeys);
+        const matches = getAllWords().filter((item) => !existingKeys.has(item.word.toLowerCase()) && (!query || item.word.toLowerCase().includes(query) || item.definition.toLowerCase().includes(query))).slice(0, 20);
+        results.innerHTML = matches.length ? matches.map((item, index) => `<div class="batch-search-result"><div><strong>${escapeHtml(item.word)}</strong><span>${escapeHtml(item.definition)}</span></div><button class="small-btn add-batch-word" data-search-index="${index}">Add</button></div>`).join("") : `<div class="result-empty">${query ? "No matching words to add." : "Every dictionary word is already in this batch."}</div>`;
+        results.querySelectorAll(".add-batch-word").forEach((button) => button.addEventListener("click", () => {
+          const item = matches[Number(button.dataset.searchIndex)];
+          if (!item) return;
+          activeBatch.wordKeys.push(item.word.toLowerCase());
+          saveBatches();
+          batchSearchQuery = "";
+          playGotItSound();
+          render();
+        }));
+      };
+      search.addEventListener("input", drawBatchSearch);
+      root.querySelector("#clearBatchSearch").addEventListener("click", () => { search.value = ""; drawBatchSearch(); search.focus(); });
+      drawBatchSearch();
+      search.focus();
+    }
+  }
+
   function renderDictionary(root) {
     const allWords = sortWords(words, sortOrder);
     const editingWord = editingIndex === null ? null : words[editingIndex];
@@ -3807,8 +4099,8 @@
     root.innerHTML = `
       <div class="manage">
         <div class="dictionary-header">
-          <h2>Dictionary</h2>
-          <p>${allWords.length} words &mdash; search, add, edit, or remove any of them.</p>
+          <div><h2>Dictionary</h2><p>${allWords.length} words &mdash; search, add, edit, or remove any of them.</p></div>
+          <button class="small-btn" id="openBatches">Batches (${batches.length}/${MAX_BATCHES})</button>
         </div>
         <div class="dictionary-toolbar">
           <input
@@ -3836,9 +4128,7 @@
           <div class="selection-actions">
             <button class="small-btn" id="selectAllWords">Select all</button>
             <button class="small-btn" id="clearSelectedWords">Clear</button>
-            <button class="small-btn" id="practiceSelected">Flashcards (1+)</button>
-            <button class="small-btn" id="bubbleSelected">Bubble Shot (4+)</button>
-            <button class="small-btn" id="whackSelected">Whack-a-Word (6+)</button>
+            <button class="accent-btn" id="saveSelectedBatch">Save as batch</button>
           </div>
         </div>
         ${showAddForm ? `
@@ -3898,6 +4188,12 @@
       render();
     });
 
+    root.querySelector("#openBatches").addEventListener("click", () => {
+      playClickSound();
+      view = "batches";
+      render();
+    });
+
     root.querySelector("#sortSelect").addEventListener("change", (e) => {
       playClickSound();
       sortOrder = e.target.value;
@@ -3927,6 +4223,7 @@
 
     deleteCustomButton.addEventListener("click", () => {
       if (!confirm(`Delete all ${customWordCount} custom word${customWordCount === 1 ? "" : "s"}? This cannot be undone.`)) return;
+      words.filter((item) => !builtInKeys.has(item.word.toLowerCase())).forEach((item) => removeWordFromBatches(item.word.toLowerCase()));
       words = words.filter((item) => builtInKeys.has(item.word.toLowerCase()));
       selectedDictionaryKeys = new Set([...selectedDictionaryKeys].filter((key) => builtInKeys.has(key)));
       editingIndex = null;
@@ -3941,9 +4238,7 @@
       const count = getSelectedDictionaryWords().length;
       root.querySelector("#selectionCount").textContent = `${count} selected`;
       root.querySelector("#clearSelectedWords").disabled = count === 0;
-      root.querySelector("#practiceSelected").disabled = count < 1;
-      root.querySelector("#bubbleSelected").disabled = count < 4;
-      root.querySelector("#whackSelected").disabled = count < 6;
+      root.querySelector("#saveSelectedBatch").disabled = count < 1;
     };
 
     root.querySelector("#selectAllWords").addEventListener("click", () => {
@@ -3956,31 +4251,11 @@
       drawList(root.querySelector("#dictionarySearch").value);
       updateSelectionTray();
     });
-    root.querySelector("#practiceSelected").addEventListener("click", () => {
+    root.querySelector("#saveSelectedBatch").addEventListener("click", () => {
       const selected = getSelectedDictionaryWords();
       if (selected.length < 1) return;
       playClickSound();
-      generateNewSession(selected);
-      view = "practice";
-      render();
-    });
-    root.querySelector("#bubbleSelected").addEventListener("click", () => {
-      const selected = getSelectedDictionaryWords();
-      if (selected.length < 4) return;
-      playClickSound();
-      bubbleWordPool = selected;
-      resetBubbleGame();
-      view = "bubble";
-      render();
-    });
-    root.querySelector("#whackSelected").addEventListener("click", () => {
-      const selected = getSelectedDictionaryWords();
-      if (selected.length < 6) return;
-      playClickSound();
-      whackWordPool = selected;
-      resetWhackGame();
-      view = "whack";
-      render();
+      showBatchSaveDialog(selected, "Dictionary batch");
     });
 
     if (showAddForm) {
@@ -4020,6 +4295,7 @@
           const previousKey = words[editingIndex].word.toLowerCase();
           const wasSelected = selectedDictionaryKeys.delete(previousKey);
           words[editingIndex] = { word, definition, partOfSpeech };
+          replaceWordInBatches(previousKey, word.toLowerCase());
           if (wasSelected) selectedDictionaryKeys.add(word.toLowerCase());
         }
         saveWords(words);
@@ -4090,7 +4366,9 @@
           const listScrollPosition = list.scrollTop;
           const pageScrollPosition = window.scrollY;
           const i = parseInt(btn.getAttribute("data-index"), 10);
-          selectedDictionaryKeys.delete(words[i].word.toLowerCase());
+          const deletedKey = words[i].word.toLowerCase();
+          selectedDictionaryKeys.delete(deletedKey);
+          removeWordFromBatches(deletedKey);
           words.splice(i, 1);
           if (editingIndex === i) {
             editingIndex = null;
