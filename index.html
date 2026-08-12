@@ -43,18 +43,75 @@
 
   [data-theme="dark"] .card-back { background: #16332c; }
   [data-theme="dark"] .home-card { background: linear-gradient(160deg, #202020, var(--card-bg)); }
+  [data-theme="dark"] .home-card.hero { background: linear-gradient(160deg, #3b4442, #303735); border-color: #4b5553; }
+  [data-theme="dark"] .home-card.hero .home-card-title { color: #f0f2f1; }
+  [data-theme="dark"] .home-card.hero .home-card-body { color: #b6bfbd; }
   [data-theme="dark"] .streak-pill { background: linear-gradient(160deg, #2e2718, var(--card-bg)); }
+
+  [data-theme="dark"] .small-btn,
+  [data-theme="dark"] .cancel-btn,
+  [data-theme="dark"] .nav-row button,
+  [data-theme="dark"] .home-corner-btn,
+  [data-theme="dark"] .settings-btn,
+  [data-theme="dark"] .batch-tab,
+  [data-theme="dark"] .game-choice,
+  [data-theme="dark"] .memory-mode-option,
+  [data-theme="dark"] .question-option,
+  [data-theme="dark"] .resume-bubble-btn {
+    border-color: #444849;
+    background: #292c2d;
+    color: #d9dddc;
+  }
+
+  [data-theme="dark"] .small-btn:hover,
+  [data-theme="dark"] .cancel-btn:hover,
+  [data-theme="dark"] .nav-row button:hover,
+  [data-theme="dark"] .home-corner-btn:hover,
+  [data-theme="dark"] .settings-btn:hover,
+  [data-theme="dark"] .batch-tab:hover,
+  [data-theme="dark"] .game-choice:hover,
+  [data-theme="dark"] .memory-mode-option:hover,
+  [data-theme="dark"] .question-option:hover,
+  [data-theme="dark"] .resume-bubble-btn:hover { background: #343839; }
+
+  [data-theme="dark"] .accent-btn,
+  [data-theme="dark"] .restart-btn,
+  [data-theme="dark"] .end-turn-btn,
+  [data-theme="dark"] .side-toggle-btn.active,
+  [data-theme="dark"] .setting-field .side-toggle-btn.active {
+    border-color: #596260;
+    background: #46514f;
+    color: #f0f3f2;
+    box-shadow: none;
+  }
+
+  [data-theme="dark"] .accent-btn:hover,
+  [data-theme="dark"] .restart-btn:hover,
+  [data-theme="dark"] .end-turn-btn:hover,
+  [data-theme="dark"] .side-toggle-btn.active:hover { background: #535f5d; }
+
+  [data-theme="dark"] .dont-know { background: #3b3335; color: #e1a9af; }
+  [data-theme="dark"] .almost-btn,
+  [data-theme="dark"] .missed-btn { background: #3b382f; color: #dbc892; }
+  [data-theme="dark"] .know { background: #303a34; color: #a8d5b5; }
+  [data-theme="dark"] .batch-tab.active { border-color: #68716f; background: #3b4442; color: #eef1f0; }
+  [data-theme="dark"] .memory-card { border-color: #4f6561; background: linear-gradient(145deg, #354643, #2b3b39); }
+  [data-theme="dark"] .memory-card.matched { border-color: #60776a; background: #354139; color: #c3ddcb; }
+  [data-theme="dark"] .switch input:checked + .switch-slider { background: #56615f; }
+  [data-theme="dark"] .danger-outline:hover { background: #3a3031; color: #dda8aa; }
+  [data-theme="dark"] .selection-tray { background: #252d2c; }
+  [data-theme="dark"] .selection-count { color: #d5dcda; }
 
   /* These elements keep a fixed light/pastel background in both themes, so their text
      must stay a fixed dark color instead of following --text/--brand-dark/etc. */
   [data-theme="dark"] .part-of-speech,
-  [data-theme="dark"] .selection-count { color: #0b3b31; }
-  [data-theme="dark"] .resume-bubble-btn { color: #04342c; }
-  [data-theme="dark"] .question-option { color: #1a1a1a; }
+  [data-theme="dark"] .selection-count { color: #d5dcda; }
+  [data-theme="dark"] .resume-bubble-btn { color: #e7eae9; }
+  [data-theme="dark"] .question-option { color: #e2e5e4; }
   [data-theme="dark"] .percentage-card.correct { color: #15803d; }
   [data-theme="dark"] .percentage-card.incorrect { color: #b91c1c; }
-  [data-theme="dark"] .missed-btn { color: #92400e; }
-  [data-theme="dark"] .danger-outline:hover { color: #b91c1c; }
+  [data-theme="dark"] .missed-btn { color: #dbc892; }
+  [data-theme="dark"] .danger-outline:hover { color: #dda8aa; }
   [data-theme="dark"] .battle-card-cost { color: #1a1a1a; }
   [data-theme="dark"] .definition-prompt { color: #14301f; }
 
