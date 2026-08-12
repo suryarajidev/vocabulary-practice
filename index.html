@@ -1085,6 +1085,15 @@
   .game-choice-desc { color: var(--muted); line-height: 1.5; }
 
   .memory-game { width: 100%; display: flex; flex-direction: column; gap: 15px; }
+  .memory-mode-select { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 28px; border: 1px solid var(--border); border-radius: 18px; background: var(--card-bg); text-align: center; }
+  .memory-mode-select h2 { margin: 0 0 5px; font-size: 30px; }
+  .memory-mode-select p { margin: 0; color: var(--muted); }
+  .memory-mode-options { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .memory-mode-option { min-height: 150px; padding: 22px 18px; border: 2px solid var(--border); border-radius: 15px; background: linear-gradient(150deg, #fffdf8, var(--card-bg)); color: var(--text); cursor: pointer; }
+  .memory-mode-option:hover { border-color: var(--accent); }
+  .memory-mode-icon { display: block; margin-bottom: 10px; font-size: 38px; }
+  .memory-mode-option strong { display: block; margin-bottom: 6px; font-size: 21px; }
+  .memory-mode-option span:last-child { color: var(--muted); font-size: 13px; line-height: 1.45; }
   .memory-scoreboard { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; }
   .memory-player { padding: 13px; border: 2px solid transparent; border-radius: 13px; background: var(--card-bg); text-align: center; }
   .memory-player.active { border-color: var(--accent); box-shadow: 0 6px 18px rgba(13,148,136,.16); }
@@ -1246,6 +1255,7 @@
     .completion-game-actions { grid-template-columns: 1fr; }
     .game-menu, .question-options { grid-template-columns: 1fr; }
     .memory-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .memory-mode-options { grid-template-columns: 1fr; }
     .combatant-row { align-items: flex-end; }
     .combatant { width: 46%; }
     .combatant-figure { font-size: 52px; }
@@ -2934,7 +2944,7 @@
     memoryResolveTimer = null;
   }
 
-  function startMemoryGame() {
+  function startMemoryGame(mode) {
     stopMemoryTimer();
     const pairs = randomSample(memoryWordPool || getAllWords(), 6);
     const cards = pairs.flatMap((item, pairIndex) => [
@@ -2944,8 +2954,64 @@
     memoryGame = {
       cards: randomSample(cards, cards.length),
       flipped: [], matched: new Set(), scores: [0, 0], currentPlayer: 0,
-      locked: false, message: "Player 1, choose two cards.", winner: null
+      locked: false, message: mode === "ai" ? "Your turn. Choose two cards." : "Player 1, choose two cards.",
+      winner: null, mode, aiMemory: new Map(), aiPlannedSecond: null
     };
+  }
+
+  function memoryPlayerName(playerIndex) {
+    if (memoryGame?.mode === "ai") return playerIndex === 0 ? "You" : "AI";
+    return `Player ${playerIndex + 1}`;
+  }
+
+  function rememberMemoryCard(index) {
+    if (!memoryGame || memoryGame.mode !== "ai") return;
+    const card = memoryGame.cards[index];
+    if (card) memoryGame.aiMemory.set(index, { pairIndex: card.pairIndex, kind: card.kind });
+  }
+
+  function chooseKnownMemoryPair() {
+    const known = [...memoryGame.aiMemory.entries()].filter(([index]) => !memoryGame.matched.has(index));
+    for (const [firstIndex, first] of known) {
+      const partner = known.find(([secondIndex, second]) => secondIndex !== firstIndex && second.pairIndex === first.pairIndex && second.kind !== first.kind);
+      if (partner) return [firstIndex, partner[0]];
+    }
+    return null;
+  }
+
+  function chooseRandomMemoryCard(excluded = []) {
+    const excludedSet = new Set(excluded);
+    const available = memoryGame.cards.map((_, index) => index).filter((index) => !memoryGame.matched.has(index) && !excludedSet.has(index));
+    const unseen = available.filter((index) => !memoryGame.aiMemory.has(index));
+    const pool = unseen.length ? unseen : available;
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  function playAIMemoryTurn() {
+    if (!memoryGame || memoryGame.mode !== "ai" || memoryGame.currentPlayer !== 1 || memoryGame.winner !== null) return;
+    memoryGame.locked = true;
+    const knownPair = chooseKnownMemoryPair();
+    const firstIndex = knownPair ? knownPair[0] : chooseRandomMemoryCard();
+    memoryGame.aiPlannedSecond = knownPair ? knownPair[1] : null;
+    memoryGame.flipped = [firstIndex];
+    rememberMemoryCard(firstIndex);
+    memoryGame.message = "AI chose its first card…";
+    render();
+    memoryResolveTimer = setTimeout(() => {
+      if (!memoryGame || memoryGame.mode !== "ai" || memoryGame.currentPlayer !== 1) return;
+      const first = memoryGame.cards[firstIndex];
+      let secondIndex = memoryGame.aiPlannedSecond;
+      if (secondIndex === null) {
+        const rememberedMatch = [...memoryGame.aiMemory.entries()].find(([index, card]) => index !== firstIndex && !memoryGame.matched.has(index) && card.pairIndex === first.pairIndex && card.kind !== first.kind);
+        secondIndex = rememberedMatch ? rememberedMatch[0] : chooseRandomMemoryCard([firstIndex]);
+      }
+      memoryGame.flipped.push(secondIndex);
+      rememberMemoryCard(secondIndex);
+      memoryGame.aiPlannedSecond = null;
+      memoryGame.message = "AI chose its second card…";
+      render();
+      memoryResolveTimer = setTimeout(resolveMemoryTurn, 900);
+    }, 750);
   }
 
   function resolveMemoryTurn() {
@@ -2953,22 +3019,31 @@
     const [firstIndex, secondIndex] = memoryGame.flipped;
     const first = memoryGame.cards[firstIndex];
     const second = memoryGame.cards[secondIndex];
+    rememberMemoryCard(firstIndex);
+    rememberMemoryCard(secondIndex);
     const matched = first.pairIndex === second.pairIndex && first.kind !== second.kind;
     if (matched) {
       memoryGame.matched.add(firstIndex);
       memoryGame.matched.add(secondIndex);
       memoryGame.scores[memoryGame.currentPlayer]++;
-      memoryGame.message = `Player ${memoryGame.currentPlayer + 1} found a match and plays again!`;
+      memoryGame.message = `${memoryPlayerName(memoryGame.currentPlayer)} found a match and plays again!`;
     } else {
       memoryGame.currentPlayer = memoryGame.currentPlayer === 0 ? 1 : 0;
-      memoryGame.message = `No match. Player ${memoryGame.currentPlayer + 1}'s turn.`;
+      memoryGame.message = memoryGame.mode === "ai"
+        ? (memoryGame.currentPlayer === 1 ? "No match. AI is thinking…" : "No match. Your turn.")
+        : `No match. ${memoryPlayerName(memoryGame.currentPlayer)}'s turn.`;
     }
     memoryGame.flipped = [];
     memoryGame.locked = false;
     if (memoryGame.matched.size === memoryGame.cards.length) {
       memoryGame.winner = memoryGame.scores[0] === memoryGame.scores[1] ? "tie" : memoryGame.scores[0] > memoryGame.scores[1] ? 0 : 1;
     }
-    if (view === "memory") render();
+    if (view === "memory") {
+      render();
+      if (memoryGame.mode === "ai" && memoryGame.currentPlayer === 1 && memoryGame.winner === null) {
+        memoryResolveTimer = setTimeout(playAIMemoryTurn, 850);
+      }
+    }
   }
 
   resetPracticeSession();
@@ -3238,7 +3313,7 @@
         </button>
         <button class="game-choice" id="playMemory">
           <span class="game-choice-icon">🧠</span><strong>Memory Match</strong>
-          <span class="game-choice-desc">Two players take turns matching each word with its definition.</span>
+          <span class="game-choice-desc">Match words and definitions with a friend or challenge the AI.</span>
         </button>
       </section>`;
     root.querySelector("#playBubbleShot").addEventListener("click", () => {
@@ -3253,27 +3328,46 @@
       playClickSound(); view = "whack"; gameReturnView = "games"; whackWordPool = null; resetWhackGame(); render();
     });
     root.querySelector("#playMemory").addEventListener("click", () => {
-      playClickSound(); view = "memory"; gameReturnView = "games"; memoryWordPool = null; startMemoryGame(); render();
+      playClickSound(); view = "memory"; gameReturnView = "games"; memoryWordPool = null; memoryGame = null; render();
     });
   }
 
   function renderMemoryGame(root) {
-    if (!memoryGame) startMemoryGame();
+    if (!memoryGame) {
+      const availableWords = memoryWordPool || getAllWords();
+      if (availableWords.length < 2) {
+        root.innerHTML = `<div class="empty-state">Add at least two words in the Dictionary to play Memory Match.</div>`;
+        return;
+      }
+      root.innerHTML = `<section class="memory-mode-select" aria-labelledby="memoryModeTitle">
+        <div><h2 id="memoryModeTitle">Choose how to play</h2><p>Match each vocabulary word with its definition.</p></div>
+        <div class="memory-mode-options">
+          <button class="memory-mode-option" id="memoryTwoPlayers"><span class="memory-mode-icon">👥</span><strong>2 Players</strong><span>Take turns with a friend on the same device.</span></button>
+          <button class="memory-mode-option" id="memoryVsAI"><span class="memory-mode-icon">🤖</span><strong>Play vs AI</strong><span>Challenge an AI that remembers cards after they are revealed.</span></button>
+        </div>
+      </section>`;
+      root.querySelector("#memoryTwoPlayers").addEventListener("click", () => { playClickSound(); startMemoryGame("two-player"); render(); });
+      root.querySelector("#memoryVsAI").addEventListener("click", () => { playClickSound(); startMemoryGame("ai"); render(); });
+      return;
+    }
     if (!memoryGame.cards.length) {
-      root.innerHTML = `<div class="empty-state">Add at least six words in the Dictionary to play Memory Match.</div>`;
+      root.innerHTML = `<div class="empty-state">Add at least two words in the Dictionary to play Memory Match.</div>`;
       return;
     }
 
-    const winnerText = memoryGame.winner === "tie" ? "It's a tie!" : memoryGame.winner === null ? "" : `Player ${memoryGame.winner + 1} wins!`;
+    const winnerText = memoryGame.winner === "tie" ? "It's a tie!" : memoryGame.winner === null ? "" : memoryGame.mode === "ai" ? (memoryGame.winner === 0 ? "You win!" : "AI wins!") : `Player ${memoryGame.winner + 1} wins!`;
+    const playerOneLabel = memoryGame.mode === "ai" ? "You" : "Player 1";
+    const playerTwoLabel = memoryGame.mode === "ai" ? "AI" : "Player 2";
+    const turnLabel = memoryGame.winner === null ? (memoryGame.mode === "ai" && memoryGame.currentPlayer === 1 ? "AI'S TURN" : memoryGame.mode === "ai" ? "YOUR TURN" : `PLAYER ${memoryGame.currentPlayer + 1}'S TURN`) : "GAME OVER";
     root.innerHTML = `<section class="memory-game" aria-labelledby="memoryTitle">
       <div class="game-heading">
         <div><h2 id="memoryTitle">Memory Match</h2><p>Match each vocabulary word with its definition.</p></div>
-        <button class="small-btn" id="newMemoryGame">New game</button>
+        <button class="small-btn" id="newMemoryGame">New game / mode</button>
       </div>
       <div class="memory-scoreboard" aria-label="Player scores">
-        <div class="memory-player ${memoryGame.currentPlayer === 0 && memoryGame.winner === null ? "active" : ""}">Player 1<strong>${memoryGame.scores[0]}</strong></div>
-        <div class="memory-turn">${memoryGame.winner === null ? `PLAYER ${memoryGame.currentPlayer + 1}'S TURN` : "GAME OVER"}</div>
-        <div class="memory-player ${memoryGame.currentPlayer === 1 && memoryGame.winner === null ? "active" : ""}">Player 2<strong>${memoryGame.scores[1]}</strong></div>
+        <div class="memory-player ${memoryGame.currentPlayer === 0 && memoryGame.winner === null ? "active" : ""}">${playerOneLabel}<strong>${memoryGame.scores[0]}</strong></div>
+        <div class="memory-turn">${turnLabel}</div>
+        <div class="memory-player ${memoryGame.currentPlayer === 1 && memoryGame.winner === null ? "active" : ""}">${playerTwoLabel}<strong>${memoryGame.scores[1]}</strong></div>
       </div>
       ${memoryGame.winner !== null ? `<div class="memory-ending"><h3>${winnerText}</h3><p>Final score: ${memoryGame.scores[0]}–${memoryGame.scores[1]}</p><button class="accent-btn" id="memoryAgain">Play again</button></div>` : `
         <div class="memory-message" aria-live="polite">${escapeHtml(memoryGame.message)}</div>
@@ -3281,15 +3375,16 @@
           ${memoryGame.cards.map((card, index) => {
             const revealed = memoryGame.flipped.includes(index) || memoryGame.matched.has(index);
             const matched = memoryGame.matched.has(index);
-            return `<button class="memory-card ${revealed ? "revealed" : ""} ${matched ? "matched" : ""}" data-memory-index="${index}" ${matched || memoryGame.locked ? "disabled" : ""} aria-label="${revealed ? `${card.kind} card` : "Face-down card"}">
+            const aiTurn = memoryGame.mode === "ai" && memoryGame.currentPlayer === 1;
+            return `<button class="memory-card ${revealed ? "revealed" : ""} ${matched ? "matched" : ""}" data-memory-index="${index}" ${matched || memoryGame.locked || aiTurn ? "disabled" : ""} aria-label="${revealed ? `${card.kind} card` : "Face-down card"}">
               ${revealed ? `<span class="memory-card-kind">${card.kind}</span>${escapeHtml(card.content)}${card.kind === "term" ? `<span class="part-of-speech card-part-of-speech">${escapeHtml(card.partOfSpeech || "Not specified")}</span>` : ""}` : `<span class="memory-card-back">?</span>`}
             </button>`;
           }).join("")}
         </div>`}
     </section>`;
 
-    root.querySelector("#newMemoryGame").addEventListener("click", () => { playClickSound(); startMemoryGame(); render(); });
-    root.querySelector("#memoryAgain")?.addEventListener("click", () => { playClickSound(); startMemoryGame(); render(); });
+    root.querySelector("#newMemoryGame").addEventListener("click", () => { playClickSound(); stopMemoryTimer(); memoryGame = null; render(); });
+    root.querySelector("#memoryAgain")?.addEventListener("click", () => { playClickSound(); stopMemoryTimer(); memoryGame = null; render(); });
     root.querySelectorAll(".memory-card").forEach((button) => button.addEventListener("click", () => {
       if (memoryGame.locked) return;
       const index = Number(button.dataset.memoryIndex);
@@ -3302,7 +3397,7 @@
         render();
         memoryResolveTimer = setTimeout(resolveMemoryTurn, 900);
       } else {
-        memoryGame.message = `Player ${memoryGame.currentPlayer + 1}, choose one more card.`;
+        memoryGame.message = `${memoryPlayerName(memoryGame.currentPlayer)}, choose one more card.`;
         render();
       }
     }));
@@ -3868,7 +3963,7 @@
           playClickSound();
           gameReturnView = "batches";
           memoryWordPool = completedWords;
-          startMemoryGame();
+          memoryGame = null;
           view = "memory";
           render();
         });
@@ -4139,7 +4234,7 @@
       playClickSound();
       gameReturnView = "batches";
       memoryWordPool = batchWords;
-      startMemoryGame();
+      memoryGame = null;
       view = "memory";
       render();
     });
