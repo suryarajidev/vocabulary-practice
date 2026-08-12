@@ -2955,7 +2955,7 @@
       cards: randomSample(cards, cards.length),
       flipped: [], matched: new Set(), scores: [0, 0], currentPlayer: 0,
       locked: false, message: mode === "ai" ? "Your turn. Choose two cards." : "Player 1, choose two cards.",
-      winner: null, mode, aiMemory: new Map(), aiPlannedSecond: null
+      winner: null, mode, aiMemory: new Map(), aiPlannedSecond: null, memoryRound: 0
     };
   }
 
@@ -2967,7 +2967,23 @@
   function rememberMemoryCard(index) {
     if (!memoryGame || memoryGame.mode !== "ai") return;
     const card = memoryGame.cards[index];
-    if (card) memoryGame.aiMemory.set(index, { pairIndex: card.pairIndex, kind: card.kind });
+    if (card) memoryGame.aiMemory.set(index, { pairIndex: card.pairIndex, kind: card.kind, seenRound: memoryGame.memoryRound });
+  }
+
+  function fadeAIMemory() {
+    if (!memoryGame || memoryGame.mode !== "ai") return;
+    const completedRound = memoryGame.memoryRound;
+    memoryGame.memoryRound++;
+    memoryGame.aiMemory.forEach((memory, index) => {
+      if (memoryGame.matched.has(index)) {
+        memoryGame.aiMemory.delete(index);
+        return;
+      }
+      const age = completedRound - memory.seenRound;
+      if (age < 1) return;
+      const forgetChance = Math.min(0.18 + age * 0.08, 0.55);
+      if (Math.random() < forgetChance) memoryGame.aiMemory.delete(index);
+    });
   }
 
   function chooseKnownMemoryPair() {
@@ -3038,6 +3054,7 @@
     if (memoryGame.matched.size === memoryGame.cards.length) {
       memoryGame.winner = memoryGame.scores[0] === memoryGame.scores[1] ? "tie" : memoryGame.scores[0] > memoryGame.scores[1] ? 0 : 1;
     }
+    fadeAIMemory();
     if (view === "memory") {
       render();
       if (memoryGame.mode === "ai" && memoryGame.currentPlayer === 1 && memoryGame.winner === null) {
@@ -3343,7 +3360,7 @@
         <div><h2 id="memoryModeTitle">Choose how to play</h2><p>Match each vocabulary word with its definition.</p></div>
         <div class="memory-mode-options">
           <button class="memory-mode-option" id="memoryTwoPlayers"><span class="memory-mode-icon">👥</span><strong>2 Players</strong><span>Take turns with a friend on the same device.</span></button>
-          <button class="memory-mode-option" id="memoryVsAI"><span class="memory-mode-icon">🤖</span><strong>Play vs AI</strong><span>Challenge an AI that remembers cards after they are revealed.</span></button>
+          <button class="memory-mode-option" id="memoryVsAI"><span class="memory-mode-icon">🤖</span><strong>Play vs AI</strong><span>Challenge an AI with imperfect memory that can forget older cards.</span></button>
         </div>
       </section>`;
       root.querySelector("#memoryTwoPlayers").addEventListener("click", () => { playClickSound(); startMemoryGame("two-player"); render(); });
