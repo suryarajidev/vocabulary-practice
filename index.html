@@ -1173,15 +1173,19 @@
 
   .paragraph-challenge { width: 100%; display: flex; flex-direction: column; gap: 18px; }
   .paragraph-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+  .paragraph-heading-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
   .paragraph-heading h2 { margin: 0 0 5px; }
   .paragraph-heading p { margin: 0; color: var(--muted); line-height: 1.5; }
   .paragraph-word-panel { padding: 17px; border: 1px solid var(--border); border-radius: 15px; background: var(--card-bg); }
   .paragraph-word-panel h3 { margin: 0 0 11px; font-size: 16px; }
   .paragraph-word-list { display: flex; flex-wrap: wrap; gap: 9px; }
-  .paragraph-word-chip { display: inline-flex; align-items: center; gap: 7px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg); color: var(--text); font-weight: 800; transition: background .16s ease, border-color .16s ease, color .16s ease; }
+  .paragraph-word-chip { display: inline-flex; align-items: center; gap: 7px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg); color: var(--text); font: inherit; font-weight: 800; cursor: pointer; transition: transform .16s ease, background .16s ease, border-color .16s ease, color .16s ease; }
+  .paragraph-word-chip:hover { transform: translateY(-1px); border-color: var(--accent); }
   .paragraph-word-chip::before { content: "○"; color: var(--muted); font-size: 17px; line-height: 1; }
   .paragraph-word-chip.used { border-color: var(--good); background: #dcfce7; color: #166534; }
   .paragraph-word-chip.used::before { content: "✓"; color: currentColor; }
+  .paragraph-definition { margin-top: 13px; padding: 13px 14px; border-left: 4px solid var(--accent); border-radius: 0 10px 10px 0; background: var(--bg); color: var(--muted); line-height: 1.5; }
+  .paragraph-definition strong { display: block; margin-bottom: 2px; color: var(--text); }
   .paragraph-editor { display: flex; flex-direction: column; gap: 9px; }
   .paragraph-editor label { font-weight: 800; }
   .paragraph-editor textarea { width: 100%; min-height: 230px; padding: 17px; border: 2px solid var(--border); border-radius: 14px; background: var(--card-bg); color: var(--text); font: inherit; font-size: 17px; line-height: 1.65; resize: vertical; transition: border-color .16s ease, box-shadow .16s ease; }
@@ -1189,6 +1193,14 @@
   .paragraph-progress { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 14px; }
   .paragraph-progress strong { color: var(--accent); font-size: 18px; }
   .paragraph-success { padding: 14px 16px; border: 1px solid rgba(22,163,74,.28); border-radius: 12px; background: #dcfce7; color: #166534; font-weight: 800; text-align: center; }
+  .paragraph-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .saved-paragraph-list { display: flex; flex-direction: column; gap: 9px; }
+  .saved-paragraph-item { padding: 12px; border: 1px solid var(--border); border-radius: 11px; background: var(--bg); }
+  .saved-paragraph-item strong { display: block; }
+  .saved-paragraph-item p { display: -webkit-box; margin: 5px 0 9px; overflow: hidden; color: var(--muted); font-size: 13px; line-height: 1.45; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+  .saved-paragraph-words { margin-bottom: 10px; color: var(--accent); font-size: 12px; font-weight: 750; }
+  .saved-paragraph-actions { display: flex; justify-content: flex-end; gap: 7px; }
+  .saved-paragraph-empty { padding: 24px 12px; color: var(--muted); text-align: center; }
 
   [data-theme="dark"] .paragraph-word-chip.used,
   [data-theme="dark"] .paragraph-success { border-color: #60776a; background: #354139; color: #c3ddcb; }
@@ -1339,6 +1351,8 @@
     .memory-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .memory-mode-options { grid-template-columns: 1fr; }
     .paragraph-heading { flex-direction: column; }
+    .paragraph-heading-actions { justify-content: flex-start; }
+    .paragraph-progress, .paragraph-actions { align-items: stretch; flex-direction: column; }
     .combatant-row { align-items: flex-end; }
     .combatant { width: 46%; }
     .combatant-figure { font-size: 52px; }
@@ -1767,11 +1781,13 @@
   const FLASHCARD_SETTINGS_KEY = "vocabPracticeFlashcardSettings";
   const HIGH_SCORES_KEY = "vocabPracticeHighScores";
   const BATCHES_KEY = "vocabPracticeBatches";
+  const SAVED_PARAGRAPHS_KEY = "vocabPracticeSavedParagraphs";
   const WORD_EXPANSION_KEY = "vocabPracticeWordExpansion120";
   const PROGRESS_KEY = "vocabPracticeProgress";
   const STREAK_KEY = "vocabPracticeStreak";
   const APP_SETTINGS_KEY = "vocabPracticeAppSettings";
   const MAX_BATCHES = 5;
+  const MAX_SAVED_PARAGRAPHS = 5;
   const defaultFlashcardSettings = { length: "standard", showPercentages: true, cardCount: SESSION_SIZE, firstSide: "term" };
   const defaultHighScores = { bubble: 0, whack: 0, wordboundTurns: null };
   const defaultProgress = { sessionsCompleted: 0, gotit: 0, almost: 0, dontknow: 0 };
@@ -1879,6 +1895,29 @@
 
   function saveBatches() {
     localStorage.setItem(BATCHES_KEY, JSON.stringify(batches));
+  }
+
+  function loadSavedParagraphs() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(SAVED_PARAGRAPHS_KEY) || "[]");
+      if (!Array.isArray(saved)) return [];
+      return saved.slice(0, MAX_SAVED_PARAGRAPHS).filter((item) => item && item.id && item.name && item.text && Array.isArray(item.words)).map((item) => ({
+        id: String(item.id),
+        name: String(item.name).slice(0, 40),
+        text: String(item.text),
+        words: item.words.slice(0, 5).filter((word) => word && word.word && word.definition).map((word) => ({
+          word: String(word.word),
+          definition: String(word.definition),
+          partOfSpeech: String(word.partOfSpeech || "")
+        }))
+      })).filter((item) => item.words.length === 5);
+    } catch {
+      return [];
+    }
+  }
+
+  function saveSavedParagraphs() {
+    localStorage.setItem(SAVED_PARAGRAPHS_KEY, JSON.stringify(savedParagraphs));
   }
 
   const builtInWords = [
@@ -2343,6 +2382,7 @@
   applyTheme();
   updateStreak();
   let batches = loadBatches();
+  let savedParagraphs = loadSavedParagraphs();
   let deck = randomSample(getAllWords(), flashcardSettings.cardCount);
   let view = "home"; // "home" | "practice" | "dictionary" | "batches" | "games" | "bubble" | "whack" | "boss" | "memory" | "paragraph" | "progress"
   let editingIndex = null;
@@ -2357,6 +2397,7 @@
   let memoryWordPool = null;
   let paragraphWordPool = null;
   let paragraphChallenge = null;
+  let activeSavedParagraphId = null;
   let activeBatchId = batches[0]?.id || null;
   let batchAddOpen = false;
   let batchSearchQuery = "";
@@ -3030,6 +3071,7 @@
       words: randomSample(source, 5),
       text: ""
     };
+    activeSavedParagraphId = null;
   }
 
   function paragraphUsesWord(text, word) {
@@ -3040,6 +3082,142 @@
   function getUsedParagraphWords() {
     if (!paragraphChallenge) return [];
     return paragraphChallenge.words.filter((item) => paragraphUsesWord(paragraphChallenge.text, item.word));
+  }
+
+  function makeSavedParagraphId() {
+    return `paragraph-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  }
+
+  function paragraphSaveData(id, name) {
+    return {
+      id,
+      name: name.slice(0, 40),
+      text: paragraphChallenge.text.trim(),
+      words: paragraphChallenge.words.map((item) => ({
+        word: item.word,
+        definition: item.definition,
+        partOfSpeech: item.partOfSpeech || ""
+      }))
+    };
+  }
+
+  function loadSavedParagraph(item) {
+    paragraphChallenge = {
+      words: item.words.map((word) => ({ ...word })),
+      text: item.text
+    };
+    activeSavedParagraphId = item.id;
+    playClickSound();
+    document.querySelector(".batch-modal-backdrop")?.remove();
+    render();
+  }
+
+  function showParagraphSaveDialog() {
+    if (!paragraphChallenge?.text.trim()) return;
+    const active = savedParagraphs.find((item) => item.id === activeSavedParagraphId);
+    if (active) {
+      const updated = paragraphSaveData(active.id, active.name);
+      Object.assign(active, updated);
+      saveSavedParagraphs();
+      playGotItSound();
+      render();
+      return;
+    }
+
+    document.querySelector(".batch-modal-backdrop")?.remove();
+    const backdrop = document.createElement("div");
+    backdrop.className = "batch-modal-backdrop";
+    backdrop.innerHTML = `<div class="batch-modal" role="dialog" aria-modal="true" aria-labelledby="paragraphSaveTitle">
+      <h3 id="paragraphSaveTitle">Save paragraph</h3>
+      <p>Give your paragraph a name. You can keep up to ${MAX_SAVED_PARAGRAPHS} saved paragraphs.</p>
+      <label>Paragraph name<input id="paragraphNameInput" maxlength="40" placeholder="For example: The forest journey"></label>
+      <div class="batch-modal-actions">
+        <button class="small-btn" id="cancelParagraphSave">Cancel</button>
+        <button class="accent-btn" id="createSavedParagraph" ${savedParagraphs.length >= MAX_SAVED_PARAGRAPHS ? "disabled" : ""}>Save paragraph</button>
+      </div>
+      ${savedParagraphs.length ? `<div class="batch-replace"><p>${savedParagraphs.length >= MAX_SAVED_PARAGRAPHS ? "You have five saved paragraphs. Replace one to save this paragraph:" : "Or replace an existing saved paragraph:"}</p><div class="batch-replace-list">
+        ${savedParagraphs.map((item, index) => `<button class="small-btn replace-paragraph-btn" data-saved-paragraph-index="${index}"><span>${escapeHtml(item.name)}</span><span>${item.words.length} words</span></button>`).join("")}
+      </div></div>` : ""}
+    </div>`;
+    document.body.appendChild(backdrop);
+
+    const nameInput = backdrop.querySelector("#paragraphNameInput");
+    nameInput.value = `Paragraph ${savedParagraphs.length + 1}`;
+    nameInput.focus();
+    nameInput.select();
+    const close = () => backdrop.remove();
+    const getName = () => {
+      const name = nameInput.value.trim();
+      nameInput.setCustomValidity(name ? "" : "Give this paragraph a name.");
+      if (!name) nameInput.reportValidity();
+      return name;
+    };
+    backdrop.querySelector("#cancelParagraphSave").addEventListener("click", close);
+    backdrop.addEventListener("click", (event) => { if (event.target === backdrop) close(); });
+    backdrop.querySelector("#createSavedParagraph").addEventListener("click", () => {
+      if (savedParagraphs.length >= MAX_SAVED_PARAGRAPHS) return;
+      const name = getName();
+      if (!name) return;
+      const saved = paragraphSaveData(makeSavedParagraphId(), name);
+      savedParagraphs.push(saved);
+      activeSavedParagraphId = saved.id;
+      saveSavedParagraphs();
+      playGotItSound();
+      close();
+      render();
+    });
+    backdrop.querySelectorAll(".replace-paragraph-btn").forEach((button) => button.addEventListener("click", () => {
+      const index = Number(button.dataset.savedParagraphIndex);
+      const replaced = savedParagraphs[index];
+      const name = getName();
+      if (!replaced || !name || !confirm(`Replace the saved paragraph “${replaced.name}”?`)) return;
+      const saved = paragraphSaveData(makeSavedParagraphId(), name);
+      savedParagraphs[index] = saved;
+      activeSavedParagraphId = saved.id;
+      saveSavedParagraphs();
+      playGotItSound();
+      close();
+      render();
+    }));
+  }
+
+  function showSavedParagraphsDialog() {
+    document.querySelector(".batch-modal-backdrop")?.remove();
+    const backdrop = document.createElement("div");
+    backdrop.className = "batch-modal-backdrop";
+    backdrop.innerHTML = `<div class="batch-modal" role="dialog" aria-modal="true" aria-labelledby="savedParagraphsTitle">
+      <h3 id="savedParagraphsTitle">Saved paragraphs</h3>
+      <p>${savedParagraphs.length} / ${MAX_SAVED_PARAGRAPHS} saved. Open one to continue writing or review it.</p>
+      ${savedParagraphs.length ? `<div class="saved-paragraph-list">${savedParagraphs.map((item, index) => `<div class="saved-paragraph-item">
+        <strong>${escapeHtml(item.name)}</strong>
+        <p>${escapeHtml(item.text)}</p>
+        <div class="saved-paragraph-words">${item.words.map((word) => escapeHtml(word.word)).join(" · ")}</div>
+        <div class="saved-paragraph-actions"><button class="small-btn load-saved-paragraph" data-saved-paragraph-index="${index}">Open</button><button class="small-btn danger-outline delete-saved-paragraph" data-saved-paragraph-index="${index}">Delete</button></div>
+      </div>`).join("")}</div>` : `<div class="saved-paragraph-empty">You have not saved any paragraphs yet.</div>`}
+      <div class="batch-modal-actions"><button class="small-btn" id="closeSavedParagraphs">Close</button></div>
+    </div>`;
+    document.body.appendChild(backdrop);
+
+    const close = () => backdrop.remove();
+    backdrop.querySelector("#closeSavedParagraphs").addEventListener("click", close);
+    backdrop.addEventListener("click", (event) => { if (event.target === backdrop) close(); });
+    backdrop.querySelectorAll(".load-saved-paragraph").forEach((button) => button.addEventListener("click", () => {
+      const item = savedParagraphs[Number(button.dataset.savedParagraphIndex)];
+      if (item) loadSavedParagraph(item);
+    }));
+    backdrop.querySelectorAll(".delete-saved-paragraph").forEach((button) => button.addEventListener("click", () => {
+      const index = Number(button.dataset.savedParagraphIndex);
+      const item = savedParagraphs[index];
+      if (!item || !confirm(`Delete the saved paragraph “${item.name}”?`)) return;
+      const deletedActiveParagraph = activeSavedParagraphId === item.id;
+      savedParagraphs.splice(index, 1);
+      if (deletedActiveParagraph) activeSavedParagraphId = null;
+      saveSavedParagraphs();
+      playClickSound();
+      close();
+      if (deletedActiveParagraph) render();
+      showSavedParagraphsDialog();
+    }));
   }
 
   function stopMemoryTimer() {
@@ -3542,13 +3720,17 @@
     root.innerHTML = `<section class="paragraph-challenge" aria-labelledby="paragraphTitle">
       <div class="paragraph-heading">
         <div><h2 id="paragraphTitle">Paragraph Challenge</h2><p>Create one paragraph that uses all five words. Each word checks off automatically when you use it.</p></div>
-        <button class="small-btn" id="newParagraphWords">New five words</button>
+        <div class="paragraph-heading-actions">
+          <button class="small-btn" id="savedParagraphs">Saved paragraphs (${savedParagraphs.length}/${MAX_SAVED_PARAGRAPHS})</button>
+          <button class="small-btn" id="newParagraphWords">New five words</button>
+        </div>
       </div>
       <div class="paragraph-word-panel">
-        <h3>Words to include</h3>
+        <h3>Words to include <span class="part-of-speech">Select a word for its definition</span></h3>
         <div class="paragraph-word-list">
-          ${paragraphChallenge.words.map((item, index) => `<span class="paragraph-word-chip" data-paragraph-word-index="${index}" title="${escapeHtml(item.definition)}">${escapeHtml(item.word)}</span>`).join("")}
+          ${paragraphChallenge.words.map((item, index) => `<button class="paragraph-word-chip" data-paragraph-word-index="${index}" aria-expanded="false" aria-controls="paragraphWordDefinition">${escapeHtml(item.word)}</button>`).join("")}
         </div>
+        <div class="paragraph-definition" id="paragraphWordDefinition" role="status" hidden></div>
       </div>
       <div class="paragraph-editor">
         <label for="paragraphText">Your paragraph</label>
@@ -3556,12 +3738,16 @@
         <div class="paragraph-progress"><span>Use each word as a complete word, not as part of a longer word.</span><strong id="paragraphUsedCount">0 / 5 used</strong></div>
       </div>
       <div class="paragraph-success" id="paragraphSuccess" role="status" hidden>Excellent! You used all five vocabulary words.</div>
-      <button class="small-btn" id="clearParagraph">Clear paragraph</button>
+      <div class="paragraph-actions">
+        <button class="small-btn" id="clearParagraph">Clear paragraph</button>
+        <button class="accent-btn" id="saveParagraph" ${paragraphChallenge.text.trim() ? "" : "disabled"}>${activeSavedParagraphId ? "Update saved paragraph" : "Save paragraph"}</button>
+      </div>
     </section>`;
 
     const textarea = root.querySelector("#paragraphText");
     const usedCount = root.querySelector("#paragraphUsedCount");
     const success = root.querySelector("#paragraphSuccess");
+    const saveButton = root.querySelector("#saveParagraph");
     const updateParagraphChecks = () => {
       const usedWords = getUsedParagraphWords();
       paragraphChallenge.words.forEach((item, index) => {
@@ -3573,7 +3759,21 @@
 
     textarea.addEventListener("input", () => {
       paragraphChallenge.text = textarea.value;
+      saveButton.disabled = !paragraphChallenge.text.trim();
       updateParagraphChecks();
+    });
+    root.querySelectorAll(".paragraph-word-chip").forEach((button) => button.addEventListener("click", () => {
+      playClickSound();
+      const item = paragraphChallenge.words[Number(button.dataset.paragraphWordIndex)];
+      if (!item) return;
+      root.querySelectorAll(".paragraph-word-chip").forEach((chip) => chip.setAttribute("aria-expanded", String(chip === button)));
+      const definition = root.querySelector("#paragraphWordDefinition");
+      definition.innerHTML = `<strong>${escapeHtml(item.word)}${item.partOfSpeech ? ` <span class="part-of-speech">${escapeHtml(item.partOfSpeech)}</span>` : ""}</strong>${escapeHtml(item.definition)}`;
+      definition.hidden = false;
+    }));
+    root.querySelector("#savedParagraphs").addEventListener("click", () => {
+      playClickSound();
+      showSavedParagraphsDialog();
     });
     root.querySelector("#newParagraphWords").addEventListener("click", () => {
       playClickSound();
@@ -3584,9 +3784,11 @@
       playClickSound();
       paragraphChallenge.text = "";
       textarea.value = "";
+      saveButton.disabled = true;
       textarea.focus();
       updateParagraphChecks();
     });
+    saveButton.addEventListener("click", showParagraphSaveDialog);
     updateParagraphChecks();
   }
 
