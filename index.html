@@ -4670,6 +4670,10 @@
 
   const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
 
+  function capitalizeDictation(text) {
+    return text.replace(/[A-Za-z]/, (letter) => letter.toUpperCase());
+  }
+
   function attachDictation(button, targetField) {
     if (!button) return;
     if (!SpeechRecognitionCtor) {
@@ -4699,7 +4703,7 @@
       recognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript.trim();
         if (transcript) {
-          targetField.value = transcript;
+          targetField.value = capitalizeDictation(transcript);
           targetField.focus();
         }
       };
