@@ -981,7 +981,7 @@
   .batch-panel-header h3 { margin: 0 0 3px; font-size: 24px; }
   .batch-panel-header p { margin: 0; color: var(--muted); font-size: 13px; }
   .batch-header-actions { display: flex; gap: 7px; }
-  .batch-play-menu { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+  .batch-play-menu { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
   .batch-play-menu button { padding: 10px 7px; font-size: 12px; }
   .batch-play-menu button:disabled { opacity: .42; cursor: not-allowed; }
   .batch-add-area { padding: 14px; border: 1px dashed rgba(13,148,136,.38); border-radius: 12px; background: #f4fbf8; }
@@ -1171,6 +1171,28 @@
   .memory-ending h3 { margin: 0 0 7px; font-size: 27px; }
   #memoryAgain { padding: 14px 28px; margin-top: 8px; }
 
+  .paragraph-challenge { width: 100%; display: flex; flex-direction: column; gap: 18px; }
+  .paragraph-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+  .paragraph-heading h2 { margin: 0 0 5px; }
+  .paragraph-heading p { margin: 0; color: var(--muted); line-height: 1.5; }
+  .paragraph-word-panel { padding: 17px; border: 1px solid var(--border); border-radius: 15px; background: var(--card-bg); }
+  .paragraph-word-panel h3 { margin: 0 0 11px; font-size: 16px; }
+  .paragraph-word-list { display: flex; flex-wrap: wrap; gap: 9px; }
+  .paragraph-word-chip { display: inline-flex; align-items: center; gap: 7px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg); color: var(--text); font-weight: 800; transition: background .16s ease, border-color .16s ease, color .16s ease; }
+  .paragraph-word-chip::before { content: "○"; color: var(--muted); font-size: 17px; line-height: 1; }
+  .paragraph-word-chip.used { border-color: var(--good); background: #dcfce7; color: #166534; }
+  .paragraph-word-chip.used::before { content: "✓"; color: currentColor; }
+  .paragraph-editor { display: flex; flex-direction: column; gap: 9px; }
+  .paragraph-editor label { font-weight: 800; }
+  .paragraph-editor textarea { width: 100%; min-height: 230px; padding: 17px; border: 2px solid var(--border); border-radius: 14px; background: var(--card-bg); color: var(--text); font: inherit; font-size: 17px; line-height: 1.65; resize: vertical; transition: border-color .16s ease, box-shadow .16s ease; }
+  .paragraph-editor textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px rgba(13,148,136,.13); }
+  .paragraph-progress { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--muted); font-size: 14px; }
+  .paragraph-progress strong { color: var(--accent); font-size: 18px; }
+  .paragraph-success { padding: 14px 16px; border: 1px solid rgba(22,163,74,.28); border-radius: 12px; background: #dcfce7; color: #166534; font-weight: 800; text-align: center; }
+
+  [data-theme="dark"] .paragraph-word-chip.used,
+  [data-theme="dark"] .paragraph-success { border-color: #60776a; background: #354139; color: #c3ddcb; }
+
   .app.battle-mode { max-width: 1100px; }
 
   .boss-battle {
@@ -1316,6 +1338,7 @@
     .game-menu, .question-options { grid-template-columns: 1fr; }
     .memory-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .memory-mode-options { grid-template-columns: 1fr; }
+    .paragraph-heading { flex-direction: column; }
     .combatant-row { align-items: flex-end; }
     .combatant { width: 46%; }
     .combatant-figure { font-size: 52px; }
@@ -2321,7 +2344,7 @@
   updateStreak();
   let batches = loadBatches();
   let deck = randomSample(getAllWords(), flashcardSettings.cardCount);
-  let view = "home"; // "home" | "practice" | "dictionary" | "batches" | "games" | "bubble" | "whack" | "boss" | "memory" | "progress"
+  let view = "home"; // "home" | "practice" | "dictionary" | "batches" | "games" | "bubble" | "whack" | "boss" | "memory" | "paragraph" | "progress"
   let editingIndex = null;
   let showAddForm = false;
   let sortOrder = "az"; // "az" | "za" | "newest" | "oldest"
@@ -2332,6 +2355,8 @@
   let whackWordPool = null;
   let battleWordPool = null;
   let memoryWordPool = null;
+  let paragraphWordPool = null;
+  let paragraphChallenge = null;
   let activeBatchId = batches[0]?.id || null;
   let batchAddOpen = false;
   let batchSearchQuery = "";
@@ -2999,6 +3024,24 @@
     side = firstSide;
   }
 
+  function startParagraphChallenge() {
+    const source = paragraphWordPool || getAllWords();
+    paragraphChallenge = {
+      words: randomSample(source, 5),
+      text: ""
+    };
+  }
+
+  function paragraphUsesWord(text, word) {
+    const escapedWord = word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return new RegExp(`(^|[^A-Za-z0-9'])${escapedWord}(?=$|[^A-Za-z0-9'])`, "i").test(text);
+  }
+
+  function getUsedParagraphWords() {
+    if (!paragraphChallenge) return [];
+    return paragraphChallenge.words.filter((item) => paragraphUsesWord(paragraphChallenge.text, item.word));
+  }
+
   function stopMemoryTimer() {
     if (memoryResolveTimer) clearTimeout(memoryResolveTimer);
     memoryResolveTimer = null;
@@ -3156,7 +3199,7 @@
       return;
     }
 
-    const gameViews = ["bubble", "whack", "boss", "memory"];
+    const gameViews = ["bubble", "whack", "boss", "memory", "paragraph"];
     const backTarget = view === "batches" ? "dictionary" : view === "practice" ? practiceReturnView : gameViews.includes(view) ? gameReturnView : "home";
     const backLabel = backTarget === "games" ? "Games" : backTarget === "batches" ? "Batches" : backTarget === "dictionary" ? "Dictionary" : "Home";
     app.innerHTML = `
@@ -3187,6 +3230,8 @@
       renderBossBattle(root);
     } else if (view === "memory") {
       renderMemoryGame(root);
+    } else if (view === "paragraph") {
+      renderParagraphChallenge(root);
     } else if (view === "progress") {
       renderProgress(root);
     }
@@ -3371,7 +3416,7 @@
       <section class="game-menu" aria-labelledby="gamesTitle">
         <div class="game-menu-heading">
           <h2 id="gamesTitle">Choose a game</h2>
-          <p>Practice your vocabulary in four different ways.</p>
+          <p>Practice your vocabulary in five different ways.</p>
         </div>
         <button class="game-choice" id="playBubbleShot">
           <span class="game-choice-icon">🫧</span><strong>Bubble Shot</strong>
@@ -3392,6 +3437,10 @@
           <span class="game-choice-icon">🧠</span><strong>Memory Match</strong>
           <span class="game-choice-desc">Match words and definitions with a friend or challenge the AI.</span>
         </button>
+        <button class="game-choice" id="playParagraph">
+          <span class="game-choice-icon">✍️</span><strong>Paragraph Challenge</strong>
+          <span class="game-choice-desc">Write a paragraph that naturally uses all five vocabulary words.</span>
+        </button>
       </section>`;
     root.querySelector("#playBubbleShot").addEventListener("click", () => {
       playClickSound(); view = "bubble"; gameReturnView = "games"; bubbleWordPool = null;
@@ -3406,6 +3455,9 @@
     });
     root.querySelector("#playMemory").addEventListener("click", () => {
       playClickSound(); view = "memory"; gameReturnView = "games"; memoryWordPool = null; memoryGame = null; render();
+    });
+    root.querySelector("#playParagraph").addEventListener("click", () => {
+      playClickSound(); view = "paragraph"; gameReturnView = "games"; paragraphWordPool = null; startParagraphChallenge(); render();
     });
   }
 
@@ -3478,6 +3530,64 @@
         render();
       }
     }));
+  }
+
+  function renderParagraphChallenge(root) {
+    if (!paragraphChallenge) startParagraphChallenge();
+    if (paragraphChallenge.words.length < 5) {
+      root.innerHTML = `<div class="empty-state">Add at least five words in the Dictionary or batch to start a Paragraph Challenge.</div>`;
+      return;
+    }
+
+    root.innerHTML = `<section class="paragraph-challenge" aria-labelledby="paragraphTitle">
+      <div class="paragraph-heading">
+        <div><h2 id="paragraphTitle">Paragraph Challenge</h2><p>Create one paragraph that uses all five words. Each word checks off automatically when you use it.</p></div>
+        <button class="small-btn" id="newParagraphWords">New five words</button>
+      </div>
+      <div class="paragraph-word-panel">
+        <h3>Words to include</h3>
+        <div class="paragraph-word-list">
+          ${paragraphChallenge.words.map((item, index) => `<span class="paragraph-word-chip" data-paragraph-word-index="${index}" title="${escapeHtml(item.definition)}">${escapeHtml(item.word)}</span>`).join("")}
+        </div>
+      </div>
+      <div class="paragraph-editor">
+        <label for="paragraphText">Your paragraph</label>
+        <textarea id="paragraphText" placeholder="Start writing here…" spellcheck="true">${escapeHtml(paragraphChallenge.text)}</textarea>
+        <div class="paragraph-progress"><span>Use each word as a complete word, not as part of a longer word.</span><strong id="paragraphUsedCount">0 / 5 used</strong></div>
+      </div>
+      <div class="paragraph-success" id="paragraphSuccess" role="status" hidden>Excellent! You used all five vocabulary words.</div>
+      <button class="small-btn" id="clearParagraph">Clear paragraph</button>
+    </section>`;
+
+    const textarea = root.querySelector("#paragraphText");
+    const usedCount = root.querySelector("#paragraphUsedCount");
+    const success = root.querySelector("#paragraphSuccess");
+    const updateParagraphChecks = () => {
+      const usedWords = getUsedParagraphWords();
+      paragraphChallenge.words.forEach((item, index) => {
+        root.querySelector(`[data-paragraph-word-index="${index}"]`)?.classList.toggle("used", usedWords.includes(item));
+      });
+      usedCount.textContent = `${usedWords.length} / ${paragraphChallenge.words.length} used`;
+      success.hidden = usedWords.length !== paragraphChallenge.words.length;
+    };
+
+    textarea.addEventListener("input", () => {
+      paragraphChallenge.text = textarea.value;
+      updateParagraphChecks();
+    });
+    root.querySelector("#newParagraphWords").addEventListener("click", () => {
+      playClickSound();
+      startParagraphChallenge();
+      render();
+    });
+    root.querySelector("#clearParagraph").addEventListener("click", () => {
+      playClickSound();
+      paragraphChallenge.text = "";
+      textarea.value = "";
+      textarea.focus();
+      updateParagraphChecks();
+    });
+    updateParagraphChecks();
   }
 
   function battleStatusText() {
@@ -3976,6 +4086,7 @@
             <button class="small-btn" id="deckWordbound">🐉 Wordbound</button>
             <button class="small-btn" id="deckWhack" ${completedWords.length < 6 ? "disabled" : ""}>🔨 Whack-a-Word</button>
             <button class="small-btn" id="deckMemory" ${completedWords.length < 2 ? "disabled" : ""}>🧠 Memory Match</button>
+            <button class="small-btn" id="deckParagraph" ${completedWords.length < 5 ? "disabled" : ""}>✍️ Paragraph Challenge</button>
           </div>` : `<h3>Keep this deck</h3>
           <p>Save these ${completedWords.length} words as a reusable batch.</p>
           <button class="accent-btn completion-save-btn" id="saveCompletedBatch">Save as batch</button>`}
@@ -4042,6 +4153,15 @@
           memoryWordPool = completedWords;
           memoryGame = null;
           view = "memory";
+          render();
+        });
+        done.querySelector("#deckParagraph").addEventListener("click", () => {
+          if (completedWords.length < 5) return;
+          playClickSound();
+          gameReturnView = "batches";
+          paragraphWordPool = completedWords;
+          startParagraphChallenge();
+          view = "paragraph";
           render();
         });
       } else {
@@ -4233,6 +4353,7 @@
           <button class="small-btn" id="batchWordbound" ${batchWords.length < 1 ? "disabled" : ""}>Wordbound</button>
           <button class="small-btn" id="batchWhack" ${batchWords.length < 6 ? "disabled" : ""}>Whack-a-Word</button>
           <button class="small-btn" id="batchMemory" ${batchWords.length < 2 ? "disabled" : ""}>Memory Match</button>
+          <button class="small-btn" id="batchParagraph" ${batchWords.length < 5 ? "disabled" : ""}>Paragraph Challenge</button>
         </div>
         <button class="accent-btn" id="toggleBatchAdd">${batchAddOpen ? "Close search" : "+ Add card"}</button>
         ${batchAddOpen ? `<div class="batch-add-area">
@@ -4314,6 +4435,15 @@
       memoryWordPool = batchWords;
       memoryGame = null;
       view = "memory";
+      render();
+    });
+    root.querySelector("#batchParagraph").addEventListener("click", () => {
+      if (batchWords.length < 5) return;
+      playClickSound();
+      gameReturnView = "batches";
+      paragraphWordPool = batchWords;
+      startParagraphChallenge();
+      view = "paragraph";
       render();
     });
     root.querySelector("#toggleBatchAdd").addEventListener("click", () => {
