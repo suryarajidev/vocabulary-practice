@@ -102,10 +102,9 @@
   [data-theme="dark"] .selection-tray { background: #252d2c; }
   [data-theme="dark"] .selection-count { color: #d5dcda; }
 
-  /* These elements keep a fixed light/pastel background in both themes, so their text
+  /* This pill keeps a fixed light/pastel background in both themes, so its text
      must stay a fixed dark color instead of following --text/--brand-dark/etc. */
-  [data-theme="dark"] .part-of-speech,
-  [data-theme="dark"] .selection-count { color: #d5dcda; }
+  [data-theme="dark"] .part-of-speech { color: #0b3b31; }
   [data-theme="dark"] .resume-bubble-btn { color: #e7eae9; }
   [data-theme="dark"] .question-option { color: #e2e5e4; }
   [data-theme="dark"] .percentage-card.correct { color: #15803d; }
@@ -1162,6 +1161,10 @@
   .memory-card:not(.revealed):hover { transform: translateY(-3px); box-shadow: 0 9px 18px rgba(15,118,110,.22); }
   .memory-card.revealed { background: var(--card-bg); color: var(--text); border-color: var(--accent); }
   .memory-card.matched { background: #dcfce7; border-color: var(--good); color: #166534; cursor: default; }
+  .memory-card.revealed.term { background: #e0f2fe; border-color: #0284c7; color: #075985; }
+  .memory-card.revealed.definition { background: #fef3c7; border-color: #b45309; color: #78350f; }
+  .memory-card.matched.term { background: #bfdbfe; border-color: var(--good); color: #1e3a8a; }
+  .memory-card.matched.definition { background: #fde68a; border-color: var(--good); color: #78350f; }
   .memory-card-back { font-size: 34px; }
   .memory-card-kind { display: block; margin-bottom: 7px; color: var(--muted); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; }
   .memory-ending { padding: 25px; border: 1px solid var(--border); border-radius: 15px; background: var(--card-bg); text-align: center; }
@@ -3450,7 +3453,7 @@
             const revealed = memoryGame.flipped.includes(index) || memoryGame.matched.has(index);
             const matched = memoryGame.matched.has(index);
             const aiTurn = memoryGame.mode === "ai" && memoryGame.currentPlayer === 1;
-            return `<button class="memory-card ${revealed ? "revealed" : ""} ${matched ? "matched" : ""}" data-memory-index="${index}" ${matched || memoryGame.locked || aiTurn ? "disabled" : ""} aria-label="${revealed ? `${card.kind} card` : "Face-down card"}">
+            return `<button class="memory-card ${card.kind} ${revealed ? "revealed" : ""} ${matched ? "matched" : ""}" data-memory-index="${index}" ${matched || memoryGame.locked || aiTurn ? "disabled" : ""} aria-label="${revealed ? `${card.kind} card` : "Face-down card"}">
               ${revealed ? `<span class="memory-card-kind">${card.kind}</span>${escapeHtml(card.content)}${card.kind === "term" ? `<span class="part-of-speech card-part-of-speech">${escapeHtml(card.partOfSpeech || "Not specified")}</span>` : ""}` : `<span class="memory-card-back">?</span>`}
             </button>`;
           }).join("")}
@@ -4088,7 +4091,7 @@
             <div class="side-label">${frontLabel}</div>
             <div class="${frontIsTerm ? 'word' : 'definition'}">${escapeHtml(frontValue)}</div>
             ${frontIsTerm ? `<div class="part-of-speech card-part-of-speech">${escapeHtml(current.partOfSpeech || "Not specified")}</div>` : ""}
-            <div class="hint">Tap to flip</div>
+            <div class="hint">Tap to flip &middot; Space</div>
           </div>
         </div>
         <div class="card-face card-back">
@@ -4096,7 +4099,7 @@
             <div class="side-label">${backLabel}</div>
             <div class="${frontIsTerm ? 'definition' : 'word'}">${escapeHtml(backValue)}</div>
             ${!frontIsTerm ? `<div class="part-of-speech card-part-of-speech">${escapeHtml(current.partOfSpeech || "Not specified")}</div>` : ""}
-            <div class="hint">Tap to flip back</div>
+            <div class="hint">Tap to flip back &middot; Space</div>
           </div>
         </div>
       </div>
@@ -4115,6 +4118,7 @@
     scene.addEventListener("keydown", (event) => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
+        event.stopPropagation();
         flipCard();
       }
     });
@@ -4744,6 +4748,22 @@
     }
     if (event.key === "Escape" && app.classList.contains("whack-fullscreen")) {
       app.classList.remove("whack-fullscreen");
+    }
+    if (view === "practice" && !["INPUT", "TEXTAREA"].includes(event.target.tagName)) {
+      if (event.key === " " || event.key === "Enter") {
+        event.preventDefault();
+        document.querySelector(".card-scene")?.click();
+      } else if (event.key === "ArrowLeft") {
+        document.getElementById("prevBtn")?.click();
+      } else if (event.key === "ArrowRight") {
+        document.getElementById("nextBtn")?.click();
+      } else if (event.key === "1") {
+        document.getElementById("dontKnow")?.click();
+      } else if (event.key === "2") {
+        document.getElementById("almost")?.click();
+      } else if (event.key === "3") {
+        document.getElementById("gotit")?.click();
+      }
     }
   });
 
