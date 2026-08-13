@@ -1194,6 +1194,7 @@
   .paragraph-progress strong { color: var(--accent); font-size: 18px; }
   .paragraph-success { padding: 14px 16px; border: 1px solid rgba(22,163,74,.28); border-radius: 12px; background: #dcfce7; color: #166534; font-weight: 800; text-align: center; }
   .paragraph-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  #saveParagraph { padding: 14px 28px; }
   .saved-paragraph-list { display: flex; flex-direction: column; gap: 9px; }
   .saved-paragraph-item { padding: 12px; border: 1px solid var(--border); border-radius: 11px; background: var(--bg); }
   .saved-paragraph-item strong { display: block; }
@@ -3780,13 +3781,38 @@
       startParagraphChallenge();
       render();
     });
-    root.querySelector("#clearParagraph").addEventListener("click", () => {
+    const clearParagraph = () => {
       playClickSound();
       paragraphChallenge.text = "";
       textarea.value = "";
       saveButton.disabled = true;
       textarea.focus();
       updateParagraphChecks();
+    };
+    root.querySelector("#clearParagraph").addEventListener("click", () => {
+      if (!paragraphChallenge.text.trim()) {
+        clearParagraph();
+        return;
+      }
+      document.querySelector(".batch-modal-backdrop")?.remove();
+      const backdrop = document.createElement("div");
+      backdrop.className = "batch-modal-backdrop";
+      backdrop.innerHTML = `<div class="batch-modal" role="dialog" aria-modal="true" aria-labelledby="clearParagraphTitle">
+        <h3 id="clearParagraphTitle">Clear paragraph?</h3>
+        <p>Your paragraph text will be removed. This cannot be undone.</p>
+        <div class="batch-modal-actions">
+          <button class="small-btn" id="cancelParagraphClear">Cancel</button>
+          <button class="accent-btn" id="confirmParagraphClear">Clear paragraph</button>
+        </div>
+      </div>`;
+      document.body.appendChild(backdrop);
+      const close = () => backdrop.remove();
+      backdrop.querySelector("#cancelParagraphClear").addEventListener("click", close);
+      backdrop.addEventListener("click", (event) => { if (event.target === backdrop) close(); });
+      backdrop.querySelector("#confirmParagraphClear").addEventListener("click", () => {
+        close();
+        clearParagraph();
+      });
     });
     saveButton.addEventListener("click", showParagraphSaveDialog);
     updateParagraphChecks();
