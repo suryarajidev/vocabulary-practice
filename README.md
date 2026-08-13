@@ -11,3 +11,7 @@ What plan? For the website? Also, this is a dumb way of communicating.
 If it's for the website, maybe add another game. I was using it, and I added features that I really wanted, such as the batches.
 
 should i add an account based thingy???????? also this way of communicating is not DUMB :) also when is your ssat are you keeping up with your cards. btw i have to take the psat in the fall 
+
+I'm taking two SSATs, one on Sept 5th and one later in October. The vocab cards are very helpful if that's what you meant. 
+What's the PSAT for? I'm just curious.
+Also, go ahead and add an account based thing.
