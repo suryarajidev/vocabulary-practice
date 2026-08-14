@@ -1818,6 +1818,7 @@
   const SAVED_PARAGRAPHS_KEY = "vocabPracticeSavedParagraphs";
   const PARAGRAPH_SETTINGS_KEY = "vocabPracticeParagraphSettings";
   const WORD_EXPANSION_KEY = "vocabPracticeWordExpansion120";
+  const SECOND_WORD_EXPANSION_KEY = "vocabPracticeWordExpansion50";
   const PROGRESS_KEY = "vocabPracticeProgress";
   const STREAK_KEY = "vocabPracticeStreak";
   const APP_SETTINGS_KEY = "vocabPracticeAppSettings";
@@ -1841,7 +1842,29 @@
     bubbleIncorrectAnswers: 0,
     flashcardLengthChanged: 0,
     moleBestStreak: 0,
-    memoryAiShutouts: 0
+    memoryAiShutouts: 0,
+    missedPracticeStarts: 0,
+    memoryMatchesFound: 0,
+    perfectFlashcardSessions10: 0,
+    perfectFlashcardSessions20: 0,
+    bubbleBestStreak: 0,
+    bubbleBestMissStreak: 0,
+    whackBestCorrectGame: 0,
+    whackBestIncorrectGame: 0,
+    lowHealthWordboundWins: 0,
+    untouchableWordboundWins: 0,
+    lastStandWordboundWins: 0,
+    unbreakableWordboundWins: 0,
+    wordboundFiveTurnWins: 0,
+    twoPlayerBigWins: 0,
+    memoryQuickWins: 0,
+    customWordHighWater: 0,
+    flashcardSideChanges: 0,
+    oneCardSessions: 0,
+    paragraphClears: 0,
+    practiceAgainMarathons: 0,
+    nightSessions: 0,
+    noPeekParagraphs: 0
   };
 
   function loadFlashcardSettings() {
@@ -1943,10 +1966,13 @@
       return {
         stats: { ...defaultAchievementStats, ...(saved.stats || {}) },
         unlocked: Array.isArray(saved.unlocked) ? [...new Set(saved.unlocked.map(String))] : [],
-        batchGames: saved.batchGames && typeof saved.batchGames === "object" ? Object.fromEntries(Object.entries(saved.batchGames).map(([id, games]) => [String(id), Array.isArray(games) ? [...new Set(games.map(String))] : []])) : {}
+        batchGames: saved.batchGames && typeof saved.batchGames === "object" ? Object.fromEntries(Object.entries(saved.batchGames).map(([id, games]) => [String(id), Array.isArray(games) ? [...new Set(games.map(String))] : []])) : {},
+        gamesPlayed: Array.isArray(saved.gamesPlayed) ? [...new Set(saved.gamesPlayed.map(String))] : [],
+        masteredWords: Array.isArray(saved.masteredWords) ? [...new Set(saved.masteredWords.map((word) => String(word).toLowerCase()))] : [],
+        batchPerfectActivities: saved.batchPerfectActivities && typeof saved.batchPerfectActivities === "object" ? Object.fromEntries(Object.entries(saved.batchPerfectActivities).map(([id, activities]) => [String(id), Array.isArray(activities) ? [...new Set(activities.map(String))] : []])) : {}
       };
     } catch {
-      return { stats: { ...defaultAchievementStats }, unlocked: [], batchGames: {} };
+      return { stats: { ...defaultAchievementStats }, unlocked: [], batchGames: {}, gamesPlayed: [], masteredWords: [], batchPerfectActivities: {} };
     }
   }
 
@@ -2206,7 +2232,60 @@
     { word: "Vindicate", definition: "To clear someone of blame or suspicion." }
   ];
 
-  builtInWords.push(...expandedBuiltInWords);
+  const additionalBuiltInWords = [
+    { word: "Adroit", definition: "Skillful and clever in using the hands or mind.", partOfSpeech: "adjective" },
+    { word: "Aloof", definition: "Reserved, distant, or uninvolved.", partOfSpeech: "adjective" },
+    { word: "Bellwether", definition: "A person or thing that leads or indicates a trend.", partOfSpeech: "noun" },
+    { word: "Bombastic", definition: "Using language that sounds impressive but has little meaning.", partOfSpeech: "adjective" },
+    { word: "Catalyst", definition: "A person or thing that causes change or action.", partOfSpeech: "noun" },
+    { word: "Clairvoyant", definition: "Able to perceive events beyond normal sensory contact.", partOfSpeech: "adjective / noun" },
+    { word: "Cogent", definition: "Clear, logical, and convincing.", partOfSpeech: "adjective" },
+    { word: "Confluence", definition: "A meeting or merging of people, ideas, or streams.", partOfSpeech: "noun" },
+    { word: "Delineate", definition: "To describe or portray something precisely.", partOfSpeech: "verb" },
+    { word: "Egregious", definition: "Outstandingly bad or shocking.", partOfSpeech: "adjective" },
+    { word: "Empirical", definition: "Based on observation or experiment rather than theory.", partOfSpeech: "adjective" },
+    { word: "Epiphany", definition: "A sudden realization or moment of insight.", partOfSpeech: "noun" },
+    { word: "Equivocal", definition: "Open to more than one interpretation; deliberately unclear.", partOfSpeech: "adjective" },
+    { word: "Exonerate", definition: "To clear someone from blame or wrongdoing.", partOfSpeech: "verb" },
+    { word: "Germane", definition: "Relevant and appropriate to the matter at hand.", partOfSpeech: "adjective" },
+    { word: "Iconoclast", definition: "A person who challenges established beliefs or traditions.", partOfSpeech: "noun" },
+    { word: "Impetus", definition: "A force that makes something happen or happen faster.", partOfSpeech: "noun" },
+    { word: "Intransigent", definition: "Unwilling to change one's views or agree.", partOfSpeech: "adjective" },
+    { word: "Lethargic", definition: "Sluggish and lacking energy or enthusiasm.", partOfSpeech: "adjective" },
+    { word: "Malleable", definition: "Able to be shaped or influenced easily.", partOfSpeech: "adjective" },
+    { word: "Munificent", definition: "More generous than is usual or necessary.", partOfSpeech: "adjective" },
+    { word: "Nascent", definition: "Beginning to exist or develop.", partOfSpeech: "adjective" },
+    { word: "Obfuscate", definition: "To make something unclear or difficult to understand.", partOfSpeech: "verb" },
+    { word: "Paradigm", definition: "A typical example, pattern, or model.", partOfSpeech: "noun" },
+    { word: "Pensive", definition: "Deeply thoughtful, often in a serious way.", partOfSpeech: "adjective" },
+    { word: "Peruse", definition: "To read or examine something carefully.", partOfSpeech: "verb" },
+    { word: "Pragmatism", definition: "A practical approach focused on useful results.", partOfSpeech: "noun" },
+    { word: "Proclivity", definition: "A natural tendency or inclination.", partOfSpeech: "noun" },
+    { word: "Quandary", definition: "A state of uncertainty about what to do.", partOfSpeech: "noun" },
+    { word: "Recalcitrant", definition: "Stubbornly resistant to control or authority.", partOfSpeech: "adjective" },
+    { word: "Repudiate", definition: "To reject or refuse to accept something.", partOfSpeech: "verb" },
+    { word: "Salient", definition: "Most noticeable, important, or prominent.", partOfSpeech: "adjective" },
+    { word: "Solicitous", definition: "Showing care or concern for someone.", partOfSpeech: "adjective" },
+    { word: "Soporific", definition: "Tending to cause sleep or drowsiness.", partOfSpeech: "adjective / noun" },
+    { word: "Spurious", definition: "False or not based on valid reasoning.", partOfSpeech: "adjective" },
+    { word: "Stagnant", definition: "Showing little or no movement, growth, or development.", partOfSpeech: "adjective" },
+    { word: "Surreptitious", definition: "Kept secret because it would not be approved.", partOfSpeech: "adjective" },
+    { word: "Sycophant", definition: "A person who flatters someone powerful for personal gain.", partOfSpeech: "noun" },
+    { word: "Tenuous", definition: "Very weak, slight, or uncertain.", partOfSpeech: "adjective" },
+    { word: "Untenable", definition: "Unable to be defended or maintained.", partOfSpeech: "adjective" },
+    { word: "Vacuous", definition: "Lacking thought, intelligence, or meaningful content.", partOfSpeech: "adjective" },
+    { word: "Verbose", definition: "Using more words than necessary.", partOfSpeech: "adjective" },
+    { word: "Vitriolic", definition: "Filled with bitter criticism or malice.", partOfSpeech: "adjective" },
+    { word: "Winsome", definition: "Attractive or appealing in a fresh, innocent way.", partOfSpeech: "adjective" },
+    { word: "Zeitgeist", definition: "The defining spirit or mood of a particular period.", partOfSpeech: "noun" },
+    { word: "Acrimony", definition: "Bitterness or anger in speech or behavior.", partOfSpeech: "noun" },
+    { word: "Burgeon", definition: "To begin growing or increasing rapidly.", partOfSpeech: "verb" },
+    { word: "Dissemble", definition: "To conceal one's true motives or feelings.", partOfSpeech: "verb" },
+    { word: "Iconoclastic", definition: "Challenging traditional beliefs or established customs.", partOfSpeech: "adjective" },
+    { word: "Perspicacious", definition: "Having a sharp understanding and keen insight.", partOfSpeech: "adjective" }
+  ];
+
+  builtInWords.push(...expandedBuiltInWords, ...additionalBuiltInWords);
 
   const partOfSpeechOverrides = {
     empathy: "noun", conundrum: "noun", juxtapose: "verb", nuance: "noun", novice: "noun", paradox: "noun",
@@ -2229,7 +2308,7 @@
     return partOfSpeechOverrides[word.toLowerCase()] || "adjective";
   }
 
-  builtInWords.forEach((item) => { item.partOfSpeech = defaultPartOfSpeech(item.word); });
+  builtInWords.forEach((item) => { item.partOfSpeech = item.partOfSpeech || defaultPartOfSpeech(item.word); });
 
   function loadWords() {
     try {
@@ -2243,6 +2322,14 @@
           });
           localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
           localStorage.setItem(WORD_EXPANSION_KEY, "1");
+        }
+        if (localStorage.getItem(SECOND_WORD_EXPANSION_KEY) !== "1") {
+          const savedKeys = new Set(saved.map((item) => item.word.toLowerCase()));
+          additionalBuiltInWords.forEach((item) => {
+            if (!savedKeys.has(item.word.toLowerCase())) saved.push({ ...item });
+          });
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+          localStorage.setItem(SECOND_WORD_EXPANSION_KEY, "1");
         }
         const defaultByWord = new Map(builtInWords.map((item) => [item.word.toLowerCase(), item.partOfSpeech]));
         let addedParts = false;
@@ -2284,6 +2371,7 @@
     }));
     saveWords(initialWords);
     localStorage.setItem(WORD_EXPANSION_KEY, "1");
+    localStorage.setItem(SECOND_WORD_EXPANSION_KEY, "1");
     return initialWords;
   }
 
@@ -2374,6 +2462,7 @@
       recordAchievementStat("batchesCreated");
       activeBatchId = batch.id;
       saveBatches();
+      refreshAchievements();
       playGotItSound();
       close();
       if (["dictionary", "practice", "batches"].includes(view)) render();
@@ -2384,6 +2473,7 @@
       batch.wordKeys = wordKeys;
       activeBatchId = batch.id;
       saveBatches();
+      refreshAchievements();
       playGotItSound();
       close();
       if (["dictionary", "practice", "batches"].includes(view)) render();
@@ -2492,13 +2582,23 @@
     const wordboundBest = highScores.wordboundTurns;
     const arcadeMilestones = [highScores.bubble >= 100000, highScores.whack >= 25000, stats.memoryGamesCompleted >= 25, stats.wordboundWins >= 10].filter(Boolean).length;
     const mostBatchGamesPlayed = Math.max(0, ...Object.values(achievementData.batchGames || {}).map((games) => Array.isArray(games) ? games.length : 0));
-    return [
+    const mostPerfectBatchActivities = Math.max(0, ...Object.values(achievementData.batchPerfectActivities || {}).map((activities) => Array.isArray(activities) ? activities.length : 0));
+    const gamesPlayed = new Set(achievementData.gamesPlayed || []).size;
+    const masteredWords = new Set(achievementData.masteredWords || []).size;
+    const largeBatches = batches.filter((batch) => getBatchWords(batch).length >= 10).length;
+    const largestBatch = Math.max(0, ...batches.map((batch) => getBatchWords(batch).length));
+    const achievements = [
       { id: "first-day", group: "Basic", icon: "🌱", title: "First day!", description: "Reach a 1-day Vocab Lab streak.", value: streak.count, target: 1, progressText: `${Math.min(streak.count, 1)} / 1 day` },
       { id: "beast-destroyer", group: "Basic", icon: "🐲", title: "Beast destroyer", description: "Beat the Wordbound boss once.", value: stats.wordboundWins, target: 1, progressText: `${Math.min(stats.wordboundWins, 1)} / 1 win` },
       { id: "bubble-marksman", group: "Basic", icon: "🫧", title: "Bubble marksman", description: "Play Bubble Shot for the first time.", value: stats.bubblePlays, target: 1, progressText: `${Math.min(stats.bubblePlays, 1)} / 1 game` },
       { id: "harming-moles", group: "Basic", icon: "🔨", title: "Harming moles", description: "Play Whack-a-Word for the first time.", value: stats.whackPlays, target: 1, progressText: `${Math.min(stats.whackPlays, 1)} / 1 game` },
       { id: "memory-rookie", group: "Basic", icon: "🧠", title: "Memory rookie", description: "Complete your first Memory Match game.", value: stats.memoryGamesCompleted, target: 1, progressText: `${Math.min(stats.memoryGamesCompleted, 1)} / 1 game` },
       { id: "study-starter", group: "Basic", icon: "📚", title: "Study starter", description: "Complete your first flashcard session.", value: progressStats.sessionsCompleted, target: 1, progressText: `${Math.min(progressStats.sessionsCompleted, 1)} / 1 session` },
+      { id: "word-collector", group: "Basic", icon: "📝", title: "Word Collector", description: "Add your first custom dictionary word.", value: stats.customWordHighWater, target: 1, progressText: `${Math.min(stats.customWordHighWater, 1)} / 1 word` },
+      { id: "second-chance", group: "Basic", icon: "🔁", title: "Second Chance", description: "Practice missed flashcards for the first time.", value: stats.missedPracticeStarts, target: 1, progressText: `${Math.min(stats.missedPracticeStarts, 1)} / 1 review` },
+      { id: "deckhand", group: "Basic", icon: "🗃️", title: "Deckhand", description: "Create your first vocabulary batch.", value: stats.batchesCreated, target: 1, progressText: `${Math.min(stats.batchesCreated, 1)} / 1 batch` },
+      { id: "rising-author", group: "Basic", icon: "✏️", title: "Rising Author", description: "Complete your first Paragraph Challenge.", value: stats.paragraphCompletions, target: 1, progressText: `${Math.min(stats.paragraphCompletions, 1)} / 1 paragraph` },
+      { id: "first-match", group: "Basic", icon: "🧩", title: "First Match", description: "Find your first pair in Memory Match.", value: stats.memoryMatchesFound, target: 1, progressText: `${Math.min(stats.memoryMatchesFound, 1)} / 1 pair` },
 
       { id: "devoted", group: "Intermediate", icon: "📅", title: "Devoted", description: "Reach a 7-day Vocab Lab streak.", value: streak.count, target: 7, progressText: `${Math.min(streak.count, 7)} / 7 days` },
       { id: "lexicon-backstabber", group: "Intermediate", icon: "🗡️", title: "Lexicon Backstabber", description: "Beat the Wordbound boss in under 8 turns.", value: wordboundBest !== null && wordboundBest < 8 ? 1 : 0, target: 1, progressText: wordboundBest === null ? "No win yet" : `Best: ${wordboundBest} turns` },
@@ -2507,6 +2607,14 @@
       { id: "batch-builder", group: "Intermediate", icon: "🗂️", title: "Batch Builder", description: "Create 3 vocabulary batches.", value: stats.batchesCreated, target: 3, progressText: `${Math.min(stats.batchesCreated, 3)} / 3 batches` },
       { id: "match-maker", group: "Intermediate", icon: "🃏", title: "Match Maker", description: "Complete 5 Memory Match games.", value: stats.memoryGamesCompleted, target: 5, progressText: `${Math.min(stats.memoryGamesCompleted, 5)} / 5 games` },
       { id: "mole-menace", group: "Intermediate", icon: "🌱", title: "Mole Menace", description: "Score 15,000 points in Whack-a-Word.", value: highScores.whack, target: 15000, progressText: `${Math.min(highScores.whack, 15000).toLocaleString()} / 15,000` },
+      { id: "clean-sweep", group: "Intermediate", icon: "🧹", title: "Clean Sweep", description: "Get every answer correct in a flashcard session of at least 10 cards.", value: stats.perfectFlashcardSessions10, target: 1, progressText: `${Math.min(stats.perfectFlashcardSessions10, 1)} / 1 perfect session` },
+      { id: "bubble-combo", group: "Intermediate", icon: "🫧", title: "Bubble Combo", description: "Hit 10 correct bubbles consecutively.", value: stats.bubbleBestStreak, target: 10, progressText: `${Math.min(stats.bubbleBestStreak, 10)} / 10 streak` },
+      { id: "mole-patrol", group: "Intermediate", icon: "🚨", title: "Mole Patrol", description: "Hit 20 correct moles in one game.", value: stats.whackBestCorrectGame, target: 20, progressText: `${Math.min(stats.whackBestCorrectGame, 20)} / 20 moles` },
+      { id: "comeback-kid", group: "Intermediate", icon: "❤️‍🩹", title: "Comeback Kid", description: "Beat Wordbound with 5 or fewer health remaining.", value: stats.lowHealthWordboundWins, target: 1, progressText: `${Math.min(stats.lowHealthWordboundWins, 1)} / 1 close win` },
+      { id: "wordsmith", group: "Intermediate", icon: "🔨", title: "Wordsmith", description: "Add 25 custom dictionary words.", value: stats.customWordHighWater, target: 25, progressText: `${Math.min(stats.customWordHighWater, 25)} / 25 words` },
+      { id: "perfect-pairing", group: "Intermediate", icon: "🤝", title: "Perfect Pairing", description: "Win a two-player Memory Match game by at least 4 points.", value: stats.twoPlayerBigWins, target: 1, progressText: `${Math.min(stats.twoPlayerBigWins, 1)} / 1 big win` },
+      { id: "draft-keeper", group: "Intermediate", icon: "🗄️", title: "Draft Keeper", description: "Fill all five saved paragraph slots.", value: savedParagraphs.length, target: 5, progressText: `${Math.min(savedParagraphs.length, 5)} / 5 saved` },
+      { id: "well-rounded", group: "Intermediate", icon: "🎡", title: "Well Rounded", description: "Play every vocabulary game at least once.", value: gamesPlayed, target: 5, progressText: `${Math.min(gamesPlayed, 5)} / 5 games` },
 
       { id: "advanced-author", group: "Advanced", icon: "📖", title: "Advanced author", description: "Complete Paragraph Challenge 5 times.", value: stats.paragraphCompletions, target: 5, progressText: `${Math.min(stats.paragraphCompletions, 5)} / 5 paragraphs` },
       { id: "on-fire", group: "Advanced", icon: "🔥", title: "On fire!", description: "Reach a 28-day Vocab Lab streak.", value: streak.count, target: 28, progressText: `${Math.min(streak.count, 28)} / 28 days` },
@@ -2515,18 +2623,44 @@
       { id: "study-scholar", group: "Advanced", icon: "🎓", title: "Study Scholar", description: "Complete 25 flashcard sessions.", value: progressStats.sessionsCompleted, target: 25, progressText: `${Math.min(progressStats.sessionsCompleted, 25)} / 25 sessions` },
       { id: "bubble-ace", group: "Advanced", icon: "🏹", title: "Bubble Ace", description: "Score 50,000 points in Bubble Shot.", value: highScores.bubble, target: 50000, progressText: `${Math.min(highScores.bubble, 50000).toLocaleString()} / 50,000` },
       { id: "mole-masher", group: "Advanced", icon: "💥", title: "Mole masher", description: "Whack 10 correct moles in a row.", value: stats.moleBestStreak, target: 10, progressText: `${Math.min(stats.moleBestStreak, 10)} / 10 streak` },
+      { id: "perfect-recall", group: "Advanced", icon: "💯", title: "Perfect Recall", description: "Complete 20 flashcards with 100% accuracy.", value: stats.perfectFlashcardSessions20, target: 1, progressText: `${Math.min(stats.perfectFlashcardSessions20, 1)} / 1 perfect session` },
+      { id: "untouchable", group: "Advanced", icon: "🛡️", title: "Untouchable", description: "Beat Wordbound without losing any health.", value: stats.untouchableWordboundWins, target: 1, progressText: `${Math.min(stats.untouchableWordboundWins, 1)} / 1 flawless win` },
+      { id: "bubble-barrage", group: "Advanced", icon: "🎆", title: "Bubble Barrage", description: "Hit 25 correct bubbles consecutively.", value: stats.bubbleBestStreak, target: 25, progressText: `${Math.min(stats.bubbleBestStreak, 25)} / 25 streak` },
+      { id: "whack-attack", group: "Advanced", icon: "⚡", title: "Whack Attack", description: "Score 25,000 points in Whack-a-Word.", value: highScores.whack, target: 25000, progressText: `${Math.min(highScores.whack, 25000).toLocaleString()} / 25,000` },
+      { id: "lexicon-curator", group: "Advanced", icon: "🏛️", title: "Lexicon Curator", description: "Create five batches containing at least 10 words each.", value: largeBatches, target: 5, progressText: `${Math.min(largeBatches, 5)} / 5 batches` },
+      { id: "hardcore-historian", group: "Advanced", icon: "🪶", title: "Hardcore Historian", description: "Complete three Hardcore Paragraph Challenges.", value: stats.hardcoreParagraphCompletions, target: 3, progressText: `${Math.min(stats.hardcoreParagraphCompletions, 3)} / 3 paragraphs` },
+      { id: "dictionary-devotee", group: "Advanced", icon: "📕", title: "Dictionary Devotee", description: "Add 50 custom dictionary words.", value: stats.customWordHighWater, target: 50, progressText: `${Math.min(stats.customWordHighWater, 50)} / 50 words` },
 
       { id: "vocab-immortal", group: "Mythical", icon: "♾️", title: "Vocab Immortal", description: "Reach a legendary 100-day Vocab Lab streak.", value: streak.count, target: 100, progressText: `${Math.min(streak.count, 100)} / 100 days` },
-      { id: "dragons-bane", group: "Mythical", icon: "🐉", title: "Dragon's Bane", description: "Defeat the Wordbound boss in 5 turns or fewer.", value: wordboundBest !== null && wordboundBest <= 5 ? 1 : 0, target: 1, progressText: wordboundBest === null ? "No win yet" : `Best: ${wordboundBest} turns` },
+      { id: "dragons-bane", group: "Mythical", icon: "🐉", title: "Dragon's Bane", description: "Defeat the Wordbound boss in exactly 5 turns.", value: stats.wordboundFiveTurnWins, target: 1, progressText: `${Math.min(stats.wordboundFiveTurnWins, 1)} / 1 five-turn win` },
       { id: "arcade-deity", group: "Mythical", icon: "👑", title: "Arcade Deity", description: "Master Bubble Shot, Whack-a-Word, Memory Match, and Wordbound.", value: arcadeMilestones, target: 4, progressText: `${arcadeMilestones} / 4 game milestones` },
       { id: "living-lexicon", group: "Mythical", icon: "📜", title: "Living Lexicon", description: "Complete 100 flashcard sessions.", value: progressStats.sessionsCompleted, target: 100, progressText: `${Math.min(progressStats.sessionsCompleted, 100)} / 100 sessions` },
       { id: "master-storyteller", group: "Mythical", icon: "✨", title: "Master Storyteller", description: "Complete 10 Hardcore Mode paragraph challenges.", value: stats.hardcoreParagraphCompletions, target: 10, progressText: `${Math.min(stats.hardcoreParagraphCompletions, 10)} / 10 paragraphs` },
       { id: "insane-evoker", group: "Mythical", icon: "🔮", title: "Insane evoker", description: "Beat the Memory Match AI 6–0.", value: stats.memoryAiShutouts, target: 1, progressText: `${Math.min(stats.memoryAiShutouts, 1)} / 1 shutout` },
       { id: "batch-basher", group: "Mythical", icon: "🧰", title: "Batch basher", description: "Play all five games using the same vocabulary batch.", value: mostBatchGamesPlayed, target: 5, progressText: `${Math.min(mostBatchGamesPlayed, 5)} / 5 games` },
+      { id: "last-stand", group: "Mythical", icon: "🩸", title: "Last Stand", description: "Defeat the Wordbound boss with exactly 1 health remaining.", value: stats.lastStandWordboundWins, target: 1, progressText: `${Math.min(stats.lastStandWordboundWins, 1)} / 1 last stand` },
+      { id: "flawless-fury", group: "Mythical", icon: "🌊", title: "Flawless Fury", description: "Hit 30 correct bubbles consecutively.", value: stats.bubbleBestStreak, target: 30, progressText: `${Math.min(stats.bubbleBestStreak, 30)} / 30 streak` },
+      { id: "mind-reader", group: "Mythical", icon: "🧠", title: "Mind Reader", description: "Beat the Memory Match AI in fewer than 4 player turns.", value: stats.memoryQuickWins, target: 1, progressText: `${Math.min(stats.memoryQuickWins, 1)} / 1 quick win` },
+      { id: "unbreakable", group: "Mythical", icon: "🏰", title: "Unbreakable", description: "Finish Wordbound with more shield than health.", value: stats.unbreakableWordboundWins, target: 1, progressText: `${Math.min(stats.unbreakableWordboundWins, 1)} / 1 fortified win` },
+      { id: "grand-lexicographer", group: "Mythical", icon: "📚", title: "Grand Lexicographer", description: "Master 250 different words in flashcards.", value: masteredWords, target: 250, progressText: `${Math.min(masteredWords, 250)} / 250 words` },
+      { id: "the-chosen-batch", group: "Mythical", icon: "🌟", title: "The Chosen Batch", description: "Using one batch: finish perfect flashcards, win Wordbound and Memory without mistakes, complete a paragraph, and reach 10-streaks in Bubble Shot and Whack-a-Word.", value: mostPerfectBatchActivities, target: 6, progressText: `${Math.min(mostPerfectBatchActivities, 6)} / 6 activities` },
 
       { id: "miserable-misses", group: "Miscellaneous", icon: "🫠", title: "Miserable misses", description: "Get 5 answers incorrect in Bubble Shot.", value: stats.bubbleIncorrectAnswers, target: 5, progressText: `${Math.min(stats.bubbleIncorrectAnswers, 5)} / 5 misses` },
-      { id: "customizer", group: "Miscellaneous", icon: "📐", title: "Customizer", description: "Change the flashcard length setting.", value: stats.flashcardLengthChanged, target: 1, progressText: `${Math.min(stats.flashcardLengthChanged, 1)} / 1 change` }
+      { id: "customizer", group: "Miscellaneous", icon: "📐", title: "Customizer", description: "Change the flashcard length setting.", value: stats.flashcardLengthChanged, target: 1, progressText: `${Math.min(stats.flashcardLengthChanged, 1)} / 1 change` },
+      { id: "butterfingers", group: "Miscellaneous", icon: "🧈", title: "Butterfingers", description: "Miss three bubbles consecutively.", value: stats.bubbleBestMissStreak, target: 3, progressText: `${Math.min(stats.bubbleBestMissStreak, 3)} / 3 misses` },
+      { id: "bonk", group: "Miscellaneous", icon: "💫", title: "Bonk!", description: "Hit five incorrect moles in one game.", value: stats.whackBestIncorrectGame, target: 5, progressText: `${Math.min(stats.whackBestIncorrectGame, 5)} / 5 misses` },
+      { id: "indecisive", group: "Miscellaneous", icon: "↔️", title: "Indecisive", description: "Change the flashcard side setting five times.", value: stats.flashcardSideChanges, target: 5, progressText: `${Math.min(stats.flashcardSideChanges, 5)} / 5 changes` },
+      { id: "tiny-but-mighty", group: "Miscellaneous", icon: "🐜", title: "Tiny but Mighty", description: "Complete a one-card flashcard session.", value: stats.oneCardSessions, target: 1, progressText: `${Math.min(stats.oneCardSessions, 1)} / 1 tiny session` },
+      { id: "overprepared", group: "Miscellaneous", icon: "🎒", title: "Overprepared", description: "Create a batch containing at least 25 words.", value: largestBatch, target: 25, progressText: `${Math.min(largestBatch, 25)} / 25 words` },
+      { id: "fresh-start", group: "Miscellaneous", icon: "🧼", title: "Fresh Start", description: "Clear a Paragraph Challenge and start fresh.", value: stats.paragraphClears, target: 1, progressText: `${Math.min(stats.paragraphClears, 1)} / 1 restart` },
+      { id: "deja-vu", group: "Miscellaneous", icon: "🔄", title: "Déjà Vu", description: "Choose Practice Again five times in one visit.", value: stats.practiceAgainMarathons, target: 1, progressText: `${Math.min(stats.practiceAgainMarathons, 1)} / 1 marathon` },
+      { id: "night-owl", group: "Miscellaneous", icon: "🦉", title: "Night Owl", description: "Complete a flashcard session between 10 PM and 5 AM.", value: stats.nightSessions, target: 1, progressText: `${Math.min(stats.nightSessions, 1)} / 1 late session` },
+      { id: "no-peeking", group: "Miscellaneous", icon: "🙈", title: "No Peeking", description: "Complete a normal Paragraph Challenge without opening a definition.", value: stats.noPeekParagraphs, target: 1, progressText: `${Math.min(stats.noPeekParagraphs, 1)} / 1 no-peek paragraph` }
     ];
+    const nonMythicalAchievements = achievements.filter((achievement) => achievement.group !== "Mythical");
+    const nonMythicalCompleted = nonMythicalAchievements.filter((achievement) => achievement.value >= achievement.target).length;
+    achievements.push({ id: "vocabulary-legend", group: "Mythical", icon: "🏆", title: "Vocabulary Legend", description: "Complete every non-Mythical achievement.", value: nonMythicalCompleted, target: nonMythicalAchievements.length, progressText: `${nonMythicalCompleted} / ${nonMythicalAchievements.length} achievements` });
+    return achievements;
   }
 
   function refreshAchievements() {
@@ -2551,6 +2685,32 @@
     refreshAchievements();
   }
 
+  function recordAchievementMax(stat, value) {
+    const nextValue = Math.max(Number(achievementData.stats[stat] || 0), Number(value || 0));
+    if (nextValue === achievementData.stats[stat]) return;
+    achievementData.stats[stat] = nextValue;
+    saveAchievementData();
+    refreshAchievements();
+  }
+
+  function recordGamePlayed(game) {
+    const games = new Set(achievementData.gamesPlayed || []);
+    if (games.has(game)) return;
+    games.add(game);
+    achievementData.gamesPlayed = [...games];
+    saveAchievementData();
+    refreshAchievements();
+  }
+
+  function recordMasteredWord(word) {
+    if (!word) return;
+    const mastered = new Set(achievementData.masteredWords || []);
+    mastered.add(word.toLowerCase());
+    achievementData.masteredWords = [...mastered];
+    saveAchievementData();
+    refreshAchievements();
+  }
+
   function recordBatchGame(batchId, game) {
     if (!batchId) return;
     if (!achievementData.batchGames) achievementData.batchGames = {};
@@ -2561,12 +2721,33 @@
     refreshAchievements();
   }
 
+  function recordPerfectBatchActivity(batchId, activity) {
+    if (!batchId) return;
+    if (!achievementData.batchPerfectActivities) achievementData.batchPerfectActivities = {};
+    const activities = new Set(achievementData.batchPerfectActivities[batchId] || []);
+    if (activities.has(activity)) return;
+    activities.add(activity);
+    achievementData.batchPerfectActivities[batchId] = [...activities];
+    saveAchievementData();
+    refreshAchievements();
+  }
+
   function seedAchievementHistory() {
     const stats = achievementData.stats;
     stats.bubblePlays = Math.max(stats.bubblePlays, highScores.bubble > 0 ? 1 : 0);
     stats.whackPlays = Math.max(stats.whackPlays, highScores.whack > 0 ? 1 : 0);
     stats.wordboundWins = Math.max(stats.wordboundWins, highScores.wordboundTurns !== null ? 1 : 0);
     stats.batchesCreated = Math.max(stats.batchesCreated, batches.length);
+    const builtInKeys = new Set(builtInWords.map((item) => item.word.toLowerCase()));
+    const customWordCount = words.filter((item) => !builtInKeys.has(item.word.toLowerCase())).length;
+    stats.customWordHighWater = Math.max(stats.customWordHighWater, customWordCount);
+    const played = new Set(achievementData.gamesPlayed || []);
+    if (stats.bubblePlays || highScores.bubble > 0) played.add("bubble");
+    if (stats.whackPlays || highScores.whack > 0) played.add("whack");
+    if (stats.wordboundWins || highScores.wordboundTurns !== null) played.add("wordbound");
+    if (stats.memoryGamesCompleted) played.add("memory");
+    if (stats.paragraphCompletions) played.add("paragraph");
+    achievementData.gamesPlayed = [...played];
     saveAchievementData();
     refreshAchievements();
   }
@@ -2581,12 +2762,14 @@
   let score = { gotit: 0, almost: 0, dontknow: 0 };
   let results = {}; // original deck index -> "gotit" | "almost" | "dontknow" | "skipped"
   let sessionRecorded = false;
+  let practiceAgainClicksThisVisit = 0;
 
   let bubbleGame = {
     score: 0,
     attempts: 0,
     incorrect: 0,
     streak: 0,
+    missStreak: 0,
     answer: null,
     choices: [],
     selectedWord: null,
@@ -2603,7 +2786,7 @@
   let bubblePhysicsBodies = [];
 
   let whackGame = {
-    score: 0, streak: 0, answer: null, choices: [],
+    score: 0, streak: 0, correct: 0, incorrect: 0, answer: null, choices: [],
     elapsed: 0, roundStartedAt: 0, locked: false,
     feedback: "", feedbackType: "", paused: false,
     answerShownAt: 0, answerResponseElapsed: 0
@@ -2895,10 +3078,12 @@
   function resetBubbleGame() {
     stopBubbleTimer();
     recordAchievementStat("bubblePlays");
+    recordGamePlayed("bubble");
     bubbleGame.score = 0;
     bubbleGame.attempts = 0;
     bubbleGame.incorrect = 0;
     bubbleGame.streak = 0;
+    bubbleGame.missStreak = 0;
     bubbleGame.paused = false;
     createBubbleRound();
   }
@@ -2935,8 +3120,11 @@
   function resetWhackGame() {
     stopWhackTimers();
     recordAchievementStat("whackPlays");
+    recordGamePlayed("whack");
     whackGame.score = 0;
     whackGame.streak = 0;
+    whackGame.correct = 0;
+    whackGame.incorrect = 0;
     createWhackRound();
   }
 
@@ -3052,9 +3240,11 @@
       poisonTurns: 0, poisonDamage: 0, bossWeak: 0,
       evade: false, counter: 0, focusNext: false,
       attackBonus: 0, cancelBoss: false, intentRevealed: false,
-      bossIntent: chooseBossIntent(), result: null, achievementRecorded: false
+      bossIntent: chooseBossIntent(), result: null, achievementRecorded: false,
+      healthLost: false, incorrectAnswers: 0
     };
     drawBattleCards(5);
+    recordGamePlayed("wordbound");
   }
 
   function healPlayer(amount) {
@@ -3086,6 +3276,7 @@
     battleState.shield -= blocked;
     const damage = weakened - blocked;
     battleState.playerHp = Math.max(0, battleState.playerHp - damage);
+    if (damage > 0) battleState.healthLost = true;
     if (battleState.counter) {
       damageBoss(battleState.counter);
       battleState.counter = 0;
@@ -3105,7 +3296,7 @@
       case "debilitating": result = `The blow dealt ${attackBoss(7)} damage and weakened the boss.`; battleState.bossWeak = 4; break;
       case "reckless":
         result = `Reckless Charge dealt ${attackBoss(16)} damage, but cost 4 health.`;
-        battleState.playerHp = Math.max(0, battleState.playerHp - 4); break;
+        battleState.playerHp = Math.max(0, battleState.playerHp - 4); battleState.healthLost = true; break;
       case "relentless": result = `Relentless Assault dealt ${attackBoss(21)} total damage.`; break;
       case "shield": battleState.shield += 6; result = "Gained 6 shield."; break;
       case "barrier": battleState.shield += 12; result = "Gained 12 shield."; break;
@@ -3174,6 +3365,7 @@
       battleState.message = `Correct — ${applyBattleCard(card)}`;
       playGotItSound();
     } else {
+      battleState.incorrectAnswers++;
       battleState.message = `Not quite. ${card.vocab.word} means “${card.vocab.definition}” The card was discarded.`;
       playDontKnowSound();
     }
@@ -3241,9 +3433,11 @@
     paragraphChallenge = {
       words: randomSample(source, 5),
       text: "",
-      completed: false
+      completed: false,
+      definitionViewed: false
     };
     activeSavedParagraphId = null;
+    recordGamePlayed("paragraph");
   }
 
   function paragraphUsesWord(text, word) {
@@ -3278,7 +3472,8 @@
     paragraphChallenge = {
       words: item.words.map((word) => ({ ...word })),
       text: item.text,
-      completed: Boolean(item.completed) || item.words.every((word) => paragraphUsesWord(item.text, word.word))
+      completed: Boolean(item.completed) || item.words.every((word) => paragraphUsesWord(item.text, word.word)),
+      definitionViewed: true
     };
     activeSavedParagraphId = item.id;
     playClickSound();
@@ -3336,6 +3531,7 @@
       savedParagraphs.push(saved);
       activeSavedParagraphId = saved.id;
       saveSavedParagraphs();
+      refreshAchievements();
       playGotItSound();
       close();
       render();
@@ -3410,8 +3606,10 @@
       cards: randomSample(cards, cards.length),
       flipped: [], matched: new Set(), scores: [0, 0], currentPlayer: 0,
       locked: false, message: mode === "ai" ? "Your turn. Choose two cards." : "Player 1, choose two cards.",
-      winner: null, mode, aiMemory: new Map(), aiPlannedSecond: null, memoryRound: 0, achievementRecorded: false
+      winner: null, mode, aiMemory: new Map(), aiPlannedSecond: null, memoryRound: 0, achievementRecorded: false,
+      playerTurns: 1, mistakes: [0, 0]
     };
+    recordGamePlayed("memory");
   }
 
   function memoryPlayerName(playerIndex) {
@@ -3493,13 +3691,17 @@
     rememberMemoryCard(firstIndex);
     rememberMemoryCard(secondIndex);
     const matched = first.pairIndex === second.pairIndex && first.kind !== second.kind;
+    const actingPlayer = memoryGame.currentPlayer;
     if (matched) {
       memoryGame.matched.add(firstIndex);
       memoryGame.matched.add(secondIndex);
       memoryGame.scores[memoryGame.currentPlayer]++;
+      if (!achievementData.stats.memoryMatchesFound) recordAchievementStat("memoryMatchesFound");
       memoryGame.message = `${memoryPlayerName(memoryGame.currentPlayer)} found a match and plays again!`;
     } else {
+      memoryGame.mistakes[actingPlayer]++;
       memoryGame.currentPlayer = memoryGame.currentPlayer === 0 ? 1 : 0;
+      if (memoryGame.mode === "ai" && memoryGame.currentPlayer === 0) memoryGame.playerTurns++;
       memoryGame.message = memoryGame.mode === "ai"
         ? (memoryGame.currentPlayer === 1 ? "No match. AI is thinking…" : "No match. Your turn.")
         : `No match. ${memoryPlayerName(memoryGame.currentPlayer)}'s turn.`;
@@ -3513,6 +3715,15 @@
         recordAchievementStat("memoryGamesCompleted");
         if (memoryGame.mode === "ai" && memoryGame.scores[0] === 6 && memoryGame.scores[1] === 0) {
           recordAchievementStat("memoryAiShutouts");
+        }
+        if (memoryGame.mode === "ai" && memoryGame.winner === 0 && memoryGame.playerTurns < 4) {
+          recordAchievementStat("memoryQuickWins");
+        }
+        if (memoryGame.mode === "two-player" && memoryGame.winner !== "tie" && Math.abs(memoryGame.scores[0] - memoryGame.scores[1]) >= 4) {
+          recordAchievementStat("twoPlayerBigWins");
+        }
+        if (gameReturnView === "batches" && memoryGame.winner !== "tie" && memoryGame.mistakes[memoryGame.winner] === 0) {
+          recordPerfectBatchActivity(activeBatchId, "memory");
         }
       }
     }
@@ -3759,7 +3970,7 @@
         progressStats = { ...defaultProgress };
         highScores = { ...defaultHighScores };
         streak = { ...defaultStreak };
-        achievementData = { stats: { ...defaultAchievementStats }, unlocked: [], batchGames: {} };
+        achievementData = { stats: { ...defaultAchievementStats }, unlocked: [], batchGames: {}, gamesPlayed: [], masteredWords: [], batchPerfectActivities: {} };
         saveProgress();
         saveHighScores();
         saveStreak();
@@ -3996,6 +4207,8 @@
         paragraphChallenge.completed = true;
         recordAchievementStat("paragraphCompletions");
         if (paragraphSettings.hardcoreMode) recordAchievementStat("hardcoreParagraphCompletions");
+        if (!paragraphSettings.hardcoreMode && !paragraphChallenge.definitionViewed) recordAchievementStat("noPeekParagraphs");
+        if (gameReturnView === "batches") recordPerfectBatchActivity(activeBatchId, "paragraph");
       }
     };
 
@@ -4007,6 +4220,7 @@
     if (!paragraphSettings.hardcoreMode) {
       root.querySelectorAll(".paragraph-word-chip").forEach((button) => button.addEventListener("click", () => {
         playClickSound();
+        paragraphChallenge.definitionViewed = true;
         const item = paragraphChallenge.words[Number(button.dataset.paragraphWordIndex)];
         if (!item) return;
         root.querySelectorAll(".paragraph-word-chip").forEach((chip) => chip.setAttribute("aria-expanded", String(chip === button)));
@@ -4089,6 +4303,7 @@
       backdrop.addEventListener("click", (event) => { if (event.target === backdrop) close(); });
       backdrop.querySelector("#confirmParagraphClear").addEventListener("click", () => {
         close();
+        recordAchievementStat("paragraphClears");
         clearParagraph();
       });
     });
@@ -4113,6 +4328,12 @@
       if (won && !battleState.achievementRecorded) {
         battleState.achievementRecorded = true;
         recordAchievementStat("wordboundWins");
+        if (battleState.turn === 5) recordAchievementStat("wordboundFiveTurnWins");
+        if (battleState.playerHp <= 5) recordAchievementStat("lowHealthWordboundWins");
+        if (!battleState.healthLost) recordAchievementStat("untouchableWordboundWins");
+        if (battleState.playerHp === 1) recordAchievementStat("lastStandWordboundWins");
+        if (battleState.shield > battleState.playerHp) recordAchievementStat("unbreakableWordboundWins");
+        if (gameReturnView === "batches" && battleState.incorrectAnswers === 0) recordPerfectBatchActivity(activeBatchId, "wordbound");
       }
       if (won && (!highScores.wordboundTurns || battleState.turn < highScores.wordboundTurns)) {
         highScores.wordboundTurns = battleState.turn;
@@ -4251,11 +4472,14 @@
 
       if (correct) {
         whackGame.streak++;
+        whackGame.correct++;
+        recordAchievementMax("whackBestCorrectGame", whackGame.correct);
         if (whackGame.streak > achievementData.stats.moleBestStreak) {
           achievementData.stats.moleBestStreak = whackGame.streak;
           saveAchievementData();
           refreshAchievements();
         }
+        if (gameReturnView === "batches" && whackGame.streak >= 10) recordPerfectBatchActivity(activeBatchId, "whack");
         const responseTime = whackGame.answerShownAt ? (performance.now() - whackGame.answerShownAt) / 1000 : 0;
         const scoringTime = Math.max(0, responseTime - 2);
         const points = Math.max(100, Math.round(800 - scoringTime * 45)) + Math.min((whackGame.streak - 1) * 25, 200);
@@ -4271,6 +4495,8 @@
         playGotItSound();
       } else {
         whackGame.streak = 0;
+        whackGame.incorrect++;
+        recordAchievementMax("whackBestIncorrectGame", whackGame.incorrect);
         const lost = Math.min(100, whackGame.score);
         whackGame.score = Math.max(0, whackGame.score - 100);
         whackGame.feedback = `Wrong mole${lost ? `: -${lost} points` : ""}. The answer is ${whackGame.answer.word}.`;
@@ -4410,6 +4636,9 @@
 
         if (isCorrect) {
           bubbleGame.streak++;
+          bubbleGame.missStreak = 0;
+          recordAchievementMax("bubbleBestStreak", bubbleGame.streak);
+          if (gameReturnView === "batches" && bubbleGame.streak >= 10) recordPerfectBatchActivity(activeBatchId, "bubble");
           const speedPoints = Math.max(100, Math.round(1000 - elapsed * 90));
           const streakBonus = Math.min((bubbleGame.streak - 1) * 25, 250);
           const pointsEarned = speedPoints + streakBonus;
@@ -4424,6 +4653,8 @@
           playGotItSound();
         } else {
           bubbleGame.streak = 0;
+          bubbleGame.missStreak++;
+          recordAchievementMax("bubbleBestMissStreak", bubbleGame.missStreak);
           bubbleGame.incorrect++;
           recordAchievementStat("bubbleIncorrectAnswers");
           const pointsLost = Math.min(250, bubbleGame.score);
@@ -4558,16 +4789,20 @@
       });
       settingsPanel.querySelector("#termFirstBtn").addEventListener("click", () => {
         playClickSound();
+        const sideChanged = flashcardSettings.firstSide !== "term";
         firstSide = flashcardSettings.firstSide = "term";
         side = "term";
         saveFlashcardSettings();
+        if (sideChanged) recordAchievementStat("flashcardSideChanges");
         render();
       });
       settingsPanel.querySelector("#defFirstBtn").addEventListener("click", () => {
         playClickSound();
+        const sideChanged = flashcardSettings.firstSide !== "definition";
         firstSide = flashcardSettings.firstSide = "definition";
         side = "definition";
         saveFlashcardSettings();
+        if (sideChanged) recordAchievementStat("flashcardSideChanges");
         render();
       });
     }
@@ -4580,6 +4815,15 @@
         progressStats.almost += score.almost;
         progressStats.dontknow += score.dontknow;
         saveProgress();
+        const completedTotal = order.length;
+        const completedSkipped = Object.values(results).filter((result) => result === "skipped").length;
+        const perfectSession = completedTotal > 0 && score.gotit === completedTotal && completedSkipped === 0;
+        if (completedTotal === 1) recordAchievementStat("oneCardSessions");
+        if (perfectSession && completedTotal >= 10) recordAchievementStat("perfectFlashcardSessions10");
+        if (perfectSession && completedTotal >= 20) recordAchievementStat("perfectFlashcardSessions20");
+        if (perfectSession && practiceReturnView === "batches") recordPerfectBatchActivity(activeBatchId, "flashcards");
+        const completionHour = new Date().getHours();
+        if (completionHour >= 22 || completionHour < 5) recordAchievementStat("nightSessions");
         refreshAchievements();
       }
       const skipped = Object.values(results).filter((result) => result === "skipped").length;
@@ -4626,6 +4870,8 @@
       root.appendChild(done);
       done.querySelector("#restart").addEventListener("click", () => {
         playClickSound();
+        practiceAgainClicksThisVisit++;
+        if (practiceAgainClicksThisVisit === 5) recordAchievementStat("practiceAgainMarathons");
         const previousOrder = order.join(",");
         resetPracticeSession();
         shuffleOrder();
@@ -4638,6 +4884,7 @@
       if (missedBtn) {
         missedBtn.addEventListener("click", () => {
           playClickSound();
+          recordAchievementStat("missedPracticeStarts");
           resetPracticeSession(missedIndices);
           render();
         });
@@ -4847,6 +5094,7 @@
     container.querySelector("#gotit").addEventListener("click", (e) => {
       e.stopPropagation();
       playGotItSound();
+      recordMasteredWord(deck[order[pos]]?.word);
       const previous = results[order[pos]];
       if (previous && previous !== "skipped") score[previous]--;
       results[order[pos]] = "gotit";
@@ -4990,6 +5238,7 @@
       if (!item) return;
       activeBatch.wordKeys = activeBatch.wordKeys.filter((key) => key !== item.word.toLowerCase());
       saveBatches();
+      refreshAchievements();
       playClickSound();
       render();
     }));
@@ -5009,6 +5258,7 @@
           if (!item) return;
           activeBatch.wordKeys.push(item.word.toLowerCase());
           saveBatches();
+          refreshAchievements();
           batchSearchQuery = "";
           playGotItSound();
           render();
@@ -5228,6 +5478,7 @@
           if (wasSelected) selectedDictionaryKeys.add(word.toLowerCase());
         }
         saveWords(words);
+        recordAchievementMax("customWordHighWater", words.filter((item) => !builtInKeys.has(item.word.toLowerCase())).length);
         showAddForm = false;
         editingIndex = null;
         generateNewSession();
