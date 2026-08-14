@@ -17,3 +17,6 @@ What's the PSAT for? I'm just curious.
 Also, go ahead and add an account based thing.
 
 I'm probably going to add achievements.
+
+
+OK, also the psat is literally the SAT but it doesn't go in the gradebook or anything. my school requires me to take it :(
