@@ -220,9 +220,9 @@
 
   .home-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 33px;
-    margin-top: 130px;
+    margin-top: 74px;
   }
 
   .home-card {
@@ -245,6 +245,7 @@
   .home-grid .home-card:nth-child(1) { animation-delay: 0.05s; }
   .home-grid .home-card:nth-child(2) { animation-delay: 0.12s; }
   .home-grid .home-card:nth-child(3) { animation-delay: 0.19s; }
+  .home-grid .home-card:nth-child(4) { animation-delay: 0.26s; }
 
   @keyframes cardRise {
     from { opacity: 0; transform: translateY(14px); }
@@ -401,6 +402,31 @@
     color: var(--accent);
     font-size: 14px;
   }
+
+  .achievements-view { width: 100%; display: flex; flex-direction: column; gap: 24px; }
+  .achievements-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; }
+  .achievements-heading h2 { margin: 0 0 5px; }
+  .achievements-heading p { margin: 0; color: var(--muted); }
+  .achievement-total { flex: 0 0 auto; padding: 10px 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--card-bg); color: var(--accent); font-weight: 850; }
+  .achievement-group { display: flex; flex-direction: column; gap: 11px; }
+  .achievement-group-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .achievement-group-heading h3 { margin: 0; font-size: 20px; }
+  .achievement-group-heading span { color: var(--muted); font-size: 13px; font-weight: 750; }
+  .achievement-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .achievement-card { position: relative; display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 13px; padding: 16px; overflow: hidden; border: 1px solid var(--border); border-radius: 14px; background: var(--card-bg); }
+  .achievement-card.unlocked { border-color: rgba(13,148,136,.45); box-shadow: 0 5px 16px rgba(13,148,136,.08); }
+  .achievement-card.locked { filter: grayscale(.75); opacity: .72; }
+  .achievement-icon { display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 13px; background: var(--chip-bg); font-size: 25px; }
+  .achievement-copy { min-width: 0; }
+  .achievement-copy h4 { margin: 1px 0 4px; font-size: 16px; }
+  .achievement-copy p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+  .achievement-status { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; color: var(--muted); font-size: 11px; font-weight: 800; }
+  .achievement-card.unlocked .achievement-status { color: var(--accent); }
+  .achievement-progress { grid-column: 1 / -1; height: 5px; overflow: hidden; border-radius: 999px; background: var(--border); }
+  .achievement-progress span { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
+  .achievement-card.mythical.unlocked { border-color: #a855f7; background: linear-gradient(145deg, var(--card-bg), rgba(168,85,247,.09)); }
+  .achievement-card.mythical.unlocked .achievement-icon { background: rgba(168,85,247,.16); }
+  .achievement-card.mythical.unlocked .achievement-status { color: #9333ea; }
 
   .progress-card .progress-tooltip {
     position: absolute;
@@ -1356,6 +1382,8 @@
     .paragraph-heading { flex-direction: column; }
     .paragraph-heading-actions { justify-content: flex-start; }
     .paragraph-progress, .paragraph-actions { align-items: stretch; flex-direction: column; }
+    .achievement-grid { grid-template-columns: 1fr; }
+    .achievements-heading { flex-direction: column; }
     .combatant-row { align-items: flex-end; }
     .combatant { width: 46%; }
     .combatant-figure { font-size: 52px; }
@@ -1790,6 +1818,7 @@
   const PROGRESS_KEY = "vocabPracticeProgress";
   const STREAK_KEY = "vocabPracticeStreak";
   const APP_SETTINGS_KEY = "vocabPracticeAppSettings";
+  const ACHIEVEMENTS_KEY = "vocabPracticeAchievements";
   const MAX_BATCHES = 5;
   const MAX_SAVED_PARAGRAPHS = 5;
   const defaultFlashcardSettings = { length: "standard", showPercentages: true, cardCount: SESSION_SIZE, firstSide: "term" };
@@ -1798,6 +1827,15 @@
   const defaultStreak = { count: 0, lastDate: null };
   const defaultAppSettings = { soundEnabled: true, theme: "light" };
   const defaultParagraphSettings = { hardcoreMode: false };
+  const defaultAchievementStats = {
+    bubblePlays: 0,
+    whackPlays: 0,
+    memoryGamesCompleted: 0,
+    wordboundWins: 0,
+    paragraphCompletions: 0,
+    hardcoreParagraphCompletions: 0,
+    batchesCreated: 0
+  };
 
   function loadFlashcardSettings() {
     try {
@@ -1892,6 +1930,22 @@
     localStorage.setItem(PARAGRAPH_SETTINGS_KEY, JSON.stringify(paragraphSettings));
   }
 
+  function loadAchievementData() {
+    try {
+      const saved = JSON.parse(localStorage.getItem(ACHIEVEMENTS_KEY) || "{}");
+      return {
+        stats: { ...defaultAchievementStats, ...(saved.stats || {}) },
+        unlocked: Array.isArray(saved.unlocked) ? [...new Set(saved.unlocked.map(String))] : []
+      };
+    } catch {
+      return { stats: { ...defaultAchievementStats }, unlocked: [] };
+    }
+  }
+
+  function saveAchievementData() {
+    localStorage.setItem(ACHIEVEMENTS_KEY, JSON.stringify(achievementData));
+  }
+
   function applyTheme() {
     document.documentElement.setAttribute("data-theme", appSettings.theme === "dark" ? "dark" : "light");
   }
@@ -1922,6 +1976,7 @@
         id: String(item.id),
         name: String(item.name).slice(0, 40),
         text: String(item.text),
+        completed: Boolean(item.completed),
         words: item.words.slice(0, 5).filter((word) => word && word.word && word.definition).map((word) => ({
           word: String(word.word),
           definition: String(word.definition),
@@ -2308,6 +2363,7 @@
       nameInput.setCustomValidity("");
       const batch = { id: makeBatchId(), name, wordKeys };
       batches.push(batch);
+      recordAchievementStat("batchesCreated");
       activeBatchId = batch.id;
       saveBatches();
       playGotItSound();
@@ -2396,13 +2452,14 @@
   let streak = loadStreak();
   let appSettings = loadAppSettings();
   let paragraphSettings = loadParagraphSettings();
+  let achievementData = loadAchievementData();
   let appSettingsOpen = false;
   applyTheme();
   updateStreak();
   let batches = loadBatches();
   let savedParagraphs = loadSavedParagraphs();
   let deck = randomSample(getAllWords(), flashcardSettings.cardCount);
-  let view = "home"; // "home" | "practice" | "dictionary" | "batches" | "games" | "bubble" | "whack" | "boss" | "memory" | "paragraph" | "progress"
+  let view = "home"; // "home" | "practice" | "dictionary" | "batches" | "games" | "bubble" | "whack" | "boss" | "memory" | "paragraph" | "progress" | "achievements"
   let editingIndex = null;
   let showAddForm = false;
   let sortOrder = "az"; // "az" | "za" | "newest" | "oldest"
@@ -2421,6 +2478,73 @@
   let batchSearchQuery = "";
   let practiceReturnView = "home";
   let gameReturnView = "games";
+
+  function getAchievementDefinitions() {
+    const stats = achievementData.stats;
+    const wordboundBest = highScores.wordboundTurns;
+    const arcadeMilestones = [highScores.bubble >= 100000, highScores.whack >= 25000, stats.memoryGamesCompleted >= 25, stats.wordboundWins >= 10].filter(Boolean).length;
+    return [
+      { id: "first-day", group: "Basic", icon: "🌱", title: "First day!", description: "Reach a 1-day Vocab Lab streak.", value: streak.count, target: 1, progressText: `${Math.min(streak.count, 1)} / 1 day` },
+      { id: "beast-destroyer", group: "Basic", icon: "🐲", title: "Beast destroyer", description: "Beat the Wordbound boss once.", value: stats.wordboundWins, target: 1, progressText: `${Math.min(stats.wordboundWins, 1)} / 1 win` },
+      { id: "bubble-marksman", group: "Basic", icon: "🫧", title: "Bubble marksman", description: "Play Bubble Shot for the first time.", value: stats.bubblePlays, target: 1, progressText: `${Math.min(stats.bubblePlays, 1)} / 1 game` },
+      { id: "harming-moles", group: "Basic", icon: "🔨", title: "Harming moles", description: "Play Whack-a-Word for the first time.", value: stats.whackPlays, target: 1, progressText: `${Math.min(stats.whackPlays, 1)} / 1 game` },
+      { id: "memory-rookie", group: "Basic", icon: "🧠", title: "Memory rookie", description: "Complete your first Memory Match game.", value: stats.memoryGamesCompleted, target: 1, progressText: `${Math.min(stats.memoryGamesCompleted, 1)} / 1 game` },
+      { id: "study-starter", group: "Basic", icon: "📚", title: "Study starter", description: "Complete your first flashcard session.", value: progressStats.sessionsCompleted, target: 1, progressText: `${Math.min(progressStats.sessionsCompleted, 1)} / 1 session` },
+
+      { id: "devoted", group: "Intermediate", icon: "📅", title: "Devoted", description: "Reach a 7-day Vocab Lab streak.", value: streak.count, target: 7, progressText: `${Math.min(streak.count, 7)} / 7 days` },
+      { id: "lexicon-backstabber", group: "Intermediate", icon: "🗡️", title: "Lexicon Backstabber", description: "Beat the Wordbound boss in under 8 turns.", value: wordboundBest !== null && wordboundBest < 8 ? 1 : 0, target: 1, progressText: wordboundBest === null ? "No win yet" : `Best: ${wordboundBest} turns` },
+      { id: "sharpshooter", group: "Intermediate", icon: "🎯", title: "Sharpshooter", description: "Score 20,000 points in Bubble Shot.", value: highScores.bubble, target: 20000, progressText: `${Math.min(highScores.bubble, 20000).toLocaleString()} / 20,000` },
+      { id: "story-constructor", group: "Intermediate", icon: "✍️", title: "Story Constructor", description: "Complete Paragraph Challenge in Hardcore Mode.", value: stats.hardcoreParagraphCompletions, target: 1, progressText: `${Math.min(stats.hardcoreParagraphCompletions, 1)} / 1 paragraph` },
+      { id: "batch-builder", group: "Intermediate", icon: "🗂️", title: "Batch Builder", description: "Create 3 vocabulary batches.", value: stats.batchesCreated, target: 3, progressText: `${Math.min(stats.batchesCreated, 3)} / 3 batches` },
+      { id: "match-maker", group: "Intermediate", icon: "🃏", title: "Match Maker", description: "Complete 5 Memory Match games.", value: stats.memoryGamesCompleted, target: 5, progressText: `${Math.min(stats.memoryGamesCompleted, 5)} / 5 games` },
+      { id: "mole-menace", group: "Intermediate", icon: "🌱", title: "Mole Menace", description: "Score 5,000 points in Whack-a-Word.", value: highScores.whack, target: 5000, progressText: `${Math.min(highScores.whack, 5000).toLocaleString()} / 5,000` },
+
+      { id: "advanced-author", group: "Advanced", icon: "📖", title: "Advanced author", description: "Complete Paragraph Challenge 5 times.", value: stats.paragraphCompletions, target: 5, progressText: `${Math.min(stats.paragraphCompletions, 5)} / 5 paragraphs` },
+      { id: "on-fire", group: "Advanced", icon: "🔥", title: "On fire!", description: "Reach a 28-day Vocab Lab streak.", value: streak.count, target: 28, progressText: `${Math.min(streak.count, 28)} / 28 days` },
+      { id: "boss-breaker", group: "Advanced", icon: "⚔️", title: "Boss Breaker", description: "Defeat the Wordbound boss 5 times.", value: stats.wordboundWins, target: 5, progressText: `${Math.min(stats.wordboundWins, 5)} / 5 wins` },
+      { id: "memory-master", group: "Advanced", icon: "🏛️", title: "Memory Master", description: "Complete 10 Memory Match games.", value: stats.memoryGamesCompleted, target: 10, progressText: `${Math.min(stats.memoryGamesCompleted, 10)} / 10 games` },
+      { id: "study-scholar", group: "Advanced", icon: "🎓", title: "Study Scholar", description: "Complete 25 flashcard sessions.", value: progressStats.sessionsCompleted, target: 25, progressText: `${Math.min(progressStats.sessionsCompleted, 25)} / 25 sessions` },
+      { id: "bubble-ace", group: "Advanced", icon: "🏹", title: "Bubble Ace", description: "Score 50,000 points in Bubble Shot.", value: highScores.bubble, target: 50000, progressText: `${Math.min(highScores.bubble, 50000).toLocaleString()} / 50,000` },
+
+      { id: "vocab-immortal", group: "Mythical", icon: "♾️", title: "Vocab Immortal", description: "Reach a legendary 100-day Vocab Lab streak.", value: streak.count, target: 100, progressText: `${Math.min(streak.count, 100)} / 100 days` },
+      { id: "dragons-bane", group: "Mythical", icon: "🐉", title: "Dragon's Bane", description: "Defeat the Wordbound boss in 5 turns or fewer.", value: wordboundBest !== null && wordboundBest <= 5 ? 1 : 0, target: 1, progressText: wordboundBest === null ? "No win yet" : `Best: ${wordboundBest} turns` },
+      { id: "arcade-deity", group: "Mythical", icon: "👑", title: "Arcade Deity", description: "Master Bubble Shot, Whack-a-Word, Memory Match, and Wordbound.", value: arcadeMilestones, target: 4, progressText: `${arcadeMilestones} / 4 game milestones` },
+      { id: "living-lexicon", group: "Mythical", icon: "📜", title: "Living Lexicon", description: "Complete 100 flashcard sessions.", value: progressStats.sessionsCompleted, target: 100, progressText: `${Math.min(progressStats.sessionsCompleted, 100)} / 100 sessions` },
+      { id: "master-storyteller", group: "Mythical", icon: "✨", title: "Master Storyteller", description: "Complete 10 Hardcore Mode paragraph challenges.", value: stats.hardcoreParagraphCompletions, target: 10, progressText: `${Math.min(stats.hardcoreParagraphCompletions, 10)} / 10 paragraphs` }
+    ];
+  }
+
+  function refreshAchievements() {
+    const unlocked = new Set(achievementData.unlocked);
+    let changed = false;
+    getAchievementDefinitions().forEach((achievement) => {
+      if (achievement.value >= achievement.target && !unlocked.has(achievement.id)) {
+        unlocked.add(achievement.id);
+        changed = true;
+      }
+    });
+    if (changed) {
+      achievementData.unlocked = [...unlocked];
+      saveAchievementData();
+    }
+    return changed;
+  }
+
+  function recordAchievementStat(stat, amount = 1) {
+    achievementData.stats[stat] = Math.max(0, Number(achievementData.stats[stat] || 0) + amount);
+    saveAchievementData();
+    refreshAchievements();
+  }
+
+  function seedAchievementHistory() {
+    const stats = achievementData.stats;
+    stats.bubblePlays = Math.max(stats.bubblePlays, highScores.bubble > 0 ? 1 : 0);
+    stats.whackPlays = Math.max(stats.whackPlays, highScores.whack > 0 ? 1 : 0);
+    stats.wordboundWins = Math.max(stats.wordboundWins, highScores.wordboundTurns !== null ? 1 : 0);
+    stats.batchesCreated = Math.max(stats.batchesCreated, batches.length);
+    saveAchievementData();
+    refreshAchievements();
+  }
 
   // practice session state
   let firstSide = flashcardSettings.firstSide; // "term" | "definition"
@@ -2744,6 +2868,7 @@
 
   function resetBubbleGame() {
     stopBubbleTimer();
+    recordAchievementStat("bubblePlays");
     bubbleGame.score = 0;
     bubbleGame.attempts = 0;
     bubbleGame.streak = 0;
@@ -2782,6 +2907,7 @@
 
   function resetWhackGame() {
     stopWhackTimers();
+    recordAchievementStat("whackPlays");
     whackGame.score = 0;
     whackGame.streak = 0;
     createWhackRound();
@@ -2899,7 +3025,7 @@
       poisonTurns: 0, poisonDamage: 0, bossWeak: 0,
       evade: false, counter: 0, focusNext: false,
       attackBonus: 0, cancelBoss: false, intentRevealed: false,
-      bossIntent: chooseBossIntent(), result: null
+      bossIntent: chooseBossIntent(), result: null, achievementRecorded: false
     };
     drawBattleCards(5);
   }
@@ -3087,7 +3213,8 @@
     const source = paragraphWordPool || getAllWords();
     paragraphChallenge = {
       words: randomSample(source, 5),
-      text: ""
+      text: "",
+      completed: false
     };
     activeSavedParagraphId = null;
   }
@@ -3111,6 +3238,7 @@
       id,
       name: name.slice(0, 40),
       text: paragraphChallenge.text.trim(),
+      completed: Boolean(paragraphChallenge.completed),
       words: paragraphChallenge.words.map((item) => ({
         word: item.word,
         definition: item.definition,
@@ -3122,7 +3250,8 @@
   function loadSavedParagraph(item) {
     paragraphChallenge = {
       words: item.words.map((word) => ({ ...word })),
-      text: item.text
+      text: item.text,
+      completed: Boolean(item.completed) || item.words.every((word) => paragraphUsesWord(item.text, word.word))
     };
     activeSavedParagraphId = item.id;
     playClickSound();
@@ -3254,7 +3383,7 @@
       cards: randomSample(cards, cards.length),
       flipped: [], matched: new Set(), scores: [0, 0], currentPlayer: 0,
       locked: false, message: mode === "ai" ? "Your turn. Choose two cards." : "Player 1, choose two cards.",
-      winner: null, mode, aiMemory: new Map(), aiPlannedSecond: null, memoryRound: 0
+      winner: null, mode, aiMemory: new Map(), aiPlannedSecond: null, memoryRound: 0, achievementRecorded: false
     };
   }
 
@@ -3352,6 +3481,10 @@
     memoryGame.locked = false;
     if (memoryGame.matched.size === memoryGame.cards.length) {
       memoryGame.winner = memoryGame.scores[0] === memoryGame.scores[1] ? "tie" : memoryGame.scores[0] > memoryGame.scores[1] ? 0 : 1;
+      if (!memoryGame.achievementRecorded) {
+        memoryGame.achievementRecorded = true;
+        recordAchievementStat("memoryGamesCompleted");
+      }
     }
     fadeAIMemory();
     if (view === "memory") {
@@ -3430,6 +3563,8 @@
       renderParagraphChallenge(root);
     } else if (view === "progress") {
       renderProgress(root);
+    } else if (view === "achievements") {
+      renderAchievements(root);
     }
   }
 
@@ -3521,6 +3656,16 @@
             <p class="home-card-title">Games</p>
             <p class="home-card-body">Matching and timed rounds</p>
           </button>
+          <button class="home-card" id="goAchievements">
+            <span class="home-card-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M8 4h8v5a4 4 0 0 1-8 0z"></path>
+                <path d="M8 6H4v2a4 4 0 0 0 4 4M16 6h4v2a4 4 0 0 1-4 4M12 13v4M8.5 21h7M10 17h4v4"></path>
+              </svg>
+            </span>
+            <p class="home-card-title">Achievements</p>
+            <p class="home-card-body">Track badges and milestones</p>
+          </button>
         </div>
       </div>
     `;
@@ -3541,6 +3686,11 @@
       playClickSound();
       gameReturnView = "games";
       view = "games";
+      render();
+    });
+    app.querySelector("#goAchievements").addEventListener("click", () => {
+      playClickSound();
+      view = "achievements";
       render();
     });
     app.querySelector("#goProgress").addEventListener("click", () => {
@@ -3579,10 +3729,13 @@
         progressStats = { ...defaultProgress };
         highScores = { ...defaultHighScores };
         streak = { ...defaultStreak };
+        achievementData = { stats: { ...defaultAchievementStats }, unlocked: [] };
         saveProgress();
         saveHighScores();
         saveStreak();
+        saveAchievementData();
         updateStreak();
+        seedAchievementHistory();
         appSettingsOpen = false;
         playClickSound();
         render();
@@ -3605,6 +3758,38 @@
         </div>
       </div>
     `;
+  }
+
+  function renderAchievements(root) {
+    refreshAchievements();
+    const achievements = getAchievementDefinitions();
+    const unlocked = new Set(achievementData.unlocked);
+    const groups = ["Basic", "Intermediate", "Advanced", "Mythical"];
+    const unlockedCount = achievements.filter((achievement) => unlocked.has(achievement.id)).length;
+    root.innerHTML = `<section class="achievements-view" aria-labelledby="achievementsTitle">
+      <div class="achievements-heading">
+        <div><h2 id="achievementsTitle">Achievements</h2><p>Keep learning, playing, and building your vocabulary to unlock every badge.</p></div>
+        <div class="achievement-total">${unlockedCount} / ${achievements.length} unlocked</div>
+      </div>
+      ${groups.map((group) => {
+        const groupAchievements = achievements.filter((achievement) => achievement.group === group);
+        const groupUnlocked = groupAchievements.filter((achievement) => unlocked.has(achievement.id)).length;
+        return `<div class="achievement-group">
+          <div class="achievement-group-heading"><h3>${group}</h3><span>${groupUnlocked} / ${groupAchievements.length}</span></div>
+          <div class="achievement-grid">
+            ${groupAchievements.map((achievement) => {
+              const isUnlocked = unlocked.has(achievement.id);
+              const progress = isUnlocked ? 100 : Math.max(0, Math.min(100, Math.round((achievement.value / achievement.target) * 100)));
+              return `<article class="achievement-card ${isUnlocked ? "unlocked" : "locked"} ${group.toLowerCase()}" aria-label="${escapeHtml(achievement.title)}: ${isUnlocked ? "unlocked" : "locked"}">
+                <div class="achievement-icon" aria-hidden="true">${achievement.icon}</div>
+                <div class="achievement-copy"><h4>${escapeHtml(achievement.title)}</h4><p>${escapeHtml(achievement.description)}</p><div class="achievement-status"><span>${isUnlocked ? "✓ Unlocked" : "🔒 Locked"}</span><span>${escapeHtml(achievement.progressText)}</span></div></div>
+                <div class="achievement-progress" aria-hidden="true"><span style="width:${progress}%"></span></div>
+              </article>`;
+            }).join("")}
+          </div>
+        </div>`;
+      }).join("")}
+    </section>`;
   }
 
   function renderGameMenu(root) {
@@ -3767,19 +3952,24 @@
     const usedCount = root.querySelector("#paragraphUsedCount");
     const success = root.querySelector("#paragraphSuccess");
     const saveButton = root.querySelector("#saveParagraph");
-    const updateParagraphChecks = () => {
+    const updateParagraphChecks = (recordCompletion = false) => {
       const usedWords = getUsedParagraphWords();
       paragraphChallenge.words.forEach((item, index) => {
         root.querySelector(`[data-paragraph-word-index="${index}"]`)?.classList.toggle("used", usedWords.includes(item));
       });
       usedCount.textContent = `${usedWords.length} / ${paragraphChallenge.words.length} used`;
       success.hidden = usedWords.length !== paragraphChallenge.words.length;
+      if (recordCompletion && usedWords.length === paragraphChallenge.words.length && !paragraphChallenge.completed) {
+        paragraphChallenge.completed = true;
+        recordAchievementStat("paragraphCompletions");
+        if (paragraphSettings.hardcoreMode) recordAchievementStat("hardcoreParagraphCompletions");
+      }
     };
 
     textarea.addEventListener("input", () => {
       paragraphChallenge.text = textarea.value;
       saveButton.disabled = !paragraphChallenge.text.trim();
-      updateParagraphChecks();
+      updateParagraphChecks(true);
     });
     if (!paragraphSettings.hardcoreMode) {
       root.querySelectorAll(".paragraph-word-chip").forEach((button) => button.addEventListener("click", () => {
@@ -3838,6 +4028,7 @@
     const clearParagraph = () => {
       playClickSound();
       paragraphChallenge.text = "";
+      paragraphChallenge.completed = false;
       textarea.value = "";
       saveButton.disabled = true;
       textarea.focus();
@@ -3886,9 +4077,14 @@
     if (!battleState) startBossBattle();
     if (battleState.result) {
       const won = battleState.result === "victory";
+      if (won && !battleState.achievementRecorded) {
+        battleState.achievementRecorded = true;
+        recordAchievementStat("wordboundWins");
+      }
       if (won && (!highScores.wordboundTurns || battleState.turn < highScores.wordboundTurns)) {
         highScores.wordboundTurns = battleState.turn;
         saveHighScores();
+        refreshAchievements();
       }
       root.innerHTML = `<section class="battle-ending">
         <div style="font-size:64px">${won ? "🏆" : "💀"}</div>
@@ -4029,6 +4225,7 @@
         if (whackGame.score > highScores.whack) {
           highScores.whack = whackGame.score;
           saveHighScores();
+          refreshAchievements();
         }
         whackGame.feedback = `Great whack! +${points} points.`;
         whackGame.feedbackType = "correct";
@@ -4182,6 +4379,7 @@
           if (bubbleGame.score > highScores.bubble) {
             highScores.bubble = bubbleGame.score;
             saveHighScores();
+            refreshAchievements();
           }
           bubbleGame.feedback = `Bullseye! +${pointsEarned} points in ${elapsed.toFixed(1)}s.`;
           bubbleGame.feedbackType = "correct";
@@ -4340,6 +4538,7 @@
         progressStats.almost += score.almost;
         progressStats.dontknow += score.dontknow;
         saveProgress();
+        refreshAchievements();
       }
       const skipped = Object.values(results).filter((result) => result === "skipped").length;
       const missedIndices = Object.keys(results)
@@ -5183,6 +5382,7 @@
     }
   });
 
+  seedAchievementHistory();
   render();
 </script>
 
