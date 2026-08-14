@@ -32,3 +32,7 @@ Though, since this repo belongs to you, I think you may need to set up the datab
 
 SURYA:
 Okay. I'll set up the Supabase. I'll tell you when I'm done.
+
+I think I'm done. I asked ChatGPT if it could add a file with the API key. It did, and it's called   window.VOCAB_SUPABASE.publishableKey
+
+Tell me if it all works out.
