@@ -15,3 +15,5 @@ should i add an account based thingy???????? also this way of communicating is n
 I'm taking two SSATs, one on Sept 5th and one later in October. The vocab cards are very helpful if that's what you meant. 
 What's the PSAT for? I'm just curious.
 Also, go ahead and add an account based thing.
+
+I'm probably going to add achievements.
