@@ -20,3 +20,5 @@ I'm probably going to add achievements.
 
 
 OK, also the psat is literally the SAT but it doesn't go in the gradebook or anything. my school requires me to take it :(
+
+Though, since this repo belongs to you, I think you may need to set up the database, but I can connect all the code and build the page itself. Go to Supabase.com and just ask AI what to do next. Tell me when you're done.
