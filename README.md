@@ -39,3 +39,4 @@ Tell me if it all works out.
 
 JAI: 
 Ok, I am going to create a sign in page as the first thing you see / sign up but check if you made profile tables
+Also can you paste the project URL and anon key here from supabase so i can set everything up? Thanks
