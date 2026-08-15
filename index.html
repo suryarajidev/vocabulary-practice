@@ -1929,6 +1929,7 @@
     oneCardSessions: 0,
     paragraphClears: 0,
     practiceAgainMarathons: 0,
+    sameDeckRepeatStreak: 0,
     nightSessions: 0,
     noPeekParagraphs: 0,
     streakButtonClicks: 0
@@ -2746,6 +2747,7 @@
       { id: "overprepared", group: "Miscellaneous", icon: "🎒", title: "Overprepared", description: "Create a batch containing at least 25 words.", value: largestBatch, target: 25, progressText: `${Math.min(largestBatch, 25)} / 25 words` },
       { id: "fresh-start", group: "Miscellaneous", icon: "🧼", title: "Fresh Start", description: "Clear a Paragraph Challenge and start fresh.", value: stats.paragraphClears, target: 1, progressText: `${Math.min(stats.paragraphClears, 1)} / 1 restart` },
       { id: "deja-vu", group: "Miscellaneous", icon: "🔄", title: "Déjà Vu", description: "Choose Practice Again five times in one visit.", value: stats.practiceAgainMarathons, target: 1, progressText: `${Math.min(stats.practiceAgainMarathons, 1)} / 1 marathon` },
+      { id: "repeat-offender", group: "Miscellaneous", icon: "🔁", title: "Repeat Offender", description: "Choose Practice Again or Practice Missed five times in a row without starting a new deck.", value: stats.sameDeckRepeatStreak, target: 5, progressText: `${Math.min(stats.sameDeckRepeatStreak, 5)} / 5 repeats` },
       { id: "night-owl", group: "Miscellaneous", icon: "🦉", title: "Night Owl", description: "Complete a flashcard session between 10 PM and 5 AM.", value: stats.nightSessions, target: 1, progressText: `${Math.min(stats.nightSessions, 1)} / 1 late session` },
       { id: "no-peeking", group: "Miscellaneous", icon: "🙈", title: "No Peeking", description: "Complete a normal Paragraph Challenge without opening a definition.", value: stats.noPeekParagraphs, target: 1, progressText: `${Math.min(stats.noPeekParagraphs, 1)} / 1 no-peek paragraph` },
       { id: "just-checking", group: "Miscellaneous", icon: "👀", title: "Just Checking!", description: "Press the streak counter while exploring the website.", value: stats.streakButtonClicks, target: 1, progressText: `${Math.min(stats.streakButtonClicks, 1)} / 1 discovery` }
@@ -2897,6 +2899,7 @@
   let results = {}; // original deck index -> "gotit" | "almost" | "dontknow" | "skipped"
   let sessionRecorded = false;
   let practiceAgainClicksThisVisit = 0;
+  let sameDeckRepeatStreak = 0;
 
   let bubbleGame = {
     score: 0,
@@ -3051,6 +3054,7 @@
   }
 
   function generateNewSession(pool = null) {
+    sameDeckRepeatStreak = 0;
     practiceWordPool = Array.isArray(pool) ? pool.slice() : null;
     const source = practiceWordPool || getAllWords();
     deck = randomSample(source, practiceWordPool ? source.length : flashcardSettings.cardCount);
@@ -5013,6 +5017,8 @@
         playClickSound();
         practiceAgainClicksThisVisit++;
         if (practiceAgainClicksThisVisit === 5) recordAchievementStat("practiceAgainMarathons");
+        sameDeckRepeatStreak++;
+        recordAchievementMax("sameDeckRepeatStreak", sameDeckRepeatStreak);
         const previousOrder = order.join(",");
         resetPracticeSession();
         shuffleOrder();
@@ -5026,6 +5032,8 @@
         missedBtn.addEventListener("click", () => {
           playClickSound();
           recordAchievementStat("missedPracticeStarts");
+          sameDeckRepeatStreak++;
+          recordAchievementMax("sameDeckRepeatStreak", sameDeckRepeatStreak);
           resetPracticeSession(missedIndices);
           render();
         });
