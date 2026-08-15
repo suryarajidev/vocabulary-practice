@@ -40,3 +40,6 @@ Tell me if it all works out.
 JAI: 
 Ok, I am going to create a sign in page as the first thing you see / sign up but check if you made profile tables
 Also can you paste the project URL and anon key here from supabase so i can set everything up? Thanks
+
+SURYA:
+That made very little sense, but I'll try to get it to work. Also, I tried inviting you to the supabase project, but it expired. I'm going to invite you again right now, then try to add profile tables and the other stuff.
