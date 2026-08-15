@@ -47,3 +47,5 @@ I invited you to the Supabase project. I have not yet set up the profile tables 
 Project URL: https://tcbndrskdnnchtehxegu.supabase.co
 
 Publishable Key: sb_publishable_IjUF0itUavwXBZCej9ZdHg_Ap6tyg1V
+
+I just set up the profile tables. 
