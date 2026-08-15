@@ -36,3 +36,6 @@ Okay. I'll set up the Supabase. I'll tell you when I'm done.
 I think I'm done. I asked ChatGPT if it could add a file with the API key. It did, and it's called   window.VOCAB_SUPABASE.publishableKey
 
 Tell me if it all works out.
+
+JAI: 
+Ok, I am going to create a sign in page as the first thing you see / sign up but check if you made profile tables
