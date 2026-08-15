@@ -101,6 +101,9 @@
   [data-theme="dark"] .danger-outline:hover { background: #3a3031; color: #dda8aa; }
   [data-theme="dark"] .selection-tray { background: #252d2c; }
   [data-theme="dark"] .selection-count { color: #d5dcda; }
+  [data-theme="dark"] .batch-combine-panel { border-color: #45504e; background: #222a29; }
+  [data-theme="dark"] .batch-combine-option { border-color: #444849; background: #292c2d; }
+  [data-theme="dark"] .batch-combine-option.selected { border-color: #68716f; background: #3b4442; }
 
   /* This pill keeps a fixed light/pastel background in both themes, so its text
      must stay a fixed dark color instead of following --text/--brand-dark/etc. */
@@ -1047,9 +1050,24 @@
   .batches-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
   .batches-header h2 { margin: 0 0 4px; }
   .batches-header p { margin: 0; color: var(--muted); font-size: 14px; }
+  .batches-header-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
   .batch-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
   .batch-tab { padding: 10px 14px; border: 1px solid var(--border); border-radius: 999px; background: var(--card-bg); color: var(--text); cursor: pointer; font-weight: 750; }
   .batch-tab.active { border-color: var(--accent); background: #dff5ef; color: var(--brand-dark); }
+  .batch-combine-panel { display: flex; flex-direction: column; gap: 13px; padding: 16px; border: 1px solid rgba(13,148,136,.3); border-radius: 15px; background: #eef9f6; }
+  .batch-combine-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .batch-combine-heading strong { display: block; margin-bottom: 3px; }
+  .batch-combine-heading span, .batch-combine-summary { color: var(--muted); font-size: 13px; }
+  .batch-combine-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+  .batch-combine-option { display: flex; align-items: center; gap: 9px; padding: 11px 12px; border: 1px solid var(--border); border-radius: 11px; background: var(--card-bg); cursor: pointer; transition: border-color .18s ease, background .18s ease, transform .18s ease; }
+  .batch-combine-option:hover { transform: translateY(-1px); border-color: rgba(13,148,136,.45); }
+  .batch-combine-option.selected { border-color: var(--accent); background: #dff5ef; }
+  .batch-combine-option input { width: 17px; height: 17px; flex: 0 0 auto; accent-color: var(--accent); }
+  .batch-combine-option strong, .batch-combine-option small { display: block; }
+  .batch-combine-option small { margin-top: 2px; color: var(--muted); }
+  .batch-combine-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .batch-combine-footer button { padding: 11px 18px; }
+  .batch-combine-footer button:disabled { opacity: .42; cursor: not-allowed; }
   .batch-panel { display: flex; flex-direction: column; gap: 14px; padding: 18px; border: 1px solid var(--border); border-radius: 16px; background: rgba(253,252,249,.72); }
   .batch-panel-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
   .batch-panel-header h3 { margin: 0 0 3px; font-size: 24px; }
@@ -1420,6 +1438,8 @@
     .dictionary-toolbar { flex-wrap: wrap; }
     .dictionary-maintenance { justify-content: flex-start; }
     .batch-play-menu { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .batches-header, .batch-combine-heading, .batch-combine-footer { align-items: stretch; flex-direction: column; }
+    .batches-header-actions { justify-content: flex-start; }
     .batch-panel-header { flex-direction: column; }
     .batch-header-actions { width: 100%; }
     .batch-header-actions button { flex: 1; }
@@ -1884,6 +1904,7 @@
     paragraphCompletions: 0,
     hardcoreParagraphCompletions: 0,
     batchesCreated: 0,
+    combinedBatchPractices: 0,
     bubbleIncorrectAnswers: 0,
     flashcardLengthChanged: 0,
     moleBestStreak: 0,
@@ -2439,6 +2460,22 @@
     return batch.wordKeys.map((key) => byKey.get(key)).filter(Boolean);
   }
 
+  function getCombinedBatchWords(batchIds) {
+    const selectedIds = new Set(batchIds);
+    const byKey = new Map(words.map((item) => [item.word.toLowerCase(), item]));
+    const combinedKeys = [];
+    const seenKeys = new Set();
+    batches.forEach((batch) => {
+      if (!selectedIds.has(batch.id)) return;
+      batch.wordKeys.forEach((key) => {
+        if (seenKeys.has(key) || !byKey.has(key)) return;
+        seenKeys.add(key);
+        combinedKeys.push(key);
+      });
+    });
+    return combinedKeys.map((key) => byKey.get(key));
+  }
+
   function removeWordFromBatches(wordKey) {
     let changed = false;
     batches.forEach((batch) => {
@@ -2618,10 +2655,14 @@
   let paragraphChallenge = null;
   let activeSavedParagraphId = null;
   let activeBatchId = batches[0]?.id || null;
+  let selectedBatchIds = new Set();
+  let batchCombineOpen = false;
   let batchAddOpen = false;
   let batchSearchQuery = "";
   let practiceReturnView = "home";
+  let practiceSourceBatchIds = [];
   let gameReturnView = "games";
+  let gameSourceBatchId = null;
 
   function formatAchievementTitle(title) {
     return title.split(/(\s+)/).map((part) => /^\s+$/.test(part) ? part : part.charAt(0).toLocaleUpperCase() + part.slice(1)).join("");
@@ -2655,6 +2696,7 @@
       { id: "sharpshooter", group: "Intermediate", icon: "🎯", title: "Sharpshooter", description: "Score 20,000 points in Bubble Shot.", value: highScores.bubble, target: 20000, progressText: `${Math.min(highScores.bubble, 20000).toLocaleString()} / 20,000` },
       { id: "story-constructor", group: "Intermediate", icon: "✍️", title: "Story Constructor", description: "Complete Paragraph Challenge in Hardcore Mode.", value: stats.hardcoreParagraphCompletions, target: 1, progressText: `${Math.min(stats.hardcoreParagraphCompletions, 1)} / 1 paragraph` },
       { id: "batch-builder", group: "Intermediate", icon: "🗂️", title: "Batch Builder", description: "Create 3 vocabulary batches.", value: stats.batchesCreated, target: 3, progressText: `${Math.min(stats.batchesCreated, 3)} / 3 batches` },
+      { id: "batch-fusion", group: "Intermediate", icon: "🔀", title: "Batch Fusion", description: "Practice flashcards with multiple batches combined for the first time.", value: stats.combinedBatchPractices, target: 1, progressText: `${Math.min(stats.combinedBatchPractices, 1)} / 1 combined session` },
       { id: "match-maker", group: "Intermediate", icon: "🃏", title: "Match Maker", description: "Complete 5 Memory Match games.", value: stats.memoryGamesCompleted, target: 5, progressText: `${Math.min(stats.memoryGamesCompleted, 5)} / 5 games` },
       { id: "mole-menace", group: "Intermediate", icon: "🌱", title: "Mole Menace", description: "Score 15,000 points in Whack-a-Word.", value: highScores.whack, target: 15000, progressText: `${Math.min(highScores.whack, 15000).toLocaleString()} / 15,000` },
       { id: "clean-sweep", group: "Intermediate", icon: "🧹", title: "Clean Sweep", description: "Get every answer correct in a flashcard session of at least 10 cards.", value: stats.perfectFlashcardSessions10, target: 1, progressText: `${Math.min(stats.perfectFlashcardSessions10, 1)} / 1 perfect session` },
@@ -3815,7 +3857,7 @@
           recordAchievementStat("twoPlayerBigWins");
         }
         if (gameReturnView === "batches" && memoryGame.winner !== "tie" && memoryGame.mistakes[memoryGame.winner] === 0) {
-          recordPerfectBatchActivity(activeBatchId, "memory");
+          recordPerfectBatchActivity(gameSourceBatchId, "memory");
         }
       }
     }
@@ -4011,6 +4053,7 @@
     app.querySelector("#goPractice").addEventListener("click", () => {
       playClickSound();
       practiceReturnView = "home";
+      practiceSourceBatchIds = [];
       view = "practice";
       generateNewSession();
       render();
@@ -4164,21 +4207,21 @@
         </button>
       </section>`;
     root.querySelector("#playBubbleShot").addEventListener("click", () => {
-      playClickSound(); view = "bubble"; gameReturnView = "games"; bubbleWordPool = null;
+      playClickSound(); view = "bubble"; gameReturnView = "games"; gameSourceBatchId = null; bubbleWordPool = null;
       resetBubbleGame();
       render();
     });
     root.querySelector("#playBossBattle").addEventListener("click", () => {
-      playClickSound(); view = "boss"; gameReturnView = "games"; battleWordPool = null; startBossBattle(); render();
+      playClickSound(); view = "boss"; gameReturnView = "games"; gameSourceBatchId = null; battleWordPool = null; startBossBattle(); render();
     });
     root.querySelector("#playWhackWord").addEventListener("click", () => {
-      playClickSound(); view = "whack"; gameReturnView = "games"; whackWordPool = null; resetWhackGame(); render();
+      playClickSound(); view = "whack"; gameReturnView = "games"; gameSourceBatchId = null; whackWordPool = null; resetWhackGame(); render();
     });
     root.querySelector("#playMemory").addEventListener("click", () => {
-      playClickSound(); view = "memory"; gameReturnView = "games"; memoryWordPool = null; memoryGame = null; render();
+      playClickSound(); view = "memory"; gameReturnView = "games"; gameSourceBatchId = null; memoryWordPool = null; memoryGame = null; render();
     });
     root.querySelector("#playParagraph").addEventListener("click", () => {
-      playClickSound(); view = "paragraph"; gameReturnView = "games"; paragraphWordPool = null; startParagraphChallenge(); render();
+      playClickSound(); view = "paragraph"; gameReturnView = "games"; gameSourceBatchId = null; paragraphWordPool = null; startParagraphChallenge(); render();
     });
   }
 
@@ -4304,7 +4347,7 @@
         recordAchievementStat("paragraphCompletions");
         if (paragraphSettings.hardcoreMode) recordAchievementStat("hardcoreParagraphCompletions");
         if (!paragraphSettings.hardcoreMode && !paragraphChallenge.definitionViewed) recordAchievementStat("noPeekParagraphs");
-        if (gameReturnView === "batches") recordPerfectBatchActivity(activeBatchId, "paragraph");
+        if (gameReturnView === "batches") recordPerfectBatchActivity(gameSourceBatchId, "paragraph");
       }
     };
 
@@ -4429,7 +4472,7 @@
         if (!battleState.healthLost) recordAchievementStat("untouchableWordboundWins");
         if (battleState.playerHp === 1) recordAchievementStat("lastStandWordboundWins");
         if (battleState.shield > battleState.playerHp) recordAchievementStat("unbreakableWordboundWins");
-        if (gameReturnView === "batches" && battleState.incorrectAnswers === 0) recordPerfectBatchActivity(activeBatchId, "wordbound");
+        if (gameReturnView === "batches" && battleState.incorrectAnswers === 0) recordPerfectBatchActivity(gameSourceBatchId, "wordbound");
       }
       if (won && (!highScores.wordboundTurns || battleState.turn < highScores.wordboundTurns)) {
         highScores.wordboundTurns = battleState.turn;
@@ -4575,7 +4618,7 @@
           saveAchievementData();
           refreshAchievements();
         }
-        if (gameReturnView === "batches" && whackGame.streak >= 10) recordPerfectBatchActivity(activeBatchId, "whack");
+        if (gameReturnView === "batches" && whackGame.streak >= 10) recordPerfectBatchActivity(gameSourceBatchId, "whack");
         const responseTime = whackGame.answerShownAt ? (performance.now() - whackGame.answerShownAt) / 1000 : 0;
         const scoringTime = Math.max(0, responseTime - 2);
         const points = Math.max(100, Math.round(800 - scoringTime * 45)) + Math.min((whackGame.streak - 1) * 25, 200);
@@ -4734,7 +4777,7 @@
           bubbleGame.streak++;
           bubbleGame.missStreak = 0;
           recordAchievementMax("bubbleBestStreak", bubbleGame.streak);
-          if (gameReturnView === "batches" && bubbleGame.streak >= 10) recordPerfectBatchActivity(activeBatchId, "bubble");
+          if (gameReturnView === "batches" && bubbleGame.streak >= 10) recordPerfectBatchActivity(gameSourceBatchId, "bubble");
           const speedPoints = Math.max(100, Math.round(1000 - elapsed * 90));
           const streakBonus = Math.min((bubbleGame.streak - 1) * 25, 250);
           const pointsEarned = speedPoints + streakBonus;
@@ -4904,6 +4947,7 @@
     }
 
     if (pos >= order.length) {
+      const sourceBatchId = practiceSourceBatchIds.length === 1 ? practiceSourceBatchIds[0] : null;
       if (!sessionRecorded) {
         sessionRecorded = true;
         progressStats.sessionsCompleted++;
@@ -4917,7 +4961,7 @@
         if (completedTotal === 1) recordAchievementStat("oneCardSessions");
         if (perfectSession && completedTotal >= 10) recordAchievementStat("perfectFlashcardSessions10");
         if (perfectSession && completedTotal >= 20) recordAchievementStat("perfectFlashcardSessions20");
-        if (perfectSession && practiceReturnView === "batches") recordPerfectBatchActivity(activeBatchId, "flashcards");
+        if (perfectSession && sourceBatchId) recordPerfectBatchActivity(sourceBatchId, "flashcards");
         const completionHour = new Date().getHours();
         if (completionHour >= 22 || completionHour < 5) recordAchievementStat("nightSessions");
         refreshAchievements();
@@ -4928,6 +4972,7 @@
         .map(Number);
       const completedWords = order.map((index) => deck[index]).filter(Boolean);
       const isBatchPractice = practiceReturnView === "batches";
+      const isCombinedBatchPractice = practiceSourceBatchIds.length > 1;
       const totalCards = order.length;
       const correctPercent = totalCards ? Math.round((score.gotit / totalCards) * 100) : 0;
       const incorrectPercent = 100 - correctPercent;
@@ -4942,7 +4987,7 @@
         <button class="accent-btn restart-btn" id="restart">&#8635; Practice again</button>
         ${missedIndices.length > 0 ? `<button class="missed-btn" id="practiceMissed">Practice missed &amp; skipped (${missedIndices.length})</button>` : ""}
         <div class="completion-games">
-          ${isBatchPractice ? `<h3>Play a game with this batch</h3>
+          ${isBatchPractice ? `<h3>Play a game with ${isCombinedBatchPractice ? "these combined batches" : "this batch"}</h3>
           <p>Keep practicing these ${completedWords.length} words in a game.</p>
           <div class="completion-game-actions">
             <button class="small-btn" id="deckBubble" ${completedWords.length < 4 ? "disabled" : ""}>🫧 Bubble Shot</button>
@@ -4988,7 +5033,8 @@
       if (isBatchPractice) {
         done.querySelector("#deckBubble").addEventListener("click", () => {
           if (completedWords.length < 4) return;
-          recordBatchGame(activeBatchId, "bubble");
+          gameSourceBatchId = sourceBatchId;
+          recordBatchGame(sourceBatchId, "bubble");
           playClickSound();
           gameReturnView = "batches";
           bubbleWordPool = completedWords;
@@ -4997,7 +5043,8 @@
           render();
         });
         done.querySelector("#deckWordbound").addEventListener("click", () => {
-          recordBatchGame(activeBatchId, "wordbound");
+          gameSourceBatchId = sourceBatchId;
+          recordBatchGame(sourceBatchId, "wordbound");
           playClickSound();
           gameReturnView = "batches";
           battleWordPool = completedWords;
@@ -5007,7 +5054,8 @@
         });
         done.querySelector("#deckWhack").addEventListener("click", () => {
           if (completedWords.length < 6) return;
-          recordBatchGame(activeBatchId, "whack");
+          gameSourceBatchId = sourceBatchId;
+          recordBatchGame(sourceBatchId, "whack");
           playClickSound();
           gameReturnView = "batches";
           whackWordPool = completedWords;
@@ -5017,7 +5065,8 @@
         });
         done.querySelector("#deckMemory").addEventListener("click", () => {
           if (completedWords.length < 2) return;
-          recordBatchGame(activeBatchId, "memory");
+          gameSourceBatchId = sourceBatchId;
+          recordBatchGame(sourceBatchId, "memory");
           playClickSound();
           gameReturnView = "batches";
           memoryWordPool = completedWords;
@@ -5027,7 +5076,8 @@
         });
         done.querySelector("#deckParagraph").addEventListener("click", () => {
           if (completedWords.length < 5) return;
-          recordBatchGame(activeBatchId, "paragraph");
+          gameSourceBatchId = sourceBatchId;
+          recordBatchGame(sourceBatchId, "paragraph");
           playClickSound();
           gameReturnView = "batches";
           paragraphWordPool = completedWords;
@@ -5203,14 +5253,36 @@
 
   function renderBatches(root) {
     if (!batches.some((batch) => batch.id === activeBatchId)) activeBatchId = batches[0]?.id || null;
+    const validBatchIds = new Set(batches.map((batch) => batch.id));
+    selectedBatchIds = new Set([...selectedBatchIds].filter((id) => validBatchIds.has(id)));
     const activeBatch = batches.find((batch) => batch.id === activeBatchId) || null;
     const batchWords = getBatchWords(activeBatch);
+    const combinedBatchWords = getCombinedBatchWords([...selectedBatchIds]);
 
     root.innerHTML = `<section class="batches-view" aria-labelledby="batchesTitle">
       <div class="batches-header">
         <div><h2 id="batchesTitle">Batches</h2><p>Keep up to ${MAX_BATCHES} reusable groups of vocabulary words.</p></div>
-        <span class="part-of-speech">${batches.length} / ${MAX_BATCHES} saved</span>
+        <div class="batches-header-actions">
+          <span class="part-of-speech">${batches.length} / ${MAX_BATCHES} saved</span>
+          <button class="small-btn" id="toggleBatchCombine" ${batches.length < 2 ? "disabled" : ""}>${batchCombineOpen ? "Close combine" : "Combine batches"}</button>
+        </div>
       </div>
+      ${batchCombineOpen && batches.length >= 2 ? `<div class="batch-combine-panel" aria-labelledby="batchCombineTitle">
+        <div class="batch-combine-heading">
+          <div><strong id="batchCombineTitle">Combine batches</strong><span>Select at least two batches. Repeated words will only appear once.</span></div>
+          <span id="batchCombineCount">${selectedBatchIds.size} selected</span>
+        </div>
+        <div class="batch-combine-options">
+          ${batches.map((batch) => `<label class="batch-combine-option ${selectedBatchIds.has(batch.id) ? "selected" : ""}" data-combine-option="${batch.id}">
+            <input type="checkbox" data-combine-batch-id="${batch.id}" ${selectedBatchIds.has(batch.id) ? "checked" : ""}>
+            <span><strong>${escapeHtml(batch.name)}</strong><small>${getBatchWords(batch).length} word${getBatchWords(batch).length === 1 ? "" : "s"}</small></span>
+          </label>`).join("")}
+        </div>
+        <div class="batch-combine-footer">
+          <span class="batch-combine-summary" id="batchCombineSummary">${selectedBatchIds.size < 2 ? "Choose at least two batches to begin." : `${selectedBatchIds.size} batches &bull; ${combinedBatchWords.length} unique word${combinedBatchWords.length === 1 ? "" : "s"}`}</span>
+          <button class="accent-btn" id="practiceCombinedBatches" ${selectedBatchIds.size < 2 || combinedBatchWords.length < 1 ? "disabled" : ""}>Practice combined</button>
+        </div>
+      </div>` : ""}
       ${batches.length ? `<div class="batch-tabs" aria-label="Saved batches">
         ${batches.map((batch) => `<button class="batch-tab ${batch.id === activeBatchId ? "active" : ""}" data-batch-id="${batch.id}">${escapeHtml(batch.name)} <span>(${getBatchWords(batch).length})</span></button>`).join("")}
       </div>` : ""}
@@ -5245,6 +5317,43 @@
       batchSearchQuery = "";
       render();
     }));
+    root.querySelector("#toggleBatchCombine")?.addEventListener("click", () => {
+      if (batches.length < 2) return;
+      playClickSound();
+      batchCombineOpen = !batchCombineOpen;
+      render();
+    });
+    if (batchCombineOpen && batches.length >= 2) {
+      const summary = root.querySelector("#batchCombineSummary");
+      const selectedCount = root.querySelector("#batchCombineCount");
+      const practiceCombinedButton = root.querySelector("#practiceCombinedBatches");
+      const updateCombinedSelection = () => {
+        const combinedWords = getCombinedBatchWords([...selectedBatchIds]);
+        root.querySelectorAll("[data-combine-option]").forEach((option) => option.classList.toggle("selected", selectedBatchIds.has(option.dataset.combineOption)));
+        selectedCount.textContent = `${selectedBatchIds.size} selected`;
+        summary.textContent = selectedBatchIds.size < 2
+          ? "Choose at least two batches to begin."
+          : `${selectedBatchIds.size} batches • ${combinedWords.length} unique word${combinedWords.length === 1 ? "" : "s"}`;
+        practiceCombinedButton.disabled = selectedBatchIds.size < 2 || combinedWords.length < 1;
+      };
+      root.querySelectorAll("[data-combine-batch-id]").forEach((checkbox) => checkbox.addEventListener("change", () => {
+        if (checkbox.checked) selectedBatchIds.add(checkbox.dataset.combineBatchId);
+        else selectedBatchIds.delete(checkbox.dataset.combineBatchId);
+        updateCombinedSelection();
+      }));
+      practiceCombinedButton.addEventListener("click", () => {
+        const sourceBatchIds = [...selectedBatchIds].filter((id) => validBatchIds.has(id));
+        const combinedWords = getCombinedBatchWords(sourceBatchIds);
+        if (sourceBatchIds.length < 2 || !combinedWords.length) return;
+        playClickSound();
+        recordAchievementStat("combinedBatchPractices");
+        practiceReturnView = "batches";
+        practiceSourceBatchIds = sourceBatchIds;
+        generateNewSession(combinedWords);
+        view = "practice";
+        render();
+      });
+    }
     if (!activeBatch) return;
 
     root.querySelector("#renameBatch").addEventListener("click", () => {
@@ -5258,6 +5367,7 @@
     root.querySelector("#deleteBatch").addEventListener("click", () => {
       if (!confirm(`Delete the batch “${activeBatch.name}”?`)) return;
       batches = batches.filter((batch) => batch.id !== activeBatch.id);
+      selectedBatchIds.delete(activeBatch.id);
       activeBatchId = batches[0]?.id || null;
       batchAddOpen = false;
       batchSearchQuery = "";
@@ -5269,12 +5379,14 @@
       if (!batchWords.length) return;
       playClickSound();
       practiceReturnView = "batches";
+      practiceSourceBatchIds = [activeBatch.id];
       generateNewSession(batchWords);
       view = "practice";
       render();
     });
     root.querySelector("#batchBubble").addEventListener("click", () => {
       if (batchWords.length < 4) return;
+      gameSourceBatchId = activeBatch.id;
       recordBatchGame(activeBatch.id, "bubble");
       playClickSound();
       gameReturnView = "batches";
@@ -5285,6 +5397,7 @@
     });
     root.querySelector("#batchWordbound").addEventListener("click", () => {
       if (!batchWords.length) return;
+      gameSourceBatchId = activeBatch.id;
       recordBatchGame(activeBatch.id, "wordbound");
       playClickSound();
       gameReturnView = "batches";
@@ -5295,6 +5408,7 @@
     });
     root.querySelector("#batchWhack").addEventListener("click", () => {
       if (batchWords.length < 6) return;
+      gameSourceBatchId = activeBatch.id;
       recordBatchGame(activeBatch.id, "whack");
       playClickSound();
       gameReturnView = "batches";
@@ -5305,6 +5419,7 @@
     });
     root.querySelector("#batchMemory").addEventListener("click", () => {
       if (batchWords.length < 2) return;
+      gameSourceBatchId = activeBatch.id;
       recordBatchGame(activeBatch.id, "memory");
       playClickSound();
       gameReturnView = "batches";
@@ -5315,6 +5430,7 @@
     });
     root.querySelector("#batchParagraph").addEventListener("click", () => {
       if (batchWords.length < 5) return;
+      gameSourceBatchId = activeBatch.id;
       recordBatchGame(activeBatch.id, "paragraph");
       playClickSound();
       gameReturnView = "batches";
