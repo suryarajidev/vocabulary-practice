@@ -42,4 +42,8 @@ Ok, I am going to create a sign in page as the first thing you see / sign up but
 Also can you paste the project URL and anon key here from supabase so i can set everything up? Thanks
 
 SURYA:
-That made very little sense, but I'll try to get it to work. Also, I tried inviting you to the supabase project, but it expired. I'm going to invite you again right now, then try to add profile tables and the other stuff.
+I invited you to the Supabase project. I have not yet set up the profile tables yet. I'll work on doing that. Here are the other things you asked for:
+
+Project URL: https://tcbndrskdnnchtehxegu.supabase.co
+
+Publishable Key: sb_publishable_IjUF0itUavwXBZCej9ZdHg_Ap6tyg1V
