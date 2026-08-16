@@ -52,6 +52,6 @@ I just set up the profile tables.
 
 JAI:
 
-How do I accept the request.
+How do I accept the request. - UPDATE: I just accepted it thank you!
 
 Thank you for all the things I needed, I'll set up the profiles now.
