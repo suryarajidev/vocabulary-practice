@@ -969,10 +969,30 @@
     align-items: center;
   }
 
-  .dictionary-maintenance { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
   .danger-outline { color: var(--bad); border-color: rgba(220,38,38,.3); }
   .danger-outline:hover { background: #fee2e2; }
-  .dictionary-maintenance button:disabled { opacity: .45; cursor: not-allowed; }
+
+  .signout-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 11px 14px;
+    border: 1px solid rgba(220, 38, 38, 0.25);
+    border-radius: 10px;
+    background: #fee2e2;
+    color: #b91c1c;
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.08s ease;
+  }
+  .signout-btn:hover { background: #fecaca; }
+  .signout-btn:active { transform: scale(0.98); }
+  .signout-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  [data-theme="dark"] .signout-btn { background: #3a2426; border-color: rgba(248, 113, 113, 0.35); color: #fca5a5; }
+  [data-theme="dark"] .signout-btn:hover { background: #47282a; }
 
   .dictionary-search {
     flex: 1;
@@ -1087,6 +1107,10 @@
   .selection-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
   .selection-actions button { padding: 8px 11px; }
   .selection-actions button:disabled { opacity: .42; cursor: not-allowed; }
+  .selection-tray.is-empty { background: transparent; border-color: transparent; padding: 4px 2px; }
+  .selection-tray.is-empty .selection-count { color: var(--muted); font-weight: 700; font-size: 13px; }
+  .selection-tray.is-empty .selection-actions #selectAllWords { background: transparent; border-color: transparent; color: var(--accent); padding: 4px 2px; }
+  .selection-tray.is-empty .selection-actions #selectAllWords:hover { text-decoration: underline; }
 
   .batches-view { width: 100%; display: flex; flex-direction: column; gap: 16px; }
   .batches-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
@@ -1478,7 +1502,6 @@
     .selection-tray { align-items: stretch; flex-direction: column; }
     .selection-actions { justify-content: flex-start; }
     .dictionary-toolbar { flex-wrap: wrap; }
-    .dictionary-maintenance { justify-content: flex-start; }
     .batch-play-menu { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .batches-header, .batch-combine-heading, .batch-combine-footer { align-items: stretch; flex-direction: column; }
     .batches-header-actions { justify-content: flex-start; }
@@ -3947,6 +3970,12 @@
               <span>Password</span>
               <input type="password" id="authPassword" required minlength="6" autocomplete="${mode === "signup" ? "new-password" : "current-password"}">
             </label>
+            ${mode === "signup" ? `
+              <label class="auth-field">
+                <span>Confirm password</span>
+                <input type="password" id="authConfirmPassword" required minlength="6" autocomplete="new-password">
+              </label>
+            ` : ""}
             <div class="auth-error" id="authError" style="display:none;"></div>
             <button type="submit" class="accent-btn" id="authSubmit" style="width:100%;">${mode === "signup" ? "Sign up" : "Sign in"}</button>
           </form>
@@ -3966,10 +3995,20 @@
       event.preventDefault();
       errorBox.style.display = "none";
       errorBox.classList.remove("auth-notice");
-      submitBtn.disabled = true;
-      submitBtn.textContent = mode === "signup" ? "Signing up..." : "Signing in...";
       const email = app.querySelector("#authEmail").value.trim();
       const password = app.querySelector("#authPassword").value;
+
+      if (mode === "signup") {
+        const confirmPassword = app.querySelector("#authConfirmPassword").value;
+        if (password !== confirmPassword) {
+          errorBox.textContent = "Passwords don't match.";
+          errorBox.style.display = "block";
+          return;
+        }
+      }
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = mode === "signup" ? "Signing up..." : "Signing in...";
       const { data, error } = mode === "signup"
         ? await supabaseClient.auth.signUp({ email, password })
         : await supabaseClient.auth.signInWithPassword({ email, password });
@@ -3992,6 +4031,7 @@
       }
 
       currentUser = data.user;
+      appSettingsOpen = false;
       render();
     });
 
@@ -4016,8 +4056,10 @@
       const wasSignedIn = !!currentUser;
       currentUser = user;
       if (user && !wasSignedIn) {
+        appSettingsOpen = false;
         render();
       } else if (!user && wasSignedIn) {
+        appSettingsOpen = false;
         renderAuthGate();
       }
     });
@@ -4136,10 +4178,21 @@
             </label>
           </div>
           <button class="missed-btn" id="resetProgressBtn" style="width:100%;">Reset progress &amp; high scores</button>
+          <div style="margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px;">
+            <button class="small-btn" id="resetDefaultWords" style="width:100%;">Restore default dictionary words</button>
+            <button class="small-btn danger-outline" id="deleteCustomWords" style="width:100%;">Delete all custom words</button>
+          </div>
           ${currentUser ? `
             <div style="margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border);">
               <p style="margin: 0 0 10px; font-size: 13px; color: var(--muted);">Signed in as ${escapeHtml(currentUser.email)}</p>
-              <button class="danger-outline" id="signOutBtn" style="width:100%;">Sign out</button>
+              <button class="signout-btn" id="signOutBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="17" height="17">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+                  <polyline points="16 17 21 12 16 7"></polyline>
+                  <line x1="21" y1="12" x2="9" y2="12"></line>
+                </svg>
+                Sign out
+              </button>
             </div>
           ` : ""}
         </div>
@@ -4274,6 +4327,37 @@
         updateStreak();
         seedAchievementHistory();
         appSettingsOpen = false;
+        playClickSound();
+        render();
+      });
+      const homeBuiltInKeys = new Set(builtInWords.map((item) => item.word.toLowerCase()));
+      const homeMissingDefaultCount = builtInWords.filter((item) => !words.some((word) => word.word.toLowerCase() === item.word.toLowerCase())).length;
+      const homeCustomWordCount = words.filter((item) => !homeBuiltInKeys.has(item.word.toLowerCase())).length;
+      const resetDefaultsButton = app.querySelector("#resetDefaultWords");
+      const deleteCustomButton = app.querySelector("#deleteCustomWords");
+      resetDefaultsButton.disabled = homeMissingDefaultCount === 0;
+      resetDefaultsButton.title = homeMissingDefaultCount ? `Restore ${homeMissingDefaultCount} missing default word${homeMissingDefaultCount === 1 ? "" : "s"}` : "All default words are present";
+      deleteCustomButton.disabled = homeCustomWordCount === 0;
+      deleteCustomButton.title = homeCustomWordCount ? `Delete ${homeCustomWordCount} custom word${homeCustomWordCount === 1 ? "" : "s"}` : "There are no custom words";
+      resetDefaultsButton.addEventListener("click", () => {
+        const existingKeys = new Set(words.map((item) => item.word.toLowerCase()));
+        builtInWords.forEach((item) => {
+          if (!existingKeys.has(item.word.toLowerCase())) words.push({ ...item });
+        });
+        saveWords(words);
+        generateNewSession();
+        playGotItSound();
+        render();
+      });
+      deleteCustomButton.addEventListener("click", () => {
+        if (!confirm(`Delete all ${homeCustomWordCount} custom word${homeCustomWordCount === 1 ? "" : "s"}? This cannot be undone.`)) return;
+        words.filter((item) => !homeBuiltInKeys.has(item.word.toLowerCase())).forEach((item) => removeWordFromBatches(item.word.toLowerCase()));
+        words = words.filter((item) => homeBuiltInKeys.has(item.word.toLowerCase()));
+        selectedDictionaryKeys = new Set([...selectedDictionaryKeys].filter((key) => homeBuiltInKeys.has(key)));
+        editingIndex = null;
+        showAddForm = false;
+        saveWords(words);
+        generateNewSession();
         playClickSound();
         render();
       });
@@ -5680,16 +5764,12 @@
           </select>
           <button class="small-btn" id="toggleAddBtn">${showAddForm ? 'Close' : '+ Add word'}</button>
         </div>
-        <div class="dictionary-maintenance">
-          <button class="small-btn" id="resetDefaultWords">Reset all</button>
-          <button class="small-btn danger-outline" id="deleteCustomWords">Delete all custom words</button>
-        </div>
-        <div class="selection-tray" id="selectionTray">
-          <span class="selection-count" id="selectionCount">0 selected</span>
+        <div class="selection-tray is-empty" id="selectionTray">
+          <span class="selection-count" id="selectionCount">Select words to build a batch</span>
           <div class="selection-actions">
             <button class="small-btn" id="selectAllWords">Select all</button>
-            <button class="small-btn" id="clearSelectedWords">Clear</button>
-            <button class="accent-btn" id="saveSelectedBatch">Save as batch</button>
+            <button class="small-btn" id="clearSelectedWords" style="display:none;">Clear</button>
+            <button class="accent-btn" id="saveSelectedBatch" style="display:none;">Save as batch</button>
           </div>
         </div>
         ${showAddForm ? `
@@ -5762,44 +5842,18 @@
     });
 
     const builtInKeys = new Set(builtInWords.map((item) => item.word.toLowerCase()));
-    const missingDefaultCount = builtInWords.filter((item) => !words.some((word) => word.word.toLowerCase() === item.word.toLowerCase())).length;
-    const customWordCount = words.filter((item) => !builtInKeys.has(item.word.toLowerCase())).length;
-    const resetDefaultsButton = root.querySelector("#resetDefaultWords");
-    const deleteCustomButton = root.querySelector("#deleteCustomWords");
-    resetDefaultsButton.disabled = missingDefaultCount === 0;
-    resetDefaultsButton.title = missingDefaultCount ? `Restore ${missingDefaultCount} missing default word${missingDefaultCount === 1 ? "" : "s"}` : "All default words are present";
-    deleteCustomButton.disabled = customWordCount === 0;
-    deleteCustomButton.title = customWordCount ? `Delete ${customWordCount} custom word${customWordCount === 1 ? "" : "s"}` : "There are no custom words";
-
-    resetDefaultsButton.addEventListener("click", () => {
-      const existingKeys = new Set(words.map((item) => item.word.toLowerCase()));
-      builtInWords.forEach((item) => {
-        if (!existingKeys.has(item.word.toLowerCase())) words.push({ ...item });
-      });
-      saveWords(words);
-      generateNewSession();
-      playGotItSound();
-      render();
-    });
-
-    deleteCustomButton.addEventListener("click", () => {
-      if (!confirm(`Delete all ${customWordCount} custom word${customWordCount === 1 ? "" : "s"}? This cannot be undone.`)) return;
-      words.filter((item) => !builtInKeys.has(item.word.toLowerCase())).forEach((item) => removeWordFromBatches(item.word.toLowerCase()));
-      words = words.filter((item) => builtInKeys.has(item.word.toLowerCase()));
-      selectedDictionaryKeys = new Set([...selectedDictionaryKeys].filter((key) => builtInKeys.has(key)));
-      editingIndex = null;
-      showAddForm = false;
-      saveWords(words);
-      generateNewSession();
-      playClickSound();
-      render();
-    });
 
     const updateSelectionTray = () => {
       const count = getSelectedDictionaryWords().length;
-      root.querySelector("#selectionCount").textContent = `${count} selected`;
-      root.querySelector("#clearSelectedWords").disabled = count === 0;
-      root.querySelector("#saveSelectedBatch").disabled = count < 1;
+      const tray = root.querySelector("#selectionTray");
+      const clearBtn = root.querySelector("#clearSelectedWords");
+      const saveBtn = root.querySelector("#saveSelectedBatch");
+      tray.classList.toggle("is-empty", count === 0);
+      root.querySelector("#selectionCount").textContent = count === 0 ? "Select words to build a batch" : `${count} selected`;
+      clearBtn.style.display = count === 0 ? "none" : "";
+      saveBtn.style.display = count === 0 ? "none" : "";
+      clearBtn.disabled = count === 0;
+      saveBtn.disabled = count < 1;
     };
 
     root.querySelector("#selectAllWords").addEventListener("click", () => {
