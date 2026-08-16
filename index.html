@@ -554,6 +554,48 @@
   @media (max-width: 480px) {
     .settings-panel { top: 24px; right: 24px; left: 24px; width: auto; transform: none; }
   }
+
+  .auth-gate {
+    width: 100%;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+  .auth-card {
+    width: 100%;
+    max-width: 380px;
+    padding: 28px 26px;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    background: var(--card-bg);
+    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.12);
+  }
+  .auth-form { display: flex; flex-direction: column; gap: 14px; }
+  .auth-field { display: flex; flex-direction: column; gap: 6px; }
+  .auth-field > span { font-size: 13px; font-weight: 800; color: var(--muted); }
+  .auth-field input {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--bg);
+    color: var(--text);
+    font: inherit;
+    transition: border-color 0.16s ease, box-shadow 0.16s ease;
+  }
+  .auth-field input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.12);
+    outline: none;
+  }
+  .auth-error { padding: 10px 12px; border-radius: 9px; background: #fee2e2; color: #b91c1c; font-size: 13px; font-weight: 700; }
+  .auth-error.auth-notice { background: #dcfce7; color: #166534; }
+  .auth-switch { border: 0; background: transparent; color: var(--accent); font: inherit; font-weight: 800; cursor: pointer; padding: 0; }
+  .auth-switch:hover { text-decoration: underline; }
+  .auth-loading { text-align: center; color: var(--muted); }
+
   .switch { position: relative; width: 48px; height: 27px; flex: 0 0 auto; }
   .switch input { opacity: 0; width: 0; height: 0; }
   .switch-slider { position: absolute; inset: 0; border-radius: 999px; background: #cbd5e1; cursor: pointer; transition: .2s ease; }
@@ -1872,7 +1914,12 @@
 
 <div class="app" id="app"></div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="supabase-config.js"></script>
 <script>
+  const supabaseClient = window.supabase.createClient(window.VOCAB_SUPABASE.url, window.VOCAB_SUPABASE.publishableKey);
+  let currentUser = null;
+
   const STORAGE_KEY = "vocabPracticeWords";
   const LEGACY_CUSTOM_KEY = "vocabPracticeCustomWords";
   const LEGACY_DECK_KEY = "vocabPracticeDeck";
@@ -3876,6 +3923,106 @@
 
   resetPracticeSession();
 
+  function renderAuthGate(mode = "signin") {
+    app.innerHTML = `
+      <div class="auth-gate">
+        <div class="auth-card">
+          <div class="brand-bar" style="justify-content:center; margin-bottom: 18px;">
+            <span class="brand">
+              <svg width="30" height="30" viewBox="0 0 24 24">
+                <rect x="3" y="6" width="13" height="15" rx="2" fill="none" stroke="#0f6e56" stroke-width="1.8"></rect>
+                <rect x="8" y="3" width="13" height="15" rx="2" fill="var(--card-bg)" stroke="#0f6e56" stroke-width="1.8"></rect>
+              </svg>
+              Vocab Lab
+            </span>
+          </div>
+          <h2 style="margin:0 0 4px; text-align:center;">${mode === "signup" ? "Create an account" : "Sign in"}</h2>
+          <p style="margin:0 0 20px; text-align:center; color:var(--muted); font-size:14px;">${mode === "signup" ? "Set up an account to start practicing." : "Welcome back."}</p>
+          <form class="auth-form" id="authForm">
+            <label class="auth-field">
+              <span>Email</span>
+              <input type="email" id="authEmail" required autocomplete="email">
+            </label>
+            <label class="auth-field">
+              <span>Password</span>
+              <input type="password" id="authPassword" required minlength="6" autocomplete="${mode === "signup" ? "new-password" : "current-password"}">
+            </label>
+            <div class="auth-error" id="authError" style="display:none;"></div>
+            <button type="submit" class="accent-btn" id="authSubmit" style="width:100%;">${mode === "signup" ? "Sign up" : "Sign in"}</button>
+          </form>
+          <p style="margin:16px 0 0; text-align:center; font-size: 14px; color: var(--muted);">
+            ${mode === "signup" ? "Already have an account?" : "Need an account?"}
+            <button type="button" class="auth-switch" id="authSwitch">${mode === "signup" ? "Sign in" : "Sign up"}</button>
+          </p>
+        </div>
+      </div>
+    `;
+
+    const form = app.querySelector("#authForm");
+    const errorBox = app.querySelector("#authError");
+    const submitBtn = app.querySelector("#authSubmit");
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      errorBox.style.display = "none";
+      errorBox.classList.remove("auth-notice");
+      submitBtn.disabled = true;
+      submitBtn.textContent = mode === "signup" ? "Signing up..." : "Signing in...";
+      const email = app.querySelector("#authEmail").value.trim();
+      const password = app.querySelector("#authPassword").value;
+      const { data, error } = mode === "signup"
+        ? await supabaseClient.auth.signUp({ email, password })
+        : await supabaseClient.auth.signInWithPassword({ email, password });
+
+      if (error) {
+        errorBox.textContent = error.message;
+        errorBox.style.display = "block";
+        submitBtn.disabled = false;
+        submitBtn.textContent = mode === "signup" ? "Sign up" : "Sign in";
+        return;
+      }
+
+      if (mode === "signup" && !data.session) {
+        errorBox.textContent = "Check your email to confirm your account, then sign in.";
+        errorBox.classList.add("auth-notice");
+        errorBox.style.display = "block";
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Sign up";
+        return;
+      }
+
+      currentUser = data.user;
+      render();
+    });
+
+    app.querySelector("#authSwitch").addEventListener("click", () => {
+      playClickSound();
+      renderAuthGate(mode === "signup" ? "signin" : "signup");
+    });
+  }
+
+  async function initAuth() {
+    app.innerHTML = `<div class="auth-gate"><p class="auth-loading">Loading&hellip;</p></div>`;
+    const { data: { session } } = await supabaseClient.auth.getSession();
+    currentUser = session ? session.user : null;
+    if (currentUser) {
+      render();
+    } else {
+      renderAuthGate();
+    }
+
+    supabaseClient.auth.onAuthStateChange((_event, session) => {
+      const user = session ? session.user : null;
+      const wasSignedIn = !!currentUser;
+      currentUser = user;
+      if (user && !wasSignedIn) {
+        render();
+      } else if (!user && wasSignedIn) {
+        renderAuthGate();
+      }
+    });
+  }
+
   function render() {
     if (view !== "memory") stopMemoryTimer();
     if (view !== "bubble") {
@@ -3989,6 +4136,12 @@
             </label>
           </div>
           <button class="missed-btn" id="resetProgressBtn" style="width:100%;">Reset progress &amp; high scores</button>
+          ${currentUser ? `
+            <div style="margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border);">
+              <p style="margin: 0 0 10px; font-size: 13px; color: var(--muted);">Signed in as ${escapeHtml(currentUser.email)}</p>
+              <button class="danger-outline" id="signOutBtn" style="width:100%;">Sign out</button>
+            </div>
+          ` : ""}
         </div>
       ` : ""}
       <div class="home-view">
@@ -4124,6 +4277,15 @@
         playClickSound();
         render();
       });
+      const signOutBtn = app.querySelector("#signOutBtn");
+      if (signOutBtn) {
+        signOutBtn.addEventListener("click", async () => {
+          playClickSound();
+          signOutBtn.disabled = true;
+          signOutBtn.textContent = "Signing out...";
+          await supabaseClient.auth.signOut();
+        });
+      }
     }
   }
 
@@ -5906,7 +6068,7 @@
   });
 
   seedAchievementHistory();
-  render();
+  initAuth();
 </script>
 
 </body>
