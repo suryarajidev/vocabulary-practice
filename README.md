@@ -55,3 +55,7 @@ JAI:
 How do I accept the request. - UPDATE: I just accepted it thank you!
 
 Thank you for all the things I needed, I'll set up the profiles now.
+
+SURYA: 
+Great! Glad it all worked out.
+
