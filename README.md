@@ -49,3 +49,9 @@ Project URL: https://tcbndrskdnnchtehxegu.supabase.co
 Publishable Key: sb_publishable_IjUF0itUavwXBZCej9ZdHg_Ap6tyg1V
 
 I just set up the profile tables. 
+
+JAI:
+
+How do I accept the request.
+
+Thank you for all the things I needed, I'll set up the profiles now.
