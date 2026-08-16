@@ -1942,6 +1942,11 @@
 <script>
   const supabaseClient = window.supabase.createClient(window.VOCAB_SUPABASE.url, window.VOCAB_SUPABASE.publishableKey);
   let currentUser = null;
+  let achievementSyncReady = false;
+  let achievementCloudAvailable = false;
+  let achievementSyncUserId = null;
+  let achievementSyncPromise = null;
+  let achievementSaveTimer = null;
 
   const STORAGE_KEY = "vocabPracticeWords";
   const LEGACY_CUSTOM_KEY = "vocabPracticeCustomWords";
@@ -2098,24 +2103,126 @@
     localStorage.setItem(PARAGRAPH_SETTINGS_KEY, JSON.stringify(paragraphSettings));
   }
 
-  function loadAchievementData() {
+  function createEmptyAchievementData() {
+    return { stats: { ...defaultAchievementStats }, unlocked: [], batchGames: {}, gamesPlayed: [], masteredWords: [], batchPerfectActivities: {} };
+  }
+
+  function normalizeAchievementData(saved = {}) {
+    const safeSaved = saved && typeof saved === "object" && !Array.isArray(saved) ? saved : {};
+    return {
+      stats: { ...defaultAchievementStats, ...(safeSaved.stats && typeof safeSaved.stats === "object" ? safeSaved.stats : {}) },
+      unlocked: Array.isArray(safeSaved.unlocked) ? [...new Set(safeSaved.unlocked.map(String))] : [],
+      batchGames: safeSaved.batchGames && typeof safeSaved.batchGames === "object" ? Object.fromEntries(Object.entries(safeSaved.batchGames).map(([id, games]) => [String(id), Array.isArray(games) ? [...new Set(games.map(String))] : []])) : {},
+      gamesPlayed: Array.isArray(safeSaved.gamesPlayed) ? [...new Set(safeSaved.gamesPlayed.map(String))] : [],
+      masteredWords: Array.isArray(safeSaved.masteredWords) ? [...new Set(safeSaved.masteredWords.map((word) => String(word).toLowerCase()))] : [],
+      batchPerfectActivities: safeSaved.batchPerfectActivities && typeof safeSaved.batchPerfectActivities === "object" ? Object.fromEntries(Object.entries(safeSaved.batchPerfectActivities).map(([id, activities]) => [String(id), Array.isArray(activities) ? [...new Set(activities.map(String))] : []])) : {}
+    };
+  }
+
+  function loadAchievementData(storageKey = ACHIEVEMENTS_KEY) {
     try {
-      const saved = JSON.parse(localStorage.getItem(ACHIEVEMENTS_KEY) || "{}");
-      return {
-        stats: { ...defaultAchievementStats, ...(saved.stats || {}) },
-        unlocked: Array.isArray(saved.unlocked) ? [...new Set(saved.unlocked.map(String))] : [],
-        batchGames: saved.batchGames && typeof saved.batchGames === "object" ? Object.fromEntries(Object.entries(saved.batchGames).map(([id, games]) => [String(id), Array.isArray(games) ? [...new Set(games.map(String))] : []])) : {},
-        gamesPlayed: Array.isArray(saved.gamesPlayed) ? [...new Set(saved.gamesPlayed.map(String))] : [],
-        masteredWords: Array.isArray(saved.masteredWords) ? [...new Set(saved.masteredWords.map((word) => String(word).toLowerCase()))] : [],
-        batchPerfectActivities: saved.batchPerfectActivities && typeof saved.batchPerfectActivities === "object" ? Object.fromEntries(Object.entries(saved.batchPerfectActivities).map(([id, activities]) => [String(id), Array.isArray(activities) ? [...new Set(activities.map(String))] : []])) : {}
-      };
+      return normalizeAchievementData(JSON.parse(localStorage.getItem(storageKey) || "{}"));
     } catch {
-      return { stats: { ...defaultAchievementStats }, unlocked: [], batchGames: {}, gamesPlayed: [], masteredWords: [], batchPerfectActivities: {} };
+      return createEmptyAchievementData();
     }
   }
 
+  function mergeAchievementCollections(first = {}, second = {}) {
+    const ids = new Set([...Object.keys(first), ...Object.keys(second)]);
+    return Object.fromEntries([...ids].map((id) => [id, [...new Set([...(first[id] || []), ...(second[id] || [])].map(String))]]));
+  }
+
+  function mergeAchievementData(localData, cloudData) {
+    const local = normalizeAchievementData(localData);
+    const cloud = normalizeAchievementData(cloudData);
+    const statNames = new Set([...Object.keys(local.stats), ...Object.keys(cloud.stats)]);
+    const stats = Object.fromEntries([...statNames].map((name) => {
+      const localValue = Number(local.stats[name]) || 0;
+      const cloudValue = Number(cloud.stats[name]) || 0;
+      return [name, Math.max(localValue, cloudValue)];
+    }));
+    return normalizeAchievementData({
+      stats,
+      unlocked: [...new Set([...local.unlocked, ...cloud.unlocked])],
+      batchGames: mergeAchievementCollections(local.batchGames, cloud.batchGames),
+      gamesPlayed: [...new Set([...local.gamesPlayed, ...cloud.gamesPlayed])],
+      masteredWords: [...new Set([...local.masteredWords, ...cloud.masteredWords])],
+      batchPerfectActivities: mergeAchievementCollections(local.batchPerfectActivities, cloud.batchPerfectActivities)
+    });
+  }
+
+  function getAchievementStorageKey(userId = currentUser?.id) {
+    return userId ? `${ACHIEVEMENTS_KEY}:${userId}` : ACHIEVEMENTS_KEY;
+  }
+
   function saveAchievementData() {
-    localStorage.setItem(ACHIEVEMENTS_KEY, JSON.stringify(achievementData));
+    localStorage.setItem(getAchievementStorageKey(), JSON.stringify(achievementData));
+    if (!currentUser || !achievementSyncReady || !achievementCloudAvailable || achievementSyncUserId !== currentUser.id) return;
+    clearTimeout(achievementSaveTimer);
+    achievementSaveTimer = setTimeout(() => flushAchievementDataToCloud(), 600);
+  }
+
+  async function flushAchievementDataToCloud() {
+    clearTimeout(achievementSaveTimer);
+    achievementSaveTimer = null;
+    const userId = currentUser?.id;
+    if (!userId || !achievementSyncReady || !achievementCloudAvailable || achievementSyncUserId !== userId) return;
+    const snapshot = normalizeAchievementData(achievementData);
+    const { error } = await supabaseClient.from("user_achievements").upsert({
+      user_id: userId,
+      achievement_data: snapshot,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id" });
+    if (error) {
+      achievementCloudAvailable = false;
+      console.warn("Achievement cloud sync is unavailable; progress is still saved on this device.", error.message);
+    }
+  }
+
+  function resetAchievementSyncSession() {
+    clearTimeout(achievementSaveTimer);
+    achievementSaveTimer = null;
+    achievementSyncReady = false;
+    achievementCloudAvailable = false;
+    achievementSyncUserId = null;
+    achievementSyncPromise = null;
+    achievementData = createEmptyAchievementData();
+  }
+
+  async function initializeAchievementSync(user) {
+    if (!user?.id) return;
+    if (achievementSyncReady && achievementSyncUserId === user.id) return;
+    if (achievementSyncPromise && achievementSyncUserId === user.id) return achievementSyncPromise;
+
+    achievementSyncUserId = user.id;
+    achievementSyncReady = false;
+    achievementCloudAvailable = false;
+    achievementSyncPromise = (async () => {
+      const userStorageKey = getAchievementStorageKey(user.id);
+      const hasUserData = localStorage.getItem(userStorageKey) !== null;
+      const localData = loadAchievementData(hasUserData ? userStorageKey : ACHIEVEMENTS_KEY);
+      const { data, error } = await supabaseClient
+        .from("user_achievements")
+        .select("achievement_data")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (currentUser?.id !== user.id) return;
+      achievementData = error ? localData : mergeAchievementData(localData, data?.achievement_data);
+      localStorage.setItem(userStorageKey, JSON.stringify(achievementData));
+      if (!hasUserData) localStorage.removeItem(ACHIEVEMENTS_KEY);
+      achievementSyncReady = true;
+      achievementCloudAvailable = !error;
+
+      if (error) {
+        console.warn("Achievement cloud sync is unavailable; progress is still saved on this device.", error.message);
+        return;
+      }
+      await flushAchievementDataToCloud();
+    })().finally(() => {
+      if (achievementSyncUserId === user.id) achievementSyncPromise = null;
+    });
+    return achievementSyncPromise;
   }
 
   function applyTheme() {
@@ -4031,6 +4138,7 @@
       }
 
       currentUser = data.user;
+      await initializeAchievementSync(currentUser);
       appSettingsOpen = false;
       render();
     });
@@ -4046,6 +4154,7 @@
     const { data: { session } } = await supabaseClient.auth.getSession();
     currentUser = session ? session.user : null;
     if (currentUser) {
+      await initializeAchievementSync(currentUser);
       render();
     } else {
       renderAuthGate();
@@ -4053,12 +4162,17 @@
 
     supabaseClient.auth.onAuthStateChange((_event, session) => {
       const user = session ? session.user : null;
-      const wasSignedIn = !!currentUser;
+      const previousUserId = currentUser?.id || null;
       currentUser = user;
-      if (user && !wasSignedIn) {
+      if (user && user.id !== previousUserId) {
         appSettingsOpen = false;
-        render();
-      } else if (!user && wasSignedIn) {
+        setTimeout(async () => {
+          if (currentUser?.id !== user.id) return;
+          await initializeAchievementSync(user);
+          if (currentUser?.id === user.id) render();
+        }, 0);
+      } else if (!user && previousUserId) {
+        resetAchievementSyncSession();
         appSettingsOpen = false;
         renderAuthGate();
       }
@@ -4367,6 +4481,7 @@
           playClickSound();
           signOutBtn.disabled = true;
           signOutBtn.textContent = "Signing out...";
+          await flushAchievementDataToCloud();
           await supabaseClient.auth.signOut();
         });
       }
@@ -4399,7 +4514,7 @@
     const unlockedCount = achievements.filter((achievement) => unlocked.has(achievement.id)).length;
     root.innerHTML = `<section class="achievements-view" aria-labelledby="achievementsTitle">
       <div class="achievements-heading">
-        <div><h2 id="achievementsTitle">Achievements</h2><p>Keep learning, playing, and building your vocabulary. Mythical and miscellaneous achievements stay secret until unlocked.</p></div>
+        <div><h2 id="achievementsTitle">Achievements</h2><p>Keep learning, playing, and building your vocabulary. Mythical and miscellaneous achievements stay secret until unlocked. ${achievementCloudAvailable ? "Progress is synced to your account." : "Progress is saved on this device."}</p></div>
         <div class="achievement-total">${unlockedCount} unlocked</div>
       </div>
       ${groups.map((group) => {
@@ -6121,7 +6236,6 @@
     }
   });
 
-  seedAchievementHistory();
   initAuth();
 </script>
 

@@ -59,3 +59,6 @@ Thank you for all the things I needed, I'll set up the profiles now.
 SURYA: 
 Great! Glad it all worked out.
 
+## Supabase achievement setup
+
+Achievements are saved per account in Supabase and cached locally so the site still works if the network is unavailable. Before cloud syncing will work, open the Supabase SQL Editor, paste the contents of `supabase-achievements.sql`, and run it once. The included Row Level Security policies only allow signed-in users to access their own achievement data.
