@@ -62,3 +62,8 @@ Great! Glad it all worked out.
 ## Supabase achievement setup
 
 Achievements are saved per account in Supabase and cached locally so the site still works if the network is unavailable. Before cloud syncing will work, open the Supabase SQL Editor, paste the contents of `supabase-achievements.sql`, and run it once. The included Row Level Security policies only allow signed-in users to access their own achievement data.
+
+## Supabase progress setup
+
+JAI:
+Following the same pattern as achievements, session stats (got it/almost/don't know counts), high scores (Bubble, Whack-a-Word, Wordbound), and daily streak now sync per account too, so progress carries over across devices. Same deal: run `supabase-progress.sql` once in the SQL Editor before it'll sync. If the table isn't there yet it just keeps saving locally, nothing breaks.

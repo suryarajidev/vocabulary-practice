@@ -1947,6 +1947,11 @@
   let achievementSyncUserId = null;
   let achievementSyncPromise = null;
   let achievementSaveTimer = null;
+  let progressSyncReady = false;
+  let progressCloudAvailable = false;
+  let progressSyncUserId = null;
+  let progressSyncPromise = null;
+  let progressSaveTimer = null;
 
   const STORAGE_KEY = "vocabPracticeWords";
   const LEGACY_CUSTOM_KEY = "vocabPracticeCustomWords";
@@ -2022,40 +2027,53 @@
     localStorage.setItem(FLASHCARD_SETTINGS_KEY, JSON.stringify(flashcardSettings));
   }
 
-  function loadHighScores() {
+  function getProgressStorageKey(userId = currentUser?.id) {
+    return userId ? `${PROGRESS_KEY}:${userId}` : PROGRESS_KEY;
+  }
+  function getHighScoresStorageKey(userId = currentUser?.id) {
+    return userId ? `${HIGH_SCORES_KEY}:${userId}` : HIGH_SCORES_KEY;
+  }
+  function getStreakStorageKey(userId = currentUser?.id) {
+    return userId ? `${STREAK_KEY}:${userId}` : STREAK_KEY;
+  }
+
+  function loadHighScores(storageKey = HIGH_SCORES_KEY) {
     try {
-      return { ...defaultHighScores, ...JSON.parse(localStorage.getItem(HIGH_SCORES_KEY) || "{}") };
+      return { ...defaultHighScores, ...JSON.parse(localStorage.getItem(storageKey) || "{}") };
     } catch {
       return { ...defaultHighScores };
     }
   }
 
   function saveHighScores() {
-    localStorage.setItem(HIGH_SCORES_KEY, JSON.stringify(highScores));
+    localStorage.setItem(getHighScoresStorageKey(), JSON.stringify(highScores));
+    queueProgressCloudSync();
   }
 
-  function loadProgress() {
+  function loadProgress(storageKey = PROGRESS_KEY) {
     try {
-      return { ...defaultProgress, ...JSON.parse(localStorage.getItem(PROGRESS_KEY) || "{}") };
+      return { ...defaultProgress, ...JSON.parse(localStorage.getItem(storageKey) || "{}") };
     } catch {
       return { ...defaultProgress };
     }
   }
 
   function saveProgress() {
-    localStorage.setItem(PROGRESS_KEY, JSON.stringify(progressStats));
+    localStorage.setItem(getProgressStorageKey(), JSON.stringify(progressStats));
+    queueProgressCloudSync();
   }
 
-  function loadStreak() {
+  function loadStreak(storageKey = STREAK_KEY) {
     try {
-      return { ...defaultStreak, ...JSON.parse(localStorage.getItem(STREAK_KEY) || "{}") };
+      return { ...defaultStreak, ...JSON.parse(localStorage.getItem(storageKey) || "{}") };
     } catch {
       return { ...defaultStreak };
     }
   }
 
   function saveStreak() {
-    localStorage.setItem(STREAK_KEY, JSON.stringify(streak));
+    localStorage.setItem(getStreakStorageKey(), JSON.stringify(streak));
+    queueProgressCloudSync();
   }
 
   function todayStr() {
@@ -2223,6 +2241,144 @@
       if (achievementSyncUserId === user.id) achievementSyncPromise = null;
     });
     return achievementSyncPromise;
+  }
+
+  function mergeProgressStats(localData, cloudData) {
+    const local = { ...defaultProgress, ...(localData && typeof localData === "object" ? localData : {}) };
+    const cloud = { ...defaultProgress, ...(cloudData && typeof cloudData === "object" ? cloudData : {}) };
+    return {
+      sessionsCompleted: Math.max(Number(local.sessionsCompleted) || 0, Number(cloud.sessionsCompleted) || 0),
+      gotit: Math.max(Number(local.gotit) || 0, Number(cloud.gotit) || 0),
+      almost: Math.max(Number(local.almost) || 0, Number(cloud.almost) || 0),
+      dontknow: Math.max(Number(local.dontknow) || 0, Number(cloud.dontknow) || 0)
+    };
+  }
+
+  function mergeWordboundTurns(localTurns, cloudTurns) {
+    const local = typeof localTurns === "number" ? localTurns : null;
+    const cloud = typeof cloudTurns === "number" ? cloudTurns : null;
+    if (local === null) return cloud;
+    if (cloud === null) return local;
+    return Math.min(local, cloud);
+  }
+
+  function mergeHighScores(localData, cloudData) {
+    const local = { ...defaultHighScores, ...(localData && typeof localData === "object" ? localData : {}) };
+    const cloud = { ...defaultHighScores, ...(cloudData && typeof cloudData === "object" ? cloudData : {}) };
+    return {
+      bubble: Math.max(Number(local.bubble) || 0, Number(cloud.bubble) || 0),
+      whack: Math.max(Number(local.whack) || 0, Number(cloud.whack) || 0),
+      wordboundTurns: mergeWordboundTurns(local.wordboundTurns, cloud.wordboundTurns)
+    };
+  }
+
+  function mergeStreak(localData, cloudData) {
+    const local = { ...defaultStreak, ...(localData && typeof localData === "object" ? localData : {}) };
+    const cloud = { ...defaultStreak, ...(cloudData && typeof cloudData === "object" ? cloudData : {}) };
+    if (!local.lastDate) return cloud;
+    if (!cloud.lastDate) return local;
+    if (local.lastDate === cloud.lastDate) {
+      return { count: Math.max(Number(local.count) || 0, Number(cloud.count) || 0), lastDate: local.lastDate };
+    }
+    return local.lastDate > cloud.lastDate ? local : cloud;
+  }
+
+  function queueProgressCloudSync() {
+    if (!currentUser || !progressSyncReady || !progressCloudAvailable || progressSyncUserId !== currentUser.id) return;
+    clearTimeout(progressSaveTimer);
+    progressSaveTimer = setTimeout(() => flushProgressDataToCloud(), 600);
+  }
+
+  async function flushProgressDataToCloud() {
+    clearTimeout(progressSaveTimer);
+    progressSaveTimer = null;
+    const userId = currentUser?.id;
+    if (!userId || !progressSyncReady || !progressCloudAvailable || progressSyncUserId !== userId) return;
+    const { error } = await supabaseClient.from("user_progress").upsert({
+      user_id: userId,
+      progress_data: progressStats,
+      high_scores_data: highScores,
+      streak_data: streak,
+      updated_at: new Date().toISOString()
+    }, { onConflict: "user_id" });
+    if (error) {
+      progressCloudAvailable = false;
+      console.warn("Progress cloud sync is unavailable; progress is still saved on this device.", error.message);
+    }
+  }
+
+  function resetProgressSyncSession() {
+    clearTimeout(progressSaveTimer);
+    progressSaveTimer = null;
+    progressSyncReady = false;
+    progressCloudAvailable = false;
+    progressSyncUserId = null;
+    progressSyncPromise = null;
+    progressStats = loadProgress();
+    highScores = loadHighScores();
+    streak = loadStreak();
+  }
+
+  async function initializeProgressSync(user) {
+    if (!user?.id) return;
+    if (progressSyncReady && progressSyncUserId === user.id) return;
+    if (progressSyncPromise && progressSyncUserId === user.id) return progressSyncPromise;
+
+    progressSyncUserId = user.id;
+    progressSyncReady = false;
+    progressCloudAvailable = false;
+    progressSyncPromise = (async () => {
+      const progressKey = getProgressStorageKey(user.id);
+      const highScoresKey = getHighScoresStorageKey(user.id);
+      const streakKey = getStreakStorageKey(user.id);
+      const hasUserData = localStorage.getItem(progressKey) !== null
+        || localStorage.getItem(highScoresKey) !== null
+        || localStorage.getItem(streakKey) !== null;
+
+      const localProgress = loadProgress(hasUserData ? progressKey : PROGRESS_KEY);
+      const localHighScores = loadHighScores(hasUserData ? highScoresKey : HIGH_SCORES_KEY);
+      const localStreak = loadStreak(hasUserData ? streakKey : STREAK_KEY);
+
+      const { data, error } = await supabaseClient
+        .from("user_progress")
+        .select("progress_data, high_scores_data, streak_data")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (currentUser?.id !== user.id) return;
+
+      if (error) {
+        progressStats = localProgress;
+        highScores = localHighScores;
+        streak = localStreak;
+      } else {
+        progressStats = mergeProgressStats(localProgress, data?.progress_data);
+        highScores = mergeHighScores(localHighScores, data?.high_scores_data);
+        streak = mergeStreak(localStreak, data?.streak_data);
+      }
+
+      progressSyncReady = true;
+      progressCloudAvailable = !error;
+
+      updateStreak();
+
+      localStorage.setItem(progressKey, JSON.stringify(progressStats));
+      localStorage.setItem(highScoresKey, JSON.stringify(highScores));
+      if (!hasUserData) {
+        localStorage.removeItem(PROGRESS_KEY);
+        localStorage.removeItem(HIGH_SCORES_KEY);
+        localStorage.removeItem(STREAK_KEY);
+      }
+
+      if (error) {
+        console.warn("Progress cloud sync is unavailable; progress is still saved on this device.", error.message);
+        return;
+      }
+      await flushProgressDataToCloud();
+    })().finally(() => {
+      if (progressSyncUserId === user.id) progressSyncPromise = null;
+    });
+    return progressSyncPromise;
   }
 
   function applyTheme() {
@@ -4138,7 +4294,7 @@
       }
 
       currentUser = data.user;
-      await initializeAchievementSync(currentUser);
+      await Promise.all([initializeAchievementSync(currentUser), initializeProgressSync(currentUser)]);
       appSettingsOpen = false;
       render();
     });
@@ -4154,7 +4310,7 @@
     const { data: { session } } = await supabaseClient.auth.getSession();
     currentUser = session ? session.user : null;
     if (currentUser) {
-      await initializeAchievementSync(currentUser);
+      await Promise.all([initializeAchievementSync(currentUser), initializeProgressSync(currentUser)]);
       render();
     } else {
       renderAuthGate();
@@ -4168,11 +4324,12 @@
         appSettingsOpen = false;
         setTimeout(async () => {
           if (currentUser?.id !== user.id) return;
-          await initializeAchievementSync(user);
+          await Promise.all([initializeAchievementSync(user), initializeProgressSync(user)]);
           if (currentUser?.id === user.id) render();
         }, 0);
       } else if (!user && previousUserId) {
         resetAchievementSyncSession();
+        resetProgressSyncSession();
         appSettingsOpen = false;
         renderAuthGate();
       }
