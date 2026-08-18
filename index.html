@@ -597,11 +597,21 @@
   .user-search-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; padding: 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--card-bg); }
   .user-search-form input { min-width: 0; padding: 12px 13px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); font: inherit; }
   .user-search-status { margin: 0; color: var(--muted); font-size: 14px; }
+  .user-results-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .user-results-heading h3 { margin: 0; }
+  .user-results-heading span { color: var(--muted); font-size: 12px; font-weight: 800; }
   .public-profile-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
   .public-profile-card { padding: 17px; border: 1px solid var(--border); border-radius: 15px; background: var(--card-bg); }
   .public-profile-card.own-profile { border-color: rgba(13,148,136,.5); box-shadow: 0 6px 18px rgba(13,148,136,.08); }
   .public-profile-name { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 13px; }
   .public-profile-name h3 { margin: 0; font-size: 20px; overflow-wrap: anywhere; }
+  .leaderboard-rank { display: inline-flex; align-items: center; justify-content: center; min-width: 30px; height: 25px; margin-right: 7px; padding: 0 7px; border-radius: 999px; background: var(--bg); color: var(--accent); font-size: 12px; font-weight: 900; vertical-align: 2px; }
+  .leaderboard-rank.rank-1 { background: #fef3c7; color: #a16207; }
+  .leaderboard-rank.rank-2 { background: #e5e7eb; color: #4b5563; }
+  .leaderboard-rank.rank-3 { background: #ffedd5; color: #9a3412; }
+  [data-theme="dark"] .leaderboard-rank.rank-1 { background: #514218; color: #fde68a; }
+  [data-theme="dark"] .leaderboard-rank.rank-2 { background: #3f454d; color: #d1d5db; }
+  [data-theme="dark"] .leaderboard-rank.rank-3 { background: #56301f; color: #fdba74; }
   .public-profile-stars { flex: 0 0 auto; color: #a16207; font-weight: 900; }
   .public-profile-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .public-profile-stat { padding: 9px 10px; border-radius: 9px; background: var(--bg); }
@@ -5132,12 +5142,12 @@
     `;
   }
 
-  function publicProfileCardHtml(profile) {
+  function publicProfileCardHtml(profile, rank = null) {
     const isOwnProfile = profile.user_id === currentUser?.id;
     const updatedDate = new Date(profile.updated_at);
     const updatedLabel = Number.isNaN(updatedDate.getTime()) ? "Recently updated" : `Updated ${updatedDate.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`;
     return `<article class="public-profile-card ${isOwnProfile ? "own-profile" : ""}">
-      <div class="public-profile-name"><h3>${escapeHtml(profile.username)}${isOwnProfile ? ` <span class="part-of-speech">You</span>` : ""}</h3><div class="public-profile-stars">⭐ ${Number(profile.stars || 0).toLocaleString()}</div></div>
+      <div class="public-profile-name"><h3>${rank ? `<span class="leaderboard-rank ${rank <= 3 ? `rank-${rank}` : ""}">#${rank}</span>` : ""}${escapeHtml(profile.username)}${isOwnProfile ? ` <span class="part-of-speech">You</span>` : ""}</h3><div class="public-profile-stars">⭐ ${Number(profile.stars || 0).toLocaleString()}</div></div>
       <div class="public-profile-stats">
         <div class="public-profile-stat"><strong>${Number(profile.achievements_unlocked || 0).toLocaleString()}</strong><span>Achievements</span></div>
         <div class="public-profile-stat"><strong>${Number(profile.streak_days || 0).toLocaleString()}</strong><span>Day streak</span></div>
@@ -5159,7 +5169,8 @@
         <input id="userSearchInput" type="search" maxlength="20" autocomplete="off" placeholder="Search a username" aria-label="Search usernames">
         <button class="accent-btn" type="submit">Search</button>
       </form>
-      <p class="user-search-status" id="userSearchStatus">Enter part or all of a username.</p>
+      <p class="user-search-status" id="userSearchStatus" role="status">Loading the Star leaderboard…</p>
+      <div class="user-results-heading"><h3 id="userResultsTitle">Star Leaderboard</h3><span id="userResultsSummary">Top 20 users</span></div>
       <div class="public-profile-list" id="publicProfileList"></div>` : `<div class="empty-state">Username search is not available yet. Run <strong>supabase-public-profiles.sql</strong> in the Supabase SQL Editor, then reload the site.</div>`}
     </section>`;
     if (!publicProfileAvailable) return;
@@ -5168,14 +5179,48 @@
     const input = root.querySelector("#userSearchInput");
     const status = root.querySelector("#userSearchStatus");
     const list = root.querySelector("#publicProfileList");
+    const resultsTitle = root.querySelector("#userResultsTitle");
+    const resultsSummary = root.querySelector("#userResultsSummary");
+    let requestId = 0;
+
+    const loadLeaderboard = async () => {
+      const activeRequest = ++requestId;
+      resultsTitle.textContent = "Star Leaderboard";
+      resultsSummary.textContent = "Top 20 users";
+      status.textContent = "Loading the top users by Stars…";
+      list.innerHTML = "";
+      const { data, error } = await supabaseClient
+        .from("user_public_profiles")
+        .select(PUBLIC_PROFILE_FIELDS)
+        .order("stars", { ascending: false })
+        .order("username", { ascending: true })
+        .limit(20);
+      if (activeRequest !== requestId || !list.isConnected) return;
+      if (error) {
+        status.textContent = "The leaderboard is temporarily unavailable. Please try again.";
+        return;
+      }
+      const profiles = Array.isArray(data) ? data : [];
+      status.textContent = profiles.length ? `Showing the top ${profiles.length} user${profiles.length === 1 ? "" : "s"} ranked by Stars.` : "No users have joined the leaderboard yet.";
+      resultsSummary.textContent = `${profiles.length} ranked`;
+      list.innerHTML = profiles.map((profile, index) => publicProfileCardHtml(profile, index + 1)).join("");
+    };
+
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       const query = input.value.trim();
+      if (!query) {
+        loadLeaderboard();
+        return;
+      }
       if (!/^[A-Za-z0-9]{1,20}$/.test(query)) {
         status.textContent = "Search with 1–20 letters or numbers.";
         list.innerHTML = "";
         return;
       }
+      const activeRequest = ++requestId;
+      resultsTitle.textContent = "Search Results";
+      resultsSummary.textContent = `For “${query}”`;
       status.textContent = "Searching…";
       list.innerHTML = "";
       const { data, error } = await supabaseClient
@@ -5184,14 +5229,19 @@
         .ilike("username", `%${query}%`)
         .order("stars", { ascending: false })
         .limit(20);
+      if (activeRequest !== requestId || !list.isConnected) return;
       if (error) {
         status.textContent = "User search is temporarily unavailable. Please try again.";
         return;
       }
       const profiles = Array.isArray(data) ? data : [];
       status.textContent = profiles.length ? `${profiles.length} user${profiles.length === 1 ? "" : "s"} found.` : "No usernames matched your search.";
-      list.innerHTML = profiles.map(publicProfileCardHtml).join("");
+      list.innerHTML = profiles.map((profile) => publicProfileCardHtml(profile)).join("");
     });
+    input.addEventListener("input", () => {
+      if (!input.value.trim()) loadLeaderboard();
+    });
+    loadLeaderboard();
     input.focus();
   }
 
