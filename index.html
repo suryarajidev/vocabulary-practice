@@ -1199,8 +1199,8 @@
   .batch-header-actions { display: flex; gap: 7px; }
   .batch-header-actions button:disabled { opacity: .42; cursor: not-allowed; }
   .batch-title-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
-  .batch-mastered-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border: 1px solid rgba(22,163,74,.3); border-radius: 999px; background: rgba(34,197,94,.12); color: #15803d; font-size: 11px; font-weight: 900; letter-spacing: .03em; text-transform: uppercase; }
-  [data-theme="dark"] .batch-mastered-badge { color: #86efac; background: rgba(34,197,94,.16); }
+  .batch-mastered-medal { width: 27px; height: 27px; flex: 0 0 auto; object-fit: contain; filter: drop-shadow(0 2px 3px rgba(146,91,0,.24)); }
+  .batch-tab .batch-mastered-medal { width: 20px; height: 20px; margin-left: 4px; vertical-align: middle; }
   .batch-play-menu { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
   .batch-play-menu button { padding: 10px 7px; font-size: 12px; }
   .batch-play-menu button:disabled { opacity: .42; cursor: not-allowed; }
@@ -6538,11 +6538,11 @@
         </div>
       </div>` : ""}
       ${batches.length ? `<div class="batch-tabs" aria-label="Saved batches">
-        ${batches.map((batch) => `<button class="batch-tab ${batch.id === activeBatchId ? "active" : ""}" data-batch-id="${batch.id}">${escapeHtml(batch.name)} <span>(${getBatchWords(batch).length})</span>${isBatchMastered(batch) ? ` <span class="batch-mastered-badge">✓ Mastered</span>` : ""}</button>`).join("")}
+        ${batches.map((batch) => `<button class="batch-tab ${batch.id === activeBatchId ? "active" : ""}" data-batch-id="${batch.id}">${escapeHtml(batch.name)} <span>(${getBatchWords(batch).length})</span>${isBatchMastered(batch) ? ` <img class="batch-mastered-medal" src="assets/batch-mastered-medal.png" alt="Mastered" title="Mastered batch">` : ""}</button>`).join("")}
       </div>` : ""}
       ${activeBatch ? `<div class="batch-panel">
         <div class="batch-panel-header">
-          <div><div class="batch-title-row"><h3>${escapeHtml(activeBatch.name)}</h3>${isBatchMastered(activeBatch) ? `<span class="batch-mastered-badge">✓ Mastered</span>` : ""}</div><p>${batchWords.length} word${batchWords.length === 1 ? "" : "s"} in this batch</p></div>
+          <div><div class="batch-title-row"><h3>${escapeHtml(activeBatch.name)}</h3>${isBatchMastered(activeBatch) ? `<img class="batch-mastered-medal" src="assets/batch-mastered-medal.png" alt="Mastered" title="Mastered batch">` : ""}</div><p>${batchWords.length} word${batchWords.length === 1 ? "" : "s"} in this batch</p></div>
           <div class="batch-header-actions"><button class="small-btn" id="masterBatch" ${batchWords.length < 1 ? "disabled" : ""}>Master</button><button class="small-btn" id="renameBatch">Rename</button><button class="small-btn danger-outline" id="deleteBatch">Delete</button></div>
         </div>
         <div class="batch-play-menu" aria-label="Study this batch">
