@@ -2082,6 +2082,8 @@
     memoryAiShutouts: 0,
     missedPracticeStarts: 0,
     memoryMatchesFound: 0,
+    playerMemoryMatchesFound: 0,
+    batchMasteryEarlyFailures: 0,
     perfectFlashcardSessions10: 0,
     perfectFlashcardSessions20: 0,
     bubbleBestStreak: 0,
@@ -2229,9 +2231,9 @@
     const safeSaved = saved && typeof saved === "object" && !Array.isArray(saved) ? saved : {};
     return {
       stats: { ...defaultAchievementStats, ...(safeSaved.stats && typeof safeSaved.stats === "object" ? safeSaved.stats : {}) },
-      unlocked: Array.isArray(safeSaved.unlocked) ? [...new Set(safeSaved.unlocked.map(String))] : [],
+      unlocked: Array.isArray(safeSaved.unlocked) ? [...new Set(safeSaved.unlocked.map(String))].filter((id) => id !== "first-match") : [],
       unlockedAt: safeSaved.unlockedAt && typeof safeSaved.unlockedAt === "object" && !Array.isArray(safeSaved.unlockedAt)
-        ? Object.fromEntries(Object.entries(safeSaved.unlockedAt).filter(([, value]) => typeof value === "string").map(([id, value]) => [String(id), value]))
+        ? Object.fromEntries(Object.entries(safeSaved.unlockedAt).filter(([id, value]) => id !== "first-match" && typeof value === "string").map(([id, value]) => [String(id), value]))
         : {},
       batchGames: safeSaved.batchGames && typeof safeSaved.batchGames === "object" ? Object.fromEntries(Object.entries(safeSaved.batchGames).map(([id, games]) => [String(id), Array.isArray(games) ? [...new Set(games.map(String))] : []])) : {},
       gamesPlayed: Array.isArray(safeSaved.gamesPlayed) ? [...new Set(safeSaved.gamesPlayed.map(String))] : [],
@@ -2241,7 +2243,7 @@
         : {},
       batchPerfectActivities: safeSaved.batchPerfectActivities && typeof safeSaved.batchPerfectActivities === "object" ? Object.fromEntries(Object.entries(safeSaved.batchPerfectActivities).map(([id, activities]) => [String(id), Array.isArray(activities) ? [...new Set(activities.map(String))] : []])) : {},
       starEvents: safeSaved.starEvents && typeof safeSaved.starEvents === "object" && !Array.isArray(safeSaved.starEvents)
-        ? Object.fromEntries(Object.entries(safeSaved.starEvents).map(([id, amount]) => [String(id), Math.max(0, Math.round(Number(amount) || 0))]).filter(([, amount]) => amount > 0))
+        ? Object.fromEntries(Object.entries(safeSaved.starEvents).map(([id, amount]) => [String(id), Math.max(0, Math.round(Number(amount) || 0))]).filter(([id, amount]) => id !== "achievement:first-match" && amount > 0))
         : {}
     };
   }
@@ -2348,6 +2350,7 @@
     if (!achievementData.starEvents) achievementData.starEvents = {};
     achievementData.starEvents[eventId] = reward;
     saveAchievementData();
+    refreshAchievements();
     if (notify) queueStarNotification(reward, reason);
     return reward;
   }
@@ -3356,6 +3359,11 @@
     const mostPerfectBatchActivities = Math.max(0, ...Object.values(achievementData.batchPerfectActivities || {}).map((activities) => Array.isArray(activities) ? activities.length : 0));
     const gamesPlayed = new Set(achievementData.gamesPlayed || []).size;
     const masteredWords = new Set(achievementData.masteredWords || []).size;
+    const masteredBatchCount = Object.keys(achievementData.masteredBatches || {}).length;
+    const starBalance = getStarBalance();
+    const largestBatchMasteryReward = Math.max(0, ...Object.entries(achievementData.starEvents || {})
+      .filter(([id]) => id.startsWith("batch-mastery:"))
+      .map(([, amount]) => Number(amount) || 0));
     const largeBatches = batches.filter((batch) => getBatchWords(batch).length >= 10).length;
     const largestBatch = Math.max(0, ...batches.map((batch) => getBatchWords(batch).length));
     const achievements = [
@@ -3369,7 +3377,8 @@
       { id: "second-chance", group: "Basic", icon: "🔁", title: "Second Chance", description: "Practice missed flashcards for the first time.", value: stats.missedPracticeStarts, target: 1, progressText: `${Math.min(stats.missedPracticeStarts, 1)} / 1 review` },
       { id: "deckhand", group: "Basic", icon: "🗃️", title: "Deckhand", description: "Create your first vocabulary batch.", value: stats.batchesCreated, target: 1, progressText: `${Math.min(stats.batchesCreated, 1)} / 1 batch` },
       { id: "rising-author", group: "Basic", icon: "✏️", title: "Rising Author", description: "Complete your first Paragraph Challenge.", value: stats.paragraphCompletions, target: 1, progressText: `${Math.min(stats.paragraphCompletions, 1)} / 1 paragraph` },
-      { id: "first-match", group: "Basic", icon: "🧩", title: "First Match", description: "Find your first pair in Memory Match.", value: stats.memoryMatchesFound, target: 1, progressText: `${Math.min(stats.memoryMatchesFound, 1)} / 1 pair` },
+      { id: "player-first-match", group: "Basic", icon: "🧩", title: "First Match", description: "Have a human player find their first pair in Memory Match.", value: stats.playerMemoryMatchesFound, target: 1, progressText: `${Math.min(stats.playerMemoryMatchesFound, 1)} / 1 player-made pair` },
+      { id: "sparkly", group: "Basic", icon: "✨", title: "Sparkly", description: "Collect 20 Stars.", value: starBalance, target: 20, progressText: `${Math.min(starBalance, 20).toLocaleString()} / 20 Stars` },
 
       { id: "devoted", group: "Intermediate", icon: "📅", title: "Devoted", description: "Reach a 7-day Vocab Lab streak.", value: streak.count, target: 7, progressText: `${Math.min(streak.count, 7)} / 7 days` },
       { id: "lexicon-backstabber", group: "Intermediate", icon: "🗡️", title: "Lexicon Backstabber", description: "Beat the Wordbound boss in under 8 turns.", value: wordboundBest !== null && wordboundBest < 8 ? 1 : 0, target: 1, progressText: wordboundBest === null ? "No win yet" : `Best: ${wordboundBest} turns` },
@@ -3377,6 +3386,8 @@
       { id: "story-constructor", group: "Intermediate", icon: "✍️", title: "Story Constructor", description: "Complete Paragraph Challenge in Hardcore Mode.", value: stats.hardcoreParagraphCompletions, target: 1, progressText: `${Math.min(stats.hardcoreParagraphCompletions, 1)} / 1 paragraph` },
       { id: "batch-builder", group: "Intermediate", icon: "🗂️", title: "Batch Builder", description: "Create 3 vocabulary batches.", value: stats.batchesCreated, target: 3, progressText: `${Math.min(stats.batchesCreated, 3)} / 3 batches` },
       { id: "batch-fusion", group: "Intermediate", icon: "🔀", title: "Batch Fusion", description: "Practice flashcards with multiple batches combined for the first time.", value: stats.combinedBatchPractices, target: 1, progressText: `${Math.min(stats.combinedBatchPractices, 1)} / 1 combined session` },
+      { id: "batch-apprentice", group: "Intermediate", icon: "🎖️", title: "Batch Apprentice", description: "Master your first vocabulary batch.", value: masteredBatchCount, target: 1, progressText: `${Math.min(masteredBatchCount, 1)} / 1 mastered batch` },
+      { id: "star-seeker", group: "Intermediate", icon: "🌟", title: "Star Seeker", description: "Collect 50 Stars.", value: starBalance, target: 50, progressText: `${Math.min(starBalance, 50).toLocaleString()} / 50 Stars` },
       { id: "match-maker", group: "Intermediate", icon: "🃏", title: "Match Maker", description: "Complete 5 Memory Match games.", value: stats.memoryGamesCompleted, target: 5, progressText: `${Math.min(stats.memoryGamesCompleted, 5)} / 5 games` },
       { id: "mole-menace", group: "Intermediate", icon: "🌱", title: "Mole Menace", description: "Score 15,000 points in Whack-a-Word.", value: highScores.whack, target: 15000, progressText: `${Math.min(highScores.whack, 15000).toLocaleString()} / 15,000` },
       { id: "clean-sweep", group: "Intermediate", icon: "🧹", title: "Clean Sweep", description: "Get every answer correct in a flashcard session of at least 10 cards.", value: stats.perfectFlashcardSessions10, target: 1, progressText: `${Math.min(stats.perfectFlashcardSessions10, 1)} / 1 perfect session` },
@@ -3400,6 +3411,9 @@
       { id: "bubble-barrage", group: "Advanced", icon: "🎆", title: "Bubble Barrage", description: "Hit 25 correct bubbles consecutively.", value: stats.bubbleBestStreak, target: 25, progressText: `${Math.min(stats.bubbleBestStreak, 25)} / 25 streak` },
       { id: "whack-attack", group: "Advanced", icon: "⚡", title: "Whack Attack", description: "Score 25,000 points in Whack-a-Word.", value: highScores.whack, target: 25000, progressText: `${Math.min(highScores.whack, 25000).toLocaleString()} / 25,000` },
       { id: "lexicon-curator", group: "Advanced", icon: "🏛️", title: "Lexicon Curator", description: "Create five batches containing at least 10 words each.", value: largeBatches, target: 5, progressText: `${Math.min(largeBatches, 5)} / 5 batches` },
+      { id: "batch-mastermind", group: "Advanced", icon: "🏅", title: "Batch Mastermind", description: "Master 5 vocabulary batches.", value: masteredBatchCount, target: 5, progressText: `${Math.min(masteredBatchCount, 5)} / 5 mastered batches` },
+      { id: "star-hoarder", group: "Advanced", icon: "💫", title: "Star Hoarder", description: "Collect 200 Stars.", value: starBalance, target: 200, progressText: `${Math.min(starBalance, 200).toLocaleString()} / 200 Stars` },
+      { id: "mastery-jackpot", group: "Advanced", icon: "💰", title: "Mastery Jackpot", description: "Earn more than 20 Stars from mastering one batch.", value: largestBatchMasteryReward, target: 21, progressText: `${Math.min(largestBatchMasteryReward, 21)} / 21+ Stars` },
       { id: "hardcore-historian", group: "Advanced", icon: "🪶", title: "Hardcore Historian", description: "Complete three Hardcore Paragraph Challenges.", value: stats.hardcoreParagraphCompletions, target: 3, progressText: `${Math.min(stats.hardcoreParagraphCompletions, 3)} / 3 paragraphs` },
       { id: "dictionary-devotee", group: "Advanced", icon: "📕", title: "Dictionary Devotee", description: "Add 50 custom dictionary words.", value: stats.customWordHighWater, target: 50, progressText: `${Math.min(stats.customWordHighWater, 50)} / 50 words` },
 
@@ -3410,6 +3424,8 @@
       { id: "master-storyteller", group: "Mythical", icon: "✨", title: "Master Storyteller", description: "Complete 10 Hardcore Mode paragraph challenges.", value: stats.hardcoreParagraphCompletions, target: 10, progressText: `${Math.min(stats.hardcoreParagraphCompletions, 10)} / 10 paragraphs` },
       { id: "insane-evoker", group: "Mythical", icon: "🔮", title: "Insane evoker", description: "Beat the Memory Match AI 6–0.", value: stats.memoryAiShutouts, target: 1, progressText: `${Math.min(stats.memoryAiShutouts, 1)} / 1 shutout` },
       { id: "batch-basher", group: "Mythical", icon: "🧰", title: "Batch basher", description: "Play all five games using the same vocabulary batch.", value: mostBatchGamesPlayed, target: 5, progressText: `${Math.min(mostBatchGamesPlayed, 5)} / 5 games` },
+      { id: "batch-burner", group: "Mythical", icon: "🔥", title: "Batch Burner", description: "Master 10 vocabulary batches.", value: masteredBatchCount, target: 10, progressText: `${Math.min(masteredBatchCount, 10)} / 10 mastered batches` },
+      { id: "supernova", group: "Mythical", icon: "🌠", title: "Supernova", description: "Collect 500 Stars.", value: starBalance, target: 500, progressText: `${Math.min(starBalance, 500).toLocaleString()} / 500 Stars` },
       { id: "last-stand", group: "Mythical", icon: "🩸", title: "Last Stand", description: "Defeat the Wordbound boss with exactly 1 health remaining.", value: stats.lastStandWordboundWins, target: 1, progressText: `${Math.min(stats.lastStandWordboundWins, 1)} / 1 last stand` },
       { id: "flawless-fury", group: "Mythical", icon: "🌊", title: "Flawless Fury", description: "Hit 30 correct bubbles consecutively.", value: stats.bubbleBestStreak, target: 30, progressText: `${Math.min(stats.bubbleBestStreak, 30)} / 30 streak` },
       { id: "mind-reader", group: "Mythical", icon: "🧠", title: "Mind Reader", description: "Beat the Memory Match AI in fewer than 4 player turns.", value: stats.memoryQuickWins, target: 1, progressText: `${Math.min(stats.memoryQuickWins, 1)} / 1 quick win` },
@@ -3429,6 +3445,7 @@
       { id: "repeat-offender", group: "Miscellaneous", icon: "🔁", title: "Repeat Offender", description: "Choose Practice Again or Practice Missed five times in a row without starting a new deck.", value: stats.sameDeckRepeatStreak, target: 5, progressText: `${Math.min(stats.sameDeckRepeatStreak, 5)} / 5 repeats` },
       { id: "night-owl", group: "Miscellaneous", icon: "🦉", title: "Night Owl", description: "Complete a flashcard session between 10 PM and 5 AM.", value: stats.nightSessions, target: 1, progressText: `${Math.min(stats.nightSessions, 1)} / 1 late session` },
       { id: "no-peeking", group: "Miscellaneous", icon: "🙈", title: "No Peeking", description: "Complete a normal Paragraph Challenge without opening a definition.", value: stats.noPeekParagraphs, target: 1, progressText: `${Math.min(stats.noPeekParagraphs, 1)} / 1 no-peek paragraph` },
+      { id: "mastery-mishap", group: "Miscellaneous", icon: "🫣", title: "Mastery Mishap", description: "Miss a Batch Mastery answer before getting 3 correct.", value: stats.batchMasteryEarlyFailures, target: 1, progressText: `${Math.min(stats.batchMasteryEarlyFailures, 1)} / 1 early miss` },
       { id: "just-checking", group: "Miscellaneous", icon: "👀", title: "Just Checking!", description: "Press the streak counter while exploring the website.", value: stats.streakButtonClicks, target: 1, progressText: `${Math.min(stats.streakButtonClicks, 1)} / 1 discovery` }
     ];
     const nonMythicalAchievements = achievements.filter((achievement) => achievement.group !== "Mythical");
@@ -3482,25 +3499,31 @@
     const newlyUnlocked = [];
     let changed = false;
     const now = new Date().toISOString();
-    const achievements = getAchievementDefinitions();
-    achievements.forEach((achievement) => {
-      if (achievement.value >= achievement.target && !unlocked.has(achievement.id)) {
-        unlocked.add(achievement.id);
-        achievementData.unlockedAt[achievement.id] = now;
-        newlyUnlocked.push(achievement);
+    let passChanged = true;
+    while (passChanged) {
+      passChanged = false;
+      const achievements = getAchievementDefinitions();
+      achievements.forEach((achievement) => {
+        if (achievement.value >= achievement.target && !unlocked.has(achievement.id)) {
+          unlocked.add(achievement.id);
+          achievementData.unlockedAt[achievement.id] = now;
+          newlyUnlocked.push(achievement);
+          changed = true;
+          passChanged = true;
+        }
+      });
+      achievements.forEach((achievement) => {
+        if (!unlocked.has(achievement.id)) return;
+        const eventId = `achievement:${achievement.id}`;
+        const reward = achievementStarRewards[achievement.group] || 0;
+        if (!reward || achievementData.starEvents[eventId]) return;
+        achievementData.starEvents[eventId] = reward;
+        const newlyUnlockedAchievement = newlyUnlocked.find((item) => item.id === achievement.id);
+        if (newlyUnlockedAchievement) newlyUnlockedAchievement.starReward = reward;
         changed = true;
-      }
-    });
-    achievements.forEach((achievement) => {
-      if (!unlocked.has(achievement.id)) return;
-      const eventId = `achievement:${achievement.id}`;
-      const reward = achievementStarRewards[achievement.group] || 0;
-      if (!reward || achievementData.starEvents[eventId]) return;
-      achievementData.starEvents[eventId] = reward;
-      const newlyUnlockedAchievement = newlyUnlocked.find((item) => item.id === achievement.id);
-      if (newlyUnlockedAchievement) newlyUnlockedAchievement.starReward = reward;
-      changed = true;
-    });
+        passChanged = true;
+      });
+    }
     if (changed) {
       achievementData.unlocked = [...unlocked];
       saveAchievementData();
@@ -4558,7 +4581,9 @@
       if (memoryGame.mode === "two-player" || actingPlayer === 0) {
         memoryGame.starsEarned += awardStars(1, `${memoryGame.starEventId}:pair:${first.pairIndex}`, "Memory Match");
       }
-      if (!achievementData.stats.memoryMatchesFound) recordAchievementStat("memoryMatchesFound");
+      if ((memoryGame.mode === "two-player" || actingPlayer === 0) && !achievementData.stats.playerMemoryMatchesFound) {
+        recordAchievementStat("playerMemoryMatchesFound");
+      }
       memoryGame.message = `${memoryPlayerName(memoryGame.currentPlayer)} found a match and plays again!`;
     } else {
       memoryGame.mistakes[actingPlayer]++;
@@ -6461,6 +6486,9 @@
       const answer = answerInput.value.trim();
       if (answer.toLocaleLowerCase() !== currentWord.word.toLocaleLowerCase()) {
         quiz.failed = { answer, expected: currentWord.word };
+        if (quiz.position < 3 && !achievementData.stats.batchMasteryEarlyFailures) {
+          recordAchievementStat("batchMasteryEarlyFailures");
+        }
         playDontKnowSound();
         render();
         return;
