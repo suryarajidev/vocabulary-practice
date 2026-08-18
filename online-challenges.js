@@ -98,6 +98,7 @@ async function initializeOnlineChallengeSystem(user = currentUser) {
 
   const onChallengeChange = (payload) => {
     const changed = payload.new && Object.keys(payload.new).length ? payload.new : payload.old;
+    if (changed?.id && payload.eventType !== "DELETE") awardOnlineChallengeBonus(changed);
     if (changed?.id && activeOnlineChallenge?.id === changed.id && payload.eventType !== "DELETE") {
       activeOnlineChallenge = changed;
       awardOnlineMemoryStars(changed);
@@ -234,6 +235,7 @@ async function openOnlineChallenge(id) {
   resetOnlineChallengeSession();
   activeOnlineChallenge = challenge;
   awardOnlineMemoryStars(challenge);
+  awardOnlineChallengeBonus(challenge);
   view = "onlineGame";
   render();
 }
@@ -354,6 +356,7 @@ function renderOnlineGame(root) {
     root.innerHTML = `<div class="online-empty">Choose a challenge from the Online Challenges page.</div>`;
     return;
   }
+  awardOnlineChallengeBonus(challenge);
   root.innerHTML = `<section class="online-game-shell">${onlineMatchBanner(challenge)}<div id="onlineGameBody"></div></section>`;
   const body = root.querySelector("#onlineGameBody");
   if (challenge.status === "pending") {
@@ -379,6 +382,36 @@ function awardOnlineMemoryStars(challenge) {
   if (newStars) queueStarNotification(newStars, "Online Memory Match");
 }
 
+function onlineChallengeWinner(challenge) {
+  if (!challenge || challenge.game_type === "paragraph") return null;
+  if (challenge.game_type === "memory") {
+    const winner = challenge.game_state?.memory?.winner;
+    return winner && winner !== "tie" ? winner : null;
+  }
+  if (!challenge.challenger_result || !challenge.opponent_result) return null;
+  const challengerScore = Number(challenge.challenger_result.score || 0);
+  const opponentScore = Number(challenge.opponent_result.score || 0);
+  if (challengerScore === opponentScore) return null;
+  return challengerScore > opponentScore ? challenge.challenger_id : challenge.opponent_id;
+}
+
+function awardOnlineChallengeBonus(challenge) {
+  if (!challenge || !currentUser) return 0;
+  let awarded = 0;
+  let label = "Online Challenge";
+  if (challenge.game_type === "paragraph") {
+    if (challenge.game_state?.paragraphs?.[currentUser.id]) {
+      awarded = awardStars(1, `online-participation:${challenge.id}:${currentUser.id}`, "Paragraph Duel participation", false);
+      label = "Paragraph Duel participation";
+    }
+  } else if (onlineChallengeWinner(challenge) === currentUser.id) {
+    awarded = awardStars(5, `online-winner:${challenge.id}:${currentUser.id}`, "Online challenge victory", false);
+    label = "Online challenge victory";
+  }
+  if (awarded) queueStarNotification(awarded, label);
+  return awarded;
+}
+
 function onlineMemoryWinnerText(challenge, memory) {
   if (memory.winner === "tie") return "It's a tie!";
   if (!memory.winner) return "";
@@ -402,7 +435,7 @@ function renderOnlineMemory(root, challenge) {
   root.innerHTML = `<section class="memory-game online-memory-game" aria-labelledby="onlineMemoryTitle">
     <div class="game-heading"><div><h2 id="onlineMemoryTitle">Online Memory Match</h2><p>Matches keep the turn; misses pass it to your opponent.</p></div></div>
     <div class="memory-scoreboard"><div class="memory-player ${memory.currentPlayer === challenge.challenger_id && !finished ? "active" : ""}">${escapeHtml(challenge.challenger_username)}<strong>${scoreOne}</strong></div><div class="memory-turn">${turnLabel}</div><div class="memory-player ${memory.currentPlayer === challenge.opponent_id && !finished ? "active" : ""}">${escapeHtml(challenge.opponent_username)}<strong>${scoreTwo}</strong></div></div>
-    ${finished ? `<div class="memory-ending"><h3>${escapeHtml(onlineMemoryWinnerText(challenge, memory))}</h3><p>Final score: ${scoreOne}–${scoreTwo}</p></div>` : `<div class="memory-message ${memory.locked ? "syncing" : ""}" aria-live="polite">${escapeHtml(memory.message || (myTurn ? "Choose two cards." : "Waiting for your opponent…"))}</div><div class="memory-grid">${memory.cards.map((card, index) => {
+    ${finished ? `<div class="memory-ending"><h3>${escapeHtml(onlineMemoryWinnerText(challenge, memory))}</h3><p>Final score: ${scoreOne}–${scoreTwo}</p><p>${memory.winner === "tie" ? "A tied match has no winner bonus." : "The winner earns 5 bonus Stars."}</p></div>` : `<div class="memory-message ${memory.locked ? "syncing" : ""}" aria-live="polite">${escapeHtml(memory.message || (myTurn ? "Choose two cards." : "Waiting for your opponent…"))}</div><div class="memory-grid">${memory.cards.map((card, index) => {
       const revealed = flipped.includes(index) || matched.has(index);
       return `<button class="memory-card ${card.kind} ${revealed ? "revealed" : ""} ${matched.has(index) ? "matched" : ""}" data-online-memory-index="${index}" ${matched.has(index) || memory.locked || !myTurn ? "disabled" : ""}>${revealed ? `<span class="memory-card-kind">${card.kind}</span>${escapeHtml(card.content)}${card.kind === "term" ? `<span class="part-of-speech card-part-of-speech">${escapeHtml(card.partOfSpeech || "Not specified")}</span>` : ""}` : `<span class="memory-card-back">?</span>`}</button>`;
     }).join("")}</div>`}
@@ -474,6 +507,7 @@ async function resolveOnlineMemoryTurn() {
     await updateOnlineChallenge(updated.id, { status: "completed", completed_at: new Date().toISOString() });
   }
   awardOnlineMemoryStars(activeOnlineChallenge);
+  awardOnlineChallengeBonus(activeOnlineChallenge);
   if (view === "onlineGame") render();
 }
 
@@ -489,11 +523,11 @@ function renderOnlineParagraph(root, challenge) {
   const opponentSubmission = paragraphs[opponentId];
   const bothDone = Boolean(ownSubmission && opponentSubmission);
   if (bothDone || challenge.status === "completed") {
-    root.innerHTML = `<section class="paragraph-challenge"><div class="paragraph-heading"><div><h2>Paragraph Duel Complete</h2><p>Both stories use the same five vocabulary words.</p></div></div><div class="paragraph-word-list">${words.map((item) => `<span class="paragraph-word-chip used">${escapeHtml(item.word)}</span>`).join("")}</div><div class="online-paragraph-columns"><article class="online-paragraph-entry"><h3>${escapeHtml(challenge.challenger_username)}</h3><p>${escapeHtml(paragraphs[challenge.challenger_id]?.text || "No paragraph submitted.")}</p></article><article class="online-paragraph-entry"><h3>${escapeHtml(challenge.opponent_username)}</h3><p>${escapeHtml(paragraphs[challenge.opponent_id]?.text || "No paragraph submitted.")}</p></article></div></section>`;
+    root.innerHTML = `<section class="paragraph-challenge"><div class="paragraph-heading"><div><h2>Paragraph Duel Complete</h2><p>Both stories use the same five vocabulary words. Each participant earns 1 additional Star.</p></div></div><div class="paragraph-word-list">${words.map((item) => `<span class="paragraph-word-chip used">${escapeHtml(item.word)}</span>`).join("")}</div><div class="online-paragraph-columns"><article class="online-paragraph-entry"><h3>${escapeHtml(challenge.challenger_username)}</h3><p>${escapeHtml(paragraphs[challenge.challenger_id]?.text || "No paragraph submitted.")}</p></article><article class="online-paragraph-entry"><h3>${escapeHtml(challenge.opponent_username)}</h3><p>${escapeHtml(paragraphs[challenge.opponent_id]?.text || "No paragraph submitted.")}</p></article></div></section>`;
     return;
   }
   if (ownSubmission) {
-    root.innerHTML = `<div class="online-waiting"><div class="online-waiting-icon">✍️</div><h2>Your paragraph is submitted</h2><p>${opponentSubmission ? "Opening both stories…" : `Waiting for ${escapeHtml(onlineOpponentName(challenge))} to finish writing.`}</p></div>`;
+    root.innerHTML = `<div class="online-waiting"><div class="online-waiting-icon">✍️</div><h2>Your paragraph is submitted</h2><p>You earned 1 additional participation Star. ${opponentSubmission ? "Opening both stories…" : `Waiting for ${escapeHtml(onlineOpponentName(challenge))} to finish writing.`}</p></div>`;
     return;
   }
   const draft = onlineParagraphDrafts.get(challenge.id) || "";
@@ -530,6 +564,7 @@ async function submitOnlineParagraph() {
   if (!updated) return render();
   words.forEach((item) => awardStars(1, `online-paragraph:${challenge.id}:word:${item.word.toLowerCase()}`, "Online Paragraph Duel", false));
   queueStarNotification(words.length, "Online Paragraph Duel");
+  awardOnlineChallengeBonus(updated);
   const submissions = updated.game_state?.paragraphs || {};
   if (submissions[updated.challenger_id] && submissions[updated.opponent_id]) {
     await updateOnlineChallenge(updated.id, { status: "completed", completed_at: new Date().toISOString() });
@@ -751,6 +786,7 @@ async function finishOnlineArcade() {
   if (data?.challenger_result && data?.opponent_result) {
     await updateOnlineChallenge(data.id, { status: "completed", completed_at: new Date().toISOString() });
   }
+  awardOnlineChallengeBonus(activeOnlineChallenge);
   if (view === "onlineGame") render();
 }
 
@@ -763,7 +799,7 @@ function renderOnlineArcadeResult(root, challenge, ownResult, opponentResult) {
   const opponentScore = Number(challenge.opponent_result?.score || 0);
   const winner = challengerScore === opponentScore ? null : challengerScore > opponentScore ? challenge.challenger_id : challenge.opponent_id;
   const title = winner === null ? "It's a tie!" : winner === currentUser.id ? "You win!" : `${onlinePlayerName(challenge, winner)} wins!`;
-  root.innerHTML = `<div class="online-result"><div class="online-waiting-icon">🏆</div><h2>${escapeHtml(title)}</h2><p>Both players completed the same 60-second challenge.</p><div class="online-result-score"><div class="online-result-player">${escapeHtml(challenge.challenger_username)}<strong>${challengerScore.toLocaleString()}</strong></div><span>vs</span><div class="online-result-player">${escapeHtml(challenge.opponent_username)}<strong>${opponentScore.toLocaleString()}</strong></div></div></div>`;
+  root.innerHTML = `<div class="online-result"><div class="online-waiting-icon">🏆</div><h2>${escapeHtml(title)}</h2><p>Both players completed their 60-second run. ${winner === null ? "A tied match has no winner bonus." : "The winner earns 5 bonus Stars on top of score-based Stars."}</p><div class="online-result-score"><div class="online-result-player">${escapeHtml(challenge.challenger_username)}<strong>${challengerScore.toLocaleString()}</strong></div><span>vs</span><div class="online-result-player">${escapeHtml(challenge.opponent_username)}<strong>${opponentScore.toLocaleString()}</strong></div></div></div>`;
 }
 
 function leaveOnlineGame() {
