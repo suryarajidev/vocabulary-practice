@@ -601,10 +601,8 @@
   .user-results-heading h3 { margin: 0; }
   .user-results-heading span { color: var(--muted); font-size: 12px; font-weight: 800; }
   .public-profile-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
-  .public-profile-card { padding: 17px; border: 1px solid var(--border); border-radius: 15px; background: var(--card-bg); }
+  .public-profile-card { padding: 0; overflow: hidden; border: 1px solid var(--border); border-radius: 15px; background: var(--card-bg); }
   .public-profile-card.own-profile { border-color: rgba(13,148,136,.5); box-shadow: 0 6px 18px rgba(13,148,136,.08); }
-  .public-profile-name { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 13px; }
-  .public-profile-name h3 { margin: 0; font-size: 20px; overflow-wrap: anywhere; }
   .leaderboard-rank { display: inline-flex; align-items: center; justify-content: center; min-width: 30px; height: 25px; margin-right: 7px; padding: 0 7px; border-radius: 999px; background: var(--bg); color: var(--accent); font-size: 12px; font-weight: 900; vertical-align: 2px; }
   .leaderboard-rank.rank-1 { background: #fef3c7; color: #a16207; }
   .leaderboard-rank.rank-2 { background: #e5e7eb; color: #4b5563; }
@@ -613,6 +611,14 @@
   [data-theme="dark"] .leaderboard-rank.rank-2 { background: #3f454d; color: #d1d5db; }
   [data-theme="dark"] .leaderboard-rank.rank-3 { background: #56301f; color: #fdba74; }
   .public-profile-stars { flex: 0 0 auto; color: #a16207; font-weight: 900; }
+  .public-profile-summary { width: 100%; display: flex; align-items: center; gap: 11px; padding: 17px; border: 0; background: transparent; color: var(--text); cursor: pointer; text-align: left; transition: background .18s ease; }
+  .public-profile-summary:hover { background: rgba(13,148,136,.06); }
+  .public-profile-summary:focus-visible { outline: 3px solid rgba(13,148,136,.28); outline-offset: -3px; }
+  .public-profile-username { min-width: 0; flex: 1; font-size: 20px; font-weight: 900; overflow-wrap: anywhere; }
+  .public-profile-chevron { flex: 0 0 auto; color: var(--muted); font-size: 18px; transition: transform .2s ease; }
+  .public-profile-summary[aria-expanded="true"] .public-profile-chevron { transform: rotate(180deg); }
+  .public-profile-details { padding: 15px 17px 17px; border-top: 1px solid var(--border); }
+  .public-profile-details[hidden] { display: none; }
   .public-profile-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
   .public-profile-stat { padding: 9px 10px; border-radius: 9px; background: var(--bg); }
   .public-profile-stat strong { display: block; color: var(--accent); font-size: 17px; }
@@ -5146,19 +5152,26 @@
     const isOwnProfile = profile.user_id === currentUser?.id;
     const updatedDate = new Date(profile.updated_at);
     const updatedLabel = Number.isNaN(updatedDate.getTime()) ? "Recently updated" : `Updated ${updatedDate.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`;
+    const detailsId = `public-profile-details-${String(profile.user_id).replace(/[^a-z0-9_-]/gi, "")}`;
     return `<article class="public-profile-card ${isOwnProfile ? "own-profile" : ""}">
-      <div class="public-profile-name"><h3>${rank ? `<span class="leaderboard-rank ${rank <= 3 ? `rank-${rank}` : ""}">#${rank}</span>` : ""}${escapeHtml(profile.username)}${isOwnProfile ? ` <span class="part-of-speech">You</span>` : ""}</h3><div class="public-profile-stars">⭐ ${Number(profile.stars || 0).toLocaleString()}</div></div>
-      <div class="public-profile-stats">
-        <div class="public-profile-stat"><strong>${Number(profile.achievements_unlocked || 0).toLocaleString()}</strong><span>Achievements</span></div>
-        <div class="public-profile-stat"><strong>${Number(profile.streak_days || 0).toLocaleString()}</strong><span>Day streak</span></div>
-        <div class="public-profile-stat"><strong>${Number(profile.sessions_completed || 0).toLocaleString()}</strong><span>Flashcard sessions</span></div>
-        <div class="public-profile-stat"><strong>${Number(profile.mastered_words || 0).toLocaleString()}</strong><span>Unique words mastered</span></div>
-        <div class="public-profile-stat"><strong>${Number(profile.got_it_ratings || 0).toLocaleString()}</strong><span>Got It ratings</span></div>
-        <div class="public-profile-stat"><strong>${Number(profile.bubble_best || 0).toLocaleString()}</strong><span>Bubble Shot best</span></div>
-        <div class="public-profile-stat"><strong>${Number(profile.whack_best || 0).toLocaleString()}</strong><span>Whack-a-Word best</span></div>
-        <div class="public-profile-stat"><strong>${profile.wordbound_best_turns == null ? "—" : Number(profile.wordbound_best_turns).toLocaleString()}</strong><span>Wordbound best turns</span></div>
+      <button class="public-profile-summary" type="button" aria-expanded="false" aria-controls="${detailsId}">
+        <span class="public-profile-username">${rank ? `<span class="leaderboard-rank ${rank <= 3 ? `rank-${rank}` : ""}">#${rank}</span>` : ""}${escapeHtml(profile.username)}</span>
+        <span class="public-profile-stars">⭐ ${Number(profile.stars || 0).toLocaleString()}</span>
+        <span class="public-profile-chevron" aria-hidden="true">⌄</span>
+      </button>
+      <div class="public-profile-details" id="${detailsId}" hidden>
+        <div class="public-profile-stats">
+          <div class="public-profile-stat"><strong>${Number(profile.achievements_unlocked || 0).toLocaleString()}</strong><span>Achievements</span></div>
+          <div class="public-profile-stat"><strong>${Number(profile.streak_days || 0).toLocaleString()}</strong><span>Day streak</span></div>
+          <div class="public-profile-stat"><strong>${Number(profile.sessions_completed || 0).toLocaleString()}</strong><span>Flashcard sessions</span></div>
+          <div class="public-profile-stat"><strong>${Number(profile.mastered_words || 0).toLocaleString()}</strong><span>Unique words mastered</span></div>
+          <div class="public-profile-stat"><strong>${Number(profile.got_it_ratings || 0).toLocaleString()}</strong><span>Got It ratings</span></div>
+          <div class="public-profile-stat"><strong>${Number(profile.bubble_best || 0).toLocaleString()}</strong><span>Bubble Shot best</span></div>
+          <div class="public-profile-stat"><strong>${Number(profile.whack_best || 0).toLocaleString()}</strong><span>Whack-a-Word best</span></div>
+          <div class="public-profile-stat"><strong>${profile.wordbound_best_turns == null ? "—" : Number(profile.wordbound_best_turns).toLocaleString()}</strong><span>Wordbound best turns</span></div>
+        </div>
+        <p class="public-profile-updated">${isOwnProfile ? "Your profile · " : ""}${escapeHtml(updatedLabel)}</p>
       </div>
-      <p class="public-profile-updated">${escapeHtml(updatedLabel)}</p>
     </article>`;
   }
 
@@ -5182,6 +5195,21 @@
     const resultsTitle = root.querySelector("#userResultsTitle");
     const resultsSummary = root.querySelector("#userResultsSummary");
     let requestId = 0;
+
+    list.addEventListener("click", (event) => {
+      const button = event.target.closest(".public-profile-summary");
+      if (!button || !list.contains(button)) return;
+      const shouldExpand = button.getAttribute("aria-expanded") !== "true";
+      list.querySelectorAll('.public-profile-summary[aria-expanded="true"]').forEach((openButton) => {
+        openButton.setAttribute("aria-expanded", "false");
+        const openDetails = document.getElementById(openButton.getAttribute("aria-controls"));
+        if (openDetails) openDetails.hidden = true;
+      });
+      button.setAttribute("aria-expanded", String(shouldExpand));
+      const details = document.getElementById(button.getAttribute("aria-controls"));
+      if (details) details.hidden = !shouldExpand;
+      playClickSound();
+    });
 
     const loadLeaderboard = async () => {
       const activeRequest = ++requestId;
