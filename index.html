@@ -381,6 +381,7 @@
 
   @media (max-width: 620px) {
     .home-corner { position: static; margin: 0 0 8px; }
+    .home-corner-left { flex-wrap: wrap; }
     .home-corner-right { justify-content: flex-end; }
     .home-view { padding-top: 0; }
   }
@@ -564,6 +565,8 @@
     background: var(--card-bg);
     box-shadow: 0 20px 45px rgba(0, 0, 0, 0.22);
     z-index: 31;
+    max-height: calc(100vh - 48px);
+    overflow-y: auto;
   }
 
   .settings-panel-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
@@ -572,7 +575,7 @@
   .settings-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
   .setting-field { display: flex; flex-direction: column; gap: 7px; }
   .setting-field > span { font-size: 13px; font-weight: 800; color: var(--muted); }
-  .setting-field select, .setting-field input[type="number"] { width: 100%; padding: 11px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); font: inherit; }
+  .setting-field select, .setting-field input[type="number"], .setting-field input[type="text"] { width: 100%; padding: 11px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); font: inherit; }
   .setting-field .side-toggle { width: 100%; background: var(--bg); }
   .setting-field .side-toggle-btn { flex: 1; text-align: center; border: 0; background: transparent; }
   .setting-field .side-toggle-btn.active { background: var(--teal); color: white; }
@@ -580,6 +583,34 @@
 
   @media (max-width: 480px) {
     .settings-panel { top: 24px; right: 24px; left: 24px; width: auto; transform: none; }
+  }
+
+  .username-setting { margin-bottom: 14px; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); }
+  .username-setting-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }
+  .username-status { min-height: 18px; margin: 7px 0 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
+  .username-status.error { color: var(--bad); }
+  .username-status.success { color: var(--good); }
+
+  .user-directory { width: 100%; display: flex; flex-direction: column; gap: 18px; }
+  .user-directory-heading h2 { margin: 0 0 5px; }
+  .user-directory-heading p { margin: 0; color: var(--muted); }
+  .user-search-form { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 9px; padding: 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--card-bg); }
+  .user-search-form input { min-width: 0; padding: 12px 13px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); font: inherit; }
+  .user-search-status { margin: 0; color: var(--muted); font-size: 14px; }
+  .public-profile-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .public-profile-card { padding: 17px; border: 1px solid var(--border); border-radius: 15px; background: var(--card-bg); }
+  .public-profile-card.own-profile { border-color: rgba(13,148,136,.5); box-shadow: 0 6px 18px rgba(13,148,136,.08); }
+  .public-profile-name { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 13px; }
+  .public-profile-name h3 { margin: 0; font-size: 20px; overflow-wrap: anywhere; }
+  .public-profile-stars { flex: 0 0 auto; color: #a16207; font-weight: 900; }
+  .public-profile-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .public-profile-stat { padding: 9px 10px; border-radius: 9px; background: var(--bg); }
+  .public-profile-stat strong { display: block; color: var(--accent); font-size: 17px; }
+  .public-profile-stat span { color: var(--muted); font-size: 11px; font-weight: 750; }
+  .public-profile-updated { margin: 11px 0 0; color: var(--muted); font-size: 11px; }
+  @media (max-width: 650px) {
+    .public-profile-list { grid-template-columns: 1fr; }
+    .user-search-form { grid-template-columns: 1fr; }
   }
 
   .auth-gate {
@@ -1979,6 +2010,11 @@
   let progressSyncUserId = null;
   let progressSyncPromise = null;
   let progressSaveTimer = null;
+  let publicProfile = null;
+  let publicProfileReady = false;
+  let publicProfileAvailable = false;
+  let publicProfileUserId = null;
+  let publicProfileSaveTimer = null;
 
   const STORAGE_KEY = "vocabPracticeWords";
   const LEGACY_CUSTOM_KEY = "vocabPracticeCustomWords";
@@ -2075,6 +2111,7 @@
   function saveHighScores() {
     localStorage.setItem(getHighScoresStorageKey(), JSON.stringify(highScores));
     queueProgressCloudSync();
+    queuePublicProfileSync();
   }
 
   function loadProgress(storageKey = PROGRESS_KEY) {
@@ -2088,6 +2125,7 @@
   function saveProgress() {
     localStorage.setItem(getProgressStorageKey(), JSON.stringify(progressStats));
     queueProgressCloudSync();
+    queuePublicProfileSync();
   }
 
   function loadStreak(storageKey = STREAK_KEY) {
@@ -2101,6 +2139,7 @@
   function saveStreak() {
     localStorage.setItem(getStreakStorageKey(), JSON.stringify(streak));
     queueProgressCloudSync();
+    queuePublicProfileSync();
   }
 
   function todayStr() {
@@ -2287,6 +2326,7 @@
 
   function saveAchievementData() {
     localStorage.setItem(getAchievementStorageKey(), JSON.stringify(achievementData));
+    queuePublicProfileSync();
     if (!currentUser || !achievementSyncReady || !achievementCloudAvailable || achievementSyncUserId !== currentUser.id) return;
     clearTimeout(achievementSaveTimer);
     achievementSaveTimer = setTimeout(() => flushAchievementDataToCloud(), 600);
@@ -2491,6 +2531,143 @@
       if (progressSyncUserId === user.id) progressSyncPromise = null;
     });
     return progressSyncPromise;
+  }
+
+  const USERNAME_PATTERN = /^[A-Za-z0-9]{3,20}$/;
+  const PUBLIC_PROFILE_FIELDS = "user_id, username, stars, achievements_unlocked, streak_days, sessions_completed, mastered_words, got_it_ratings, bubble_best, whack_best, wordbound_best_turns, updated_at";
+  const defaultUsernameAdjectives = ["Brave", "Bright", "Clever", "Cosmic", "Curious", "Daring", "Eager", "Gentle", "Happy", "Keen", "Lucky", "Mighty", "Nimble", "Quiet", "Rapid", "Sunny", "Swift", "Vivid", "Wise", "Zesty"];
+  const defaultUsernameNouns = ["Badger", "Falcon", "Fox", "Heron", "Lynx", "Otter", "Panda", "Raven", "Robin", "Tiger", "Turtle", "Wolf", "Wren", "Yak"];
+
+  function makeDefaultUsername() {
+    const adjective = defaultUsernameAdjectives[Math.floor(Math.random() * defaultUsernameAdjectives.length)];
+    const noun = defaultUsernameNouns[Math.floor(Math.random() * defaultUsernameNouns.length)];
+    const number = 100 + Math.floor(Math.random() * 900);
+    return `${adjective}${noun}${number}`;
+  }
+
+  function getPublicProfileSnapshot(username = publicProfile?.username) {
+    return {
+      user_id: currentUser?.id,
+      username,
+      stars: getStarBalance(),
+      achievements_unlocked: new Set(achievementData.unlocked || []).size,
+      streak_days: Math.max(0, Number(streak.count) || 0),
+      sessions_completed: Math.max(0, Number(progressStats.sessionsCompleted) || 0),
+      mastered_words: new Set(achievementData.masteredWords || []).size,
+      got_it_ratings: Math.max(0, Number(progressStats.gotit) || 0),
+      bubble_best: Math.max(0, Number(highScores.bubble) || 0),
+      whack_best: Math.max(0, Number(highScores.whack) || 0),
+      wordbound_best_turns: typeof highScores.wordboundTurns === "number" ? highScores.wordboundTurns : null,
+      updated_at: new Date().toISOString()
+    };
+  }
+
+  function queuePublicProfileSync() {
+    if (!currentUser || !publicProfileReady || !publicProfileAvailable || publicProfileUserId !== currentUser.id || !publicProfile?.username) return;
+    clearTimeout(publicProfileSaveTimer);
+    publicProfileSaveTimer = setTimeout(() => flushPublicProfileSnapshot(), 700);
+  }
+
+  async function flushPublicProfileSnapshot() {
+    clearTimeout(publicProfileSaveTimer);
+    publicProfileSaveTimer = null;
+    const userId = currentUser?.id;
+    if (!userId || !publicProfileReady || !publicProfileAvailable || publicProfileUserId !== userId || !publicProfile?.username) return;
+    const snapshot = getPublicProfileSnapshot(publicProfile.username);
+    const { user_id, username, ...publicStats } = snapshot;
+    const { error } = await supabaseClient
+      .from("user_public_profiles")
+      .update(publicStats)
+      .eq("user_id", userId);
+    if (error) {
+      publicProfileAvailable = false;
+      console.warn("Public profile sync is unavailable.", error.message);
+      return;
+    }
+    publicProfile = { ...publicProfile, ...publicStats };
+  }
+
+  function resetPublicProfileSession() {
+    clearTimeout(publicProfileSaveTimer);
+    publicProfileSaveTimer = null;
+    publicProfile = null;
+    publicProfileReady = false;
+    publicProfileAvailable = false;
+    publicProfileUserId = null;
+  }
+
+  async function initializePublicProfile(user) {
+    if (!user?.id) return;
+    publicProfileUserId = user.id;
+    publicProfileReady = false;
+    publicProfileAvailable = false;
+
+    let { data, error } = await supabaseClient
+      .from("user_public_profiles")
+      .select(PUBLIC_PROFILE_FIELDS)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (currentUser?.id !== user.id) return;
+    if (error) {
+      publicProfileReady = true;
+      console.warn("Username profiles are unavailable. Run supabase-public-profiles.sql in Supabase.", error.message);
+      return;
+    }
+
+    if (!data) {
+      for (let attempt = 0; attempt < 30 && !data; attempt++) {
+        const username = attempt < 25 ? makeDefaultUsername() : `Learner${user.id.replace(/-/g, "").slice(0, 10 + attempt - 25)}`.slice(0, 20);
+        const result = await supabaseClient
+          .from("user_public_profiles")
+          .insert(getPublicProfileSnapshot(username))
+          .select(PUBLIC_PROFILE_FIELDS)
+          .single();
+        if (!result.error) {
+          data = result.data;
+          break;
+        }
+        if (result.error.code !== "23505") {
+          error = result.error;
+          break;
+        }
+        const existing = await supabaseClient
+          .from("user_public_profiles")
+          .select(PUBLIC_PROFILE_FIELDS)
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (existing.data) {
+          data = existing.data;
+          break;
+        }
+      }
+    }
+
+    publicProfileReady = true;
+    if (!data || error) {
+      console.warn("A unique default username could not be assigned.", error?.message || "No username was available.");
+      return;
+    }
+    publicProfile = data;
+    publicProfileAvailable = true;
+    await flushPublicProfileSnapshot();
+  }
+
+  async function updatePublicUsername(username) {
+    const cleanUsername = String(username || "").trim();
+    if (!USERNAME_PATTERN.test(cleanUsername)) return { ok: false, message: "Use 3–20 letters and numbers only." };
+    if (!currentUser || !publicProfileAvailable) return { ok: false, message: "Username setup is not available yet." };
+    const { data, error } = await supabaseClient
+      .from("user_public_profiles")
+      .update({ username: cleanUsername, updated_at: new Date().toISOString() })
+      .eq("user_id", currentUser.id)
+      .select(PUBLIC_PROFILE_FIELDS)
+      .single();
+    if (error?.code === "23505") return { ok: false, message: "That username is already taken." };
+    if (error) return { ok: false, message: "The username could not be saved. Please try again." };
+    publicProfile = data;
+    queuePublicProfileSync();
+    return { ok: true, message: `Your username is now ${cleanUsername}.` };
   }
 
   function applyTheme() {
@@ -3090,7 +3267,7 @@
   let batches = loadBatches();
   let savedParagraphs = loadSavedParagraphs();
   let deck = randomSample(getAllWords(), flashcardSettings.cardCount);
-  let view = "home"; // "home" | "practice" | "dictionary" | "batches" | "games" | "bubble" | "whack" | "boss" | "memory" | "paragraph" | "progress" | "achievements"
+  let view = "home"; // "home" | "practice" | "dictionary" | "batches" | "games" | "bubble" | "whack" | "boss" | "memory" | "paragraph" | "progress" | "achievements" | "users"
   let editingIndex = null;
   let showAddForm = false;
   let sortOrder = "az"; // "az" | "za" | "newest" | "oldest"
@@ -4460,6 +4637,7 @@
       await Promise.all([initializeAchievementSync(currentUser), initializeProgressSync(currentUser)]);
       refreshAchievements(false);
       await flushAchievementDataToCloud();
+      await initializePublicProfile(currentUser);
       appSettingsOpen = false;
       render();
     });
@@ -4478,6 +4656,7 @@
       await Promise.all([initializeAchievementSync(currentUser), initializeProgressSync(currentUser)]);
       refreshAchievements(false);
       await flushAchievementDataToCloud();
+      await initializePublicProfile(currentUser);
       render();
     } else {
       renderAuthGate();
@@ -4494,11 +4673,13 @@
           await Promise.all([initializeAchievementSync(user), initializeProgressSync(user)]);
           refreshAchievements(false);
           await flushAchievementDataToCloud();
+          await initializePublicProfile(user);
           if (currentUser?.id === user.id) render();
         }, 0);
       } else if (!user && previousUserId) {
         resetAchievementSyncSession();
         resetProgressSyncSession();
+        resetPublicProfileSession();
         appSettingsOpen = false;
         renderAuthGate();
       }
@@ -4575,6 +4756,8 @@
       renderProgress(root);
     } else if (view === "achievements") {
       renderAchievements(root);
+    } else if (view === "users") {
+      renderUserDirectory(root);
     }
   }
 
@@ -4586,6 +4769,12 @@
             <path d="M4 20V10M11 20V4M18 20v-7"></path>
           </svg>
           Progress
+        </button>
+        <button class="home-corner-btn" id="goUsers">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="10" cy="9" r="4"></circle><path d="M3.5 20c.8-4 3-6 6.5-6s5.7 2 6.5 6M17 8h4M19 6v4"></path>
+          </svg>
+          Find Users
         </button>
         <button class="home-corner-btn" id="openAppSettings">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
@@ -4619,6 +4808,16 @@
               <input type="checkbox" id="themeSetting" ${appSettings.theme === "dark" ? "checked" : ""}>
               <span class="switch-slider"></span>
             </label>
+          </div>
+          <div class="username-setting">
+            <label class="setting-field" for="usernameSetting">
+              <span>Username</span>
+              <div class="username-setting-row">
+                <input type="text" id="usernameSetting" minlength="3" maxlength="20" autocomplete="off" value="${escapeHtml(publicProfile?.username || "")}" placeholder="Choose a username" ${publicProfileAvailable ? "" : "disabled"}>
+                <button class="small-btn" id="saveUsernameSetting" type="button" ${publicProfileAvailable ? "" : "disabled"}>Save</button>
+              </div>
+            </label>
+            <p class="username-status" id="usernameSettingStatus">${publicProfileAvailable ? "Use 3–20 letters and numbers. Usernames cannot overlap." : "Run supabase-public-profiles.sql in Supabase, then reload."}</p>
           </div>
           <button class="missed-btn" id="resetProgressBtn" style="width:100%;">Reset progress, achievements &amp; Stars</button>
           <div style="margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px;">
@@ -4727,6 +4926,11 @@
       view = "progress";
       render();
     });
+    app.querySelector("#goUsers").addEventListener("click", () => {
+      playClickSound();
+      view = "users";
+      render();
+    });
     app.querySelector("#streakAchievementButton").addEventListener("click", () => {
       playClickSound();
       if (!achievementData.stats.streakButtonClicks) recordAchievementStat("streakButtonClicks");
@@ -4756,6 +4960,20 @@
         saveAppSettings();
         applyTheme();
         playClickSound();
+      });
+      const usernameInput = app.querySelector("#usernameSetting");
+      const usernameSaveButton = app.querySelector("#saveUsernameSetting");
+      const usernameStatus = app.querySelector("#usernameSettingStatus");
+      usernameSaveButton?.addEventListener("click", async () => {
+        const requestedUsername = usernameInput.value.trim();
+        usernameSaveButton.disabled = true;
+        usernameStatus.className = "username-status";
+        usernameStatus.textContent = "Checking availability…";
+        const result = await updatePublicUsername(requestedUsername);
+        usernameStatus.classList.add(result.ok ? "success" : "error");
+        usernameStatus.textContent = result.message;
+        usernameSaveButton.disabled = !publicProfileAvailable;
+        if (result.ok) usernameInput.value = publicProfile.username;
       });
       app.querySelector("#resetProgressBtn").addEventListener("click", () => {
         if (!confirm("Reset all progress, streak, high scores, achievements, and Stars? This can't be undone.")) return;
@@ -4811,6 +5029,7 @@
           signOutBtn.disabled = true;
           signOutBtn.textContent = "Signing out...";
           await flushAchievementDataToCloud();
+          await flushPublicProfileSnapshot();
           await supabaseClient.auth.signOut();
         });
       }
@@ -4833,6 +5052,69 @@
         </div>
       </div>
     `;
+  }
+
+  function publicProfileCardHtml(profile) {
+    const isOwnProfile = profile.user_id === currentUser?.id;
+    const updatedDate = new Date(profile.updated_at);
+    const updatedLabel = Number.isNaN(updatedDate.getTime()) ? "Recently updated" : `Updated ${updatedDate.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}`;
+    return `<article class="public-profile-card ${isOwnProfile ? "own-profile" : ""}">
+      <div class="public-profile-name"><h3>${escapeHtml(profile.username)}${isOwnProfile ? ` <span class="part-of-speech">You</span>` : ""}</h3><div class="public-profile-stars">⭐ ${Number(profile.stars || 0).toLocaleString()}</div></div>
+      <div class="public-profile-stats">
+        <div class="public-profile-stat"><strong>${Number(profile.achievements_unlocked || 0).toLocaleString()}</strong><span>Achievements</span></div>
+        <div class="public-profile-stat"><strong>${Number(profile.streak_days || 0).toLocaleString()}</strong><span>Day streak</span></div>
+        <div class="public-profile-stat"><strong>${Number(profile.sessions_completed || 0).toLocaleString()}</strong><span>Flashcard sessions</span></div>
+        <div class="public-profile-stat"><strong>${Number(profile.mastered_words || 0).toLocaleString()}</strong><span>Unique words mastered</span></div>
+        <div class="public-profile-stat"><strong>${Number(profile.got_it_ratings || 0).toLocaleString()}</strong><span>Got It ratings</span></div>
+        <div class="public-profile-stat"><strong>${Number(profile.bubble_best || 0).toLocaleString()}</strong><span>Bubble Shot best</span></div>
+        <div class="public-profile-stat"><strong>${Number(profile.whack_best || 0).toLocaleString()}</strong><span>Whack-a-Word best</span></div>
+        <div class="public-profile-stat"><strong>${profile.wordbound_best_turns == null ? "—" : Number(profile.wordbound_best_turns).toLocaleString()}</strong><span>Wordbound best turns</span></div>
+      </div>
+      <p class="public-profile-updated">${escapeHtml(updatedLabel)}</p>
+    </article>`;
+  }
+
+  function renderUserDirectory(root) {
+    root.innerHTML = `<section class="user-directory" aria-labelledby="userDirectoryTitle">
+      <div class="user-directory-heading"><h2 id="userDirectoryTitle">Find Users</h2><p>Search by username to see public vocabulary progress and Stars.${publicProfile?.username ? ` Your username is <strong>${escapeHtml(publicProfile.username)}</strong>.` : ""}</p></div>
+      ${publicProfileAvailable ? `<form class="user-search-form" id="userSearchForm">
+        <input id="userSearchInput" type="search" maxlength="20" autocomplete="off" placeholder="Search a username" aria-label="Search usernames">
+        <button class="accent-btn" type="submit">Search</button>
+      </form>
+      <p class="user-search-status" id="userSearchStatus">Enter part or all of a username.</p>
+      <div class="public-profile-list" id="publicProfileList"></div>` : `<div class="empty-state">Username search is not available yet. Run <strong>supabase-public-profiles.sql</strong> in the Supabase SQL Editor, then reload the site.</div>`}
+    </section>`;
+    if (!publicProfileAvailable) return;
+
+    const form = root.querySelector("#userSearchForm");
+    const input = root.querySelector("#userSearchInput");
+    const status = root.querySelector("#userSearchStatus");
+    const list = root.querySelector("#publicProfileList");
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const query = input.value.trim();
+      if (!/^[A-Za-z0-9]{1,20}$/.test(query)) {
+        status.textContent = "Search with 1–20 letters or numbers.";
+        list.innerHTML = "";
+        return;
+      }
+      status.textContent = "Searching…";
+      list.innerHTML = "";
+      const { data, error } = await supabaseClient
+        .from("user_public_profiles")
+        .select(PUBLIC_PROFILE_FIELDS)
+        .ilike("username", `%${query}%`)
+        .order("stars", { ascending: false })
+        .limit(20);
+      if (error) {
+        status.textContent = "User search is temporarily unavailable. Please try again.";
+        return;
+      }
+      const profiles = Array.isArray(data) ? data : [];
+      status.textContent = profiles.length ? `${profiles.length} user${profiles.length === 1 ? "" : "s"} found.` : "No usernames matched your search.";
+      list.innerHTML = profiles.map(publicProfileCardHtml).join("");
+    });
+    input.focus();
   }
 
   function renderAchievements(root) {

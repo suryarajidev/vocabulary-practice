@@ -63,6 +63,10 @@ Great! Glad it all worked out.
 
 Achievements are saved per account in Supabase and cached locally so the site still works if the network is unavailable. Before cloud syncing will work, open the Supabase SQL Editor, paste the contents of `supabase-achievements.sql`, and run it once. The included Row Level Security policies only allow signed-in users to access their own achievement data.
 
+## Supabase username setup
+
+Unique usernames and the signed-in user search require one additional table. Open the Supabase SQL Editor, paste the contents of `supabase-public-profiles.sql`, and run it once. Usernames are unique regardless of capitalization. Signed-in users can search aggregate public learning stats, while only each profile owner can create or update their row.
+
 ## Supabase progress setup
 
 JAI:
