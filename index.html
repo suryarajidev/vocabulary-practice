@@ -2038,6 +2038,7 @@
     }
   }
 </style>
+<link rel="stylesheet" href="online-challenges.css">
 </head>
 <body>
 
@@ -3340,7 +3341,7 @@
   let batches = loadBatches();
   let savedParagraphs = loadSavedParagraphs();
   let deck = randomSample(getAllWords(), flashcardSettings.cardCount);
-  let view = "home"; // "home" | "practice" | "dictionary" | "batches" | "batchMastery" | "games" | "bubble" | "whack" | "boss" | "memory" | "paragraph" | "progress" | "achievements" | "users"
+  let view = "home"; // "home" | "practice" | "dictionary" | "batches" | "batchMastery" | "games" | "bubble" | "whack" | "boss" | "memory" | "paragraph" | "progress" | "achievements" | "users" | "challenges" | "onlineGame"
   let editingIndex = null;
   let showAddForm = false;
   let sortOrder = "az"; // "az" | "za" | "newest" | "oldest"
@@ -4863,7 +4864,8 @@
 
     const gameViews = ["bubble", "whack", "boss", "memory", "paragraph"];
     const backTarget = view === "batchMastery" ? "batches" : view === "batches" ? "dictionary" : view === "practice" ? practiceReturnView : gameViews.includes(view) ? gameReturnView : "home";
-    const backLabel = backTarget === "games" ? "Games" : backTarget === "batches" ? "Batches" : backTarget === "dictionary" ? "Dictionary" : "Home";
+    const effectiveBackTarget = view === "onlineGame" ? "challenges" : backTarget;
+    const backLabel = effectiveBackTarget === "challenges" ? "Challenges" : effectiveBackTarget === "games" ? "Games" : effectiveBackTarget === "batches" ? "Batches" : effectiveBackTarget === "dictionary" ? "Dictionary" : "Home";
     app.innerHTML = `
       <button class="back-home-btn" id="backHome">&#8249; Back to ${backLabel}</button>
       <div id="viewRoot" style="width:100%;display:flex;flex-direction:column;align-items:center;gap:20px;"></div>
@@ -4873,7 +4875,8 @@
       playClickSound();
       if (view === "bubble") finalizeBubbleStars();
       if (view === "whack") finalizeWhackStars();
-      view = backTarget;
+      if (view === "onlineGame" && typeof leaveOnlineGame === "function") leaveOnlineGame();
+      view = effectiveBackTarget;
       render();
     });
 
@@ -4904,6 +4907,10 @@
       renderAchievements(root);
     } else if (view === "users") {
       renderUserDirectory(root);
+    } else if (view === "challenges") {
+      renderOnlineChallenges(root);
+    } else if (view === "onlineGame") {
+      renderOnlineGame(root);
     }
   }
 
@@ -4921,6 +4928,12 @@
             <circle cx="10" cy="9" r="4"></circle><path d="M3.5 20c.8-4 3-6 6.5-6s5.7 2 6.5 6M17 8h4M19 6v4"></path>
           </svg>
           Find Users
+        </button>
+        <button class="home-corner-btn" id="goChallenges">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M8 8h8M8 12h5M5 19l2.4-3H18a3 3 0 0 0 3-3V6a3 3 0 0 0-3-3H6a3 3 0 0 0-3 3v7a3 3 0 0 0 2 2.8"></path>
+          </svg>
+          Challenges<span class="online-pending-badge" id="homeChallengeBadge" hidden></span>
         </button>
         <button class="home-corner-btn" id="openAppSettings">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
@@ -5077,6 +5090,12 @@
       view = "users";
       render();
     });
+    app.querySelector("#goChallenges").addEventListener("click", () => {
+      playClickSound();
+      view = "challenges";
+      render();
+    });
+    if (typeof syncHomeChallengeBadge === "function") syncHomeChallengeBadge();
     app.querySelector("#streakAchievementButton").addEventListener("click", () => {
       playClickSound();
       if (!achievementData.stats.streakButtonClicks) recordAchievementStat("streakButtonClicks");
@@ -5224,7 +5243,10 @@
           <div class="public-profile-stat"><strong>${Number(profile.whack_best || 0).toLocaleString()}</strong><span>Whack-a-Word best</span></div>
           <div class="public-profile-stat"><strong>${profile.wordbound_best_turns == null ? "—" : Number(profile.wordbound_best_turns).toLocaleString()}</strong><span>Wordbound best turns</span></div>
         </div>
-        <p class="public-profile-updated">${isOwnProfile ? "Your profile · " : ""}${escapeHtml(updatedLabel)}</p>
+        <div class="public-profile-footer">
+          <p class="public-profile-updated">${isOwnProfile ? "Your profile · " : ""}${escapeHtml(updatedLabel)}</p>
+          ${isOwnProfile ? "" : `<button class="accent-btn challenge-user-btn" type="button" data-user-id="${escapeHtml(profile.user_id)}" data-username="${escapeHtml(profile.username)}">Challenge</button>`}
+        </div>
       </div>
     </article>`;
   }
@@ -5251,6 +5273,12 @@
     let requestId = 0;
 
     list.addEventListener("click", (event) => {
+      const challengeButton = event.target.closest(".challenge-user-btn");
+      if (challengeButton && list.contains(challengeButton)) {
+        playClickSound();
+        openOnlineChallengeDialog(challengeButton.dataset.userId, challengeButton.dataset.username);
+        return;
+      }
       const button = event.target.closest(".public-profile-summary");
       if (!button || !list.contains(button)) return;
       const shouldExpand = button.getAttribute("aria-expanded") !== "true";
@@ -7279,6 +7307,7 @@
 
   initAuth();
 </script>
+<script src="online-challenges.js"></script>
 
 </body>
 </html>

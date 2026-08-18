@@ -71,3 +71,7 @@ Unique usernames and the signed-in user search require one additional table. Ope
 
 JAI:
 Following the same pattern as achievements, session stats (got it/almost/don't know counts), high scores (Bubble, Whack-a-Word, Wordbound), and daily streak now sync per account too, so progress carries over across devices. Same deal: run `supabase-progress.sql` once in the SQL Editor before it'll sync. If the table isn't there yet it just keeps saving locally, nothing breaks.
+
+## Supabase online challenge setup
+
+Online Memory Match, Paragraph Duel, Bubble Shot, and Whack-a-Word challenges use a participant-only Supabase table with live updates. Open the Supabase SQL Editor, paste the contents of `supabase-online-challenges.sql`, and run it once. The included Row Level Security policies only let the challenger and opponent read or update their match, and the setup adds the table to Supabase Realtime so turns and results appear on both devices.

@@ -1,0 +1,142 @@
+.online-pending-badge {
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: white;
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 19px;
+  text-align: center;
+}
+
+.public-profile-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
+.public-profile-footer .public-profile-updated { margin: 0; }
+.challenge-user-btn { padding: 8px 13px; font-size: 12px; }
+
+.challenge-modal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 17px 0;
+}
+.challenge-game-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-height: 108px;
+  padding: 15px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+}
+.challenge-game-option:hover { transform: translateY(-2px); border-color: var(--accent); box-shadow: 0 8px 18px rgba(13,148,136,.1); }
+.challenge-game-option:active { transform: scale(.98); }
+.challenge-game-option .challenge-icon { font-size: 25px; }
+.challenge-game-option strong { font-size: 15px; }
+.challenge-game-option span:last-child { color: var(--muted); font-size: 11px; line-height: 1.4; }
+
+.online-challenge-view { width: 100%; display: flex; flex-direction: column; gap: 18px; }
+.online-challenge-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.online-challenge-heading h2 { margin: 0 0 5px; }
+.online-challenge-heading p { margin: 0; color: var(--muted); }
+.online-challenge-heading-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.online-challenge-setup {
+  padding: 17px;
+  border: 1px solid #f59e0b;
+  border-radius: 14px;
+  background: rgba(245,158,11,.1);
+  line-height: 1.5;
+}
+.online-challenge-groups { display: flex; flex-direction: column; gap: 22px; }
+.online-challenge-group { display: flex; flex-direction: column; gap: 10px; }
+.online-challenge-group h3 { margin: 0; font-size: 17px; }
+.online-challenge-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.online-challenge-card {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  background: var(--card-bg);
+}
+.online-challenge-card.incoming { border-color: rgba(13,148,136,.55); box-shadow: 0 7px 19px rgba(13,148,136,.08); }
+.online-challenge-card-top { display: flex; align-items: center; gap: 11px; }
+.online-challenge-card-icon { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 11px; background: var(--chip-bg); font-size: 22px; }
+.online-challenge-card-copy { min-width: 0; flex: 1; }
+.online-challenge-card-copy strong { display: block; font-size: 16px; }
+.online-challenge-card-copy span { color: var(--muted); font-size: 12px; }
+.online-challenge-status { align-self: flex-start; padding: 5px 8px; border-radius: 999px; background: var(--bg); color: var(--muted); font-size: 10px; font-weight: 900; text-transform: uppercase; }
+.online-challenge-status.active { background: rgba(13,148,136,.13); color: var(--accent); }
+.online-challenge-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.online-challenge-actions button { flex: 1; min-width: 94px; }
+.online-empty { padding: 22px; border: 1px dashed var(--border); border-radius: 14px; color: var(--muted); text-align: center; }
+
+.online-game-shell { width: 100%; display: flex; flex-direction: column; gap: 16px; }
+.online-game-shell .game-heading { flex-wrap: wrap; }
+.online-game-shell .game-heading > div:first-child { min-width: 250px; flex: 1; }
+.online-game-shell .game-stats { justify-content: flex-end; flex-wrap: wrap; }
+.online-match-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 15px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--card-bg);
+}
+.online-match-banner strong { color: var(--accent); }
+.online-live-pill { padding: 6px 10px; border-radius: 999px; background: rgba(13,148,136,.12); color: var(--accent); font-size: 11px; font-weight: 900; letter-spacing: .05em; }
+.online-live-pill::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 6px; border-radius: 50%; background: #10b981; animation: onlinePulse 1.4s infinite; }
+@keyframes onlinePulse { 50% { opacity: .35; transform: scale(.8); } }
+
+.online-waiting, .online-result {
+  width: min(620px, 100%);
+  margin: 28px auto;
+  padding: 28px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--card-bg);
+  text-align: center;
+}
+.online-waiting-icon { font-size: 48px; }
+.online-waiting h2, .online-result h2 { margin: 10px 0 6px; }
+.online-waiting p, .online-result p { color: var(--muted); }
+.online-result-score { display: flex; justify-content: center; align-items: center; gap: 18px; margin: 20px 0; }
+.online-result-player { min-width: 130px; padding: 15px; border-radius: 13px; background: var(--bg); }
+.online-result-player strong { display: block; color: var(--accent); font-size: 30px; }
+
+.online-memory-game .memory-card { min-height: 112px; }
+.online-memory-game .memory-message.syncing { color: var(--muted); }
+
+.online-paragraph-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.online-paragraph-entry { padding: 17px; border: 1px solid var(--border); border-radius: 14px; background: var(--card-bg); }
+.online-paragraph-entry h3 { margin: 0 0 10px; }
+.online-paragraph-entry p { margin: 0; white-space: pre-wrap; line-height: 1.65; }
+
+.online-arcade-clock { color: #dc2626 !important; font-variant-numeric: tabular-nums; }
+.online-arcade-finished { pointer-events: none; opacity: .65; }
+.online-bubble-field { min-height: 430px; }
+.online-whack-yard { min-height: 430px; }
+
+@media (max-width: 720px) {
+  .online-challenge-list, .online-paragraph-columns { grid-template-columns: 1fr; }
+  .challenge-modal-grid { grid-template-columns: 1fr; }
+  .online-challenge-heading, .online-match-banner { align-items: stretch; flex-direction: column; }
+  .online-game-shell .game-stats { justify-content: flex-start; }
+}
