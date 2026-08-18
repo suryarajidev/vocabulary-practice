@@ -3878,7 +3878,7 @@
 
   function finalizeBubbleStars(notify = true) {
     if (!bubbleGame.starEventId || bubbleGame.attempts < 1) return 0;
-    return awardStars(Math.round(bubbleGame.score / 1000), bubbleGame.starEventId, "Bubble Shot", notify);
+    return awardStars(Math.round(bubbleGame.score / 10000), bubbleGame.starEventId, "Bubble Shot", notify);
   }
 
   function stopWhackTimers() {
@@ -3925,7 +3925,7 @@
 
   function finalizeWhackStars(notify = true) {
     if (!whackGame.starEventId || whackGame.correct + whackGame.incorrect < 1) return 0;
-    return awardStars(Math.round(whackGame.score / 1000), whackGame.starEventId, "Whack-a-Word", notify);
+    return awardStars(Math.round(whackGame.score / 10000), whackGame.starEventId, "Whack-a-Word", notify);
   }
 
   function pauseWhackGame(shouldRender = true) {
@@ -5616,7 +5616,7 @@
         <div>
           <div class="game-stats" aria-label="Whack-a-Word score">
             <div class="stat-pill"><strong id="whackScore">${whackGame.score}</strong><span>Score</span></div>
-            <div class="stat-pill"><strong id="whackStars">${Math.round(whackGame.score / 1000)}</strong><span>Stars</span></div>
+            <div class="stat-pill"><strong id="whackStars">${Math.round(whackGame.score / 10000)}</strong><span>Stars</span></div>
             <div class="stat-pill"><strong id="whackStreak">${whackGame.streak}</strong><span>Streak</span></div>
             <div class="stat-pill"><strong id="whackTimer">${whackGame.elapsed.toFixed(1)}s</strong><span>Time</span></div>
             <div class="stat-pill"><strong id="whackBest">${highScores.whack}</strong><span>Best</span></div>
@@ -5698,7 +5698,7 @@
       }
 
       root.querySelector("#whackScore").textContent = whackGame.score;
-      root.querySelector("#whackStars").textContent = Math.round(whackGame.score / 1000);
+      root.querySelector("#whackStars").textContent = Math.round(whackGame.score / 10000);
       root.querySelector("#whackBest").textContent = highScores.whack;
       root.querySelector("#whackStreak").textContent = whackGame.streak;
       root.querySelector("#whackTimer").textContent = `${whackGame.elapsed.toFixed(1)}s`;
@@ -5765,7 +5765,7 @@
           <div>
             <div class="game-stats" aria-label="Game score">
               <div class="stat-pill"><strong id="gameScore">${bubbleGame.score}</strong><span>Score</span></div>
-              <div class="stat-pill"><strong id="bubbleStars">${Math.round(bubbleGame.score / 1000)}</strong><span>Stars</span></div>
+              <div class="stat-pill"><strong id="bubbleStars">${Math.round(bubbleGame.score / 10000)}</strong><span>Stars</span></div>
               <div class="stat-pill"><strong id="gameStreak">${bubbleGame.streak}</strong><span>Streak</span></div>
               <div class="stat-pill"><strong id="roundTimer">${bubbleGame.elapsed.toFixed(1)}s</strong><span>Time</span></div>
               <div class="stat-pill"><strong id="bubbleBest">${highScores.bubble}</strong><span>Best</span></div>
@@ -5873,7 +5873,7 @@
         field.classList.add("round-locked");
         root.querySelectorAll(".word-bubble").forEach((bubble) => bubble.setAttribute("aria-disabled", "true"));
         root.querySelector("#gameScore").textContent = bubbleGame.score;
-        root.querySelector("#bubbleStars").textContent = Math.round(bubbleGame.score / 1000);
+        root.querySelector("#bubbleStars").textContent = Math.round(bubbleGame.score / 10000);
         root.querySelector("#bubbleBest").textContent = highScores.bubble;
         root.querySelector("#gameStreak").textContent = bubbleGame.streak;
         root.querySelector("#roundTimer").textContent = `${elapsed.toFixed(1)}s`;
