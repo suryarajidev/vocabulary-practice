@@ -3364,6 +3364,8 @@
   let score = { gotit: 0, almost: 0, dontknow: 0 };
   let results = {}; // original deck index -> "gotit" | "almost" | "dontknow" | "skipped"
   let sessionRecorded = false;
+  let sessionStarEventId = null;
+  let sessionStarsEarned = 0;
   let practiceAgainClicksThisVisit = 0;
   let sameDeckRepeatStreak = 0;
 
@@ -3492,6 +3494,8 @@
     results = {};
     flashcardSettingsOpen = false;
     sessionRecorded = false;
+    sessionStarEventId = makeStarEventId("flashcards");
+    sessionStarsEarned = 0;
   }
 
   function getResultItems(category) {
@@ -5724,6 +5728,7 @@
         progressStats.almost += score.almost;
         progressStats.dontknow += score.dontknow;
         saveProgress();
+        sessionStarsEarned = awardStars(score.gotit, sessionStarEventId, "Flashcards");
         const completedTotal = order.length;
         const completedSkipped = Object.values(results).filter((result) => result === "skipped").length;
         const perfectSession = completedTotal > 0 && score.gotit === completedTotal && completedSkipped === 0;
@@ -5751,6 +5756,7 @@
       done.innerHTML = `
         <h2>Session complete!</h2>
         <p>Got it: ${score.gotit} &nbsp;|&nbsp; Almost: ${score.almost} &nbsp;|&nbsp; Didn't know: ${score.dontknow}</p>
+        <p>⭐ ${sessionStarsEarned} ${sessionStarsEarned === 1 ? "Star" : "Stars"} earned from your “Got it” cards.</p>
         ${skipped > 0 ? `<p>Skipped: ${skipped}</p>` : ""}
         ${flashcardSettings.showPercentages ? `<div class="percentage-summary"><div class="percentage-card correct"><strong>${correctPercent}%</strong>Correct</div><div class="percentage-card incorrect"><strong>${incorrectPercent}%</strong>Incorrect</div></div>` : ""}
         <button class="accent-btn restart-btn" id="restart">&#8635; Practice again</button>
