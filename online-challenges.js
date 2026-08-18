@@ -2,8 +2,8 @@ const ONLINE_CHALLENGE_SELECT = "id, challenger_id, opponent_id, challenger_user
 const ONLINE_GAME_META = {
   memory: { label: "Memory Match", icon: "🧠", description: "Take turns matching six word-definition pairs." },
   paragraph: { label: "Paragraph Duel", icon: "✍️", description: "Use the same five words, then reveal both stories." },
-  whack: { label: "Whack-a-Word", icon: "🔨", description: "Score as many points as possible in 60 seconds." },
-  bubble: { label: "Bubble Shot", icon: "🫧", description: "Score as many points as possible in 60 seconds." }
+  whack: { label: "Whack-a-Word", icon: "🔨", description: "Use your own dictionary and score as many points as possible in 60 seconds." },
+  bubble: { label: "Bubble Shot", icon: "🫧", description: "Use your own dictionary and score as many points as possible in 60 seconds." }
 };
 
 let onlineChallengesReady = false;
@@ -141,11 +141,12 @@ function syncHomeChallengeBadge() {
 
 function buildOnlineGameState(type, challengerId, opponentId) {
   const source = getAllWords();
-  const needed = type === "memory" ? 6 : type === "paragraph" ? 5 : type === "whack" ? Math.min(36, source.length) : Math.min(30, source.length);
   if (source.length < (type === "whack" ? 6 : type === "bubble" ? 4 : type === "paragraph" ? 5 : 6)) return null;
-  const words = randomSample(source, needed).map(onlineWordData);
-  const base = { words, createdAt: new Date().toISOString() };
+  const sharedWordCount = type === "memory" ? 6 : type === "paragraph" ? 5 : 0;
+  const words = sharedWordCount ? randomSample(source, sharedWordCount).map(onlineWordData) : [];
+  const base = { createdAt: new Date().toISOString() };
   if (type === "memory") {
+    base.words = words;
     const cards = words.flatMap((item, pairIndex) => [
       { pairIndex, kind: "term", content: item.word, partOfSpeech: item.partOfSpeech },
       { pairIndex, kind: "definition", content: item.definition, partOfSpeech: item.partOfSpeech }
@@ -159,9 +160,11 @@ function buildOnlineGameState(type, challengerId, opponentId) {
       message: "The challenger goes first."
     };
   } else if (type === "paragraph") {
+    base.words = words;
     base.paragraphs = {};
   } else {
     base.durationSeconds = 60;
+    base.wordSource = "each-player-dictionary";
   }
   return base;
 }
@@ -535,21 +538,29 @@ async function submitOnlineParagraph() {
 }
 
 function ensureOnlineArcadeGame(challenge) {
-  if (onlineArcadeGame?.challengeId === challenge.id) return;
+  if (onlineArcadeGame?.challengeId === challenge.id) return true;
   stopOnlineArcadeVisuals();
+  const localWords = getAllWords().map(onlineWordData);
+  const requiredWords = challenge.game_type === "whack" ? 6 : 4;
+  if (localWords.length < requiredWords) {
+    onlineArcadeGame = null;
+    return false;
+  }
   onlineArcadeGame = {
     challengeId: challenge.id, type: challenge.game_type,
+    words: localWords,
     score: 0, correct: 0, incorrect: 0, streak: 0,
     deadline: performance.now() + Number(challenge.game_state?.durationSeconds || 60) * 1000,
     roundStartedAt: performance.now(), answerShownAt: 0,
     answer: null, choices: [], locked: false, feedback: "", feedbackType: "", submitted: false
   };
   createOnlineArcadeRound(challenge);
+  return true;
 }
 
 function createOnlineArcadeRound(challenge = activeOnlineChallenge) {
   const game = onlineArcadeGame;
-  const words = challenge?.game_state?.words || [];
+  const words = game?.words || [];
   const choiceCount = game.type === "whack" ? 6 : 4;
   if (words.length < choiceCount) return;
   const answer = words[Math.floor(Math.random() * words.length)];
@@ -587,7 +598,11 @@ function renderOnlineArcade(root, challenge) {
     renderOnlineArcadeResult(root, challenge, ownResult, opponentResult);
     return;
   }
-  ensureOnlineArcadeGame(challenge);
+  if (!ensureOnlineArcadeGame(challenge)) {
+    const requiredWords = challenge.game_type === "whack" ? 6 : 4;
+    root.innerHTML = `<div class="online-empty">You need at least ${requiredWords} words in your own Dictionary to play ${escapeHtml(onlineGameMeta(challenge.game_type).label)}.</div>`;
+    return;
+  }
   if (challenge.game_type === "bubble") renderOnlineBubble(root, challenge);
   else renderOnlineWhack(root, challenge);
 }
