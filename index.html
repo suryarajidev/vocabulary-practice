@@ -46,7 +46,8 @@
   [data-theme="dark"] .home-card.hero { background: linear-gradient(160deg, #3b4442, #303735); border-color: #4b5553; }
   [data-theme="dark"] .home-card.hero .home-card-title { color: #f0f2f1; }
   [data-theme="dark"] .home-card.hero .home-card-body { color: #b6bfbd; }
-  [data-theme="dark"] .streak-pill { background: linear-gradient(160deg, #2e2718, var(--card-bg)); }
+  [data-theme="dark"] .streak-pill,
+  [data-theme="dark"] .stars-pill { background: linear-gradient(160deg, #2e2718, var(--card-bg)); }
 
   [data-theme="dark"] .small-btn,
   [data-theme="dark"] .cancel-btn,
@@ -358,6 +359,25 @@
   .streak-pill:focus-visible { outline: 3px solid rgba(245, 158, 11, .3); outline-offset: 3px; }
   .streak-pill .streak-flame { font-size: 16px; line-height: 1; }
   .streak-pill span { color: var(--muted); font-weight: 700; font-size: 12px; }
+
+  .stars-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 9px 14px;
+    border: 1px solid #f4c84b;
+    border-radius: 999px;
+    background: linear-gradient(160deg, #fff8d8, var(--card-bg));
+    color: #9a6700;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, .08);
+    font-weight: 900;
+  }
+  .stars-pill span { color: var(--muted); font-size: 12px; font-weight: 700; }
+
+  .star-toast-region { position: fixed; top: 22px; left: 50%; z-index: 120; transform: translateX(-50%); pointer-events: none; }
+  .star-toast { display: flex; align-items: center; gap: 9px; padding: 11px 16px; border: 1px solid #f4c84b; border-radius: 999px; background: var(--card-bg); color: #9a6700; box-shadow: 0 12px 30px rgba(31,41,55,.18); font-weight: 900; animation: achievementToastIn .28s ease both; }
+  .star-toast.leaving { animation: achievementToastOut .24s ease both; }
+  [data-theme="dark"] .star-toast { color: #facc15; }
 
   @media (max-width: 620px) {
     .home-corner { position: static; margin: 0 0 8px; }
@@ -2135,7 +2155,7 @@
   }
 
   function createEmptyAchievementData() {
-    return { stats: { ...defaultAchievementStats }, unlocked: [], unlockedAt: {}, batchGames: {}, gamesPlayed: [], masteredWords: [], batchPerfectActivities: {} };
+    return { stats: { ...defaultAchievementStats }, unlocked: [], unlockedAt: {}, batchGames: {}, gamesPlayed: [], masteredWords: [], batchPerfectActivities: {}, starEvents: {} };
   }
 
   function normalizeAchievementData(saved = {}) {
@@ -2149,7 +2169,10 @@
       batchGames: safeSaved.batchGames && typeof safeSaved.batchGames === "object" ? Object.fromEntries(Object.entries(safeSaved.batchGames).map(([id, games]) => [String(id), Array.isArray(games) ? [...new Set(games.map(String))] : []])) : {},
       gamesPlayed: Array.isArray(safeSaved.gamesPlayed) ? [...new Set(safeSaved.gamesPlayed.map(String))] : [],
       masteredWords: Array.isArray(safeSaved.masteredWords) ? [...new Set(safeSaved.masteredWords.map((word) => String(word).toLowerCase()))] : [],
-      batchPerfectActivities: safeSaved.batchPerfectActivities && typeof safeSaved.batchPerfectActivities === "object" ? Object.fromEntries(Object.entries(safeSaved.batchPerfectActivities).map(([id, activities]) => [String(id), Array.isArray(activities) ? [...new Set(activities.map(String))] : []])) : {}
+      batchPerfectActivities: safeSaved.batchPerfectActivities && typeof safeSaved.batchPerfectActivities === "object" ? Object.fromEntries(Object.entries(safeSaved.batchPerfectActivities).map(([id, activities]) => [String(id), Array.isArray(activities) ? [...new Set(activities.map(String))] : []])) : {},
+      starEvents: safeSaved.starEvents && typeof safeSaved.starEvents === "object" && !Array.isArray(safeSaved.starEvents)
+        ? Object.fromEntries(Object.entries(safeSaved.starEvents).map(([id, amount]) => [String(id), Math.max(0, Math.round(Number(amount) || 0))]).filter(([, amount]) => amount > 0))
+        : {}
     };
   }
 
@@ -2175,6 +2198,11 @@
     }));
   }
 
+  function mergeStarEvents(first = {}, second = {}) {
+    const ids = new Set([...Object.keys(first), ...Object.keys(second)]);
+    return Object.fromEntries([...ids].map((id) => [id, Math.max(Number(first[id]) || 0, Number(second[id]) || 0)]).filter(([, amount]) => amount > 0));
+  }
+
   function mergeAchievementData(localData, cloudData) {
     const local = normalizeAchievementData(localData);
     const cloud = normalizeAchievementData(cloudData);
@@ -2191,8 +2219,66 @@
       batchGames: mergeAchievementCollections(local.batchGames, cloud.batchGames),
       gamesPlayed: [...new Set([...local.gamesPlayed, ...cloud.gamesPlayed])],
       masteredWords: [...new Set([...local.masteredWords, ...cloud.masteredWords])],
-      batchPerfectActivities: mergeAchievementCollections(local.batchPerfectActivities, cloud.batchPerfectActivities)
+      batchPerfectActivities: mergeAchievementCollections(local.batchPerfectActivities, cloud.batchPerfectActivities),
+      starEvents: mergeStarEvents(local.starEvents, cloud.starEvents)
     });
+  }
+
+  function getStarBalance() {
+    return Object.values(achievementData.starEvents || {}).reduce((total, amount) => total + (Number(amount) || 0), 0);
+  }
+
+  function getStarsForEventPrefix(prefix) {
+    return Object.entries(achievementData.starEvents || {}).reduce((total, [id, amount]) => id.startsWith(prefix) ? total + (Number(amount) || 0) : total, 0);
+  }
+
+  function makeStarEventId(prefix) {
+    const unique = typeof globalThis.crypto?.randomUUID === "function" ? globalThis.crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    return `${prefix}:${unique}`;
+  }
+
+  const starNotificationQueue = [];
+  let starNotificationActive = false;
+
+  function queueStarNotification(amount, reason = "Stars earned") {
+    if (amount <= 0) return;
+    starNotificationQueue.push({ amount, reason });
+    showNextStarNotification();
+  }
+
+  function showNextStarNotification() {
+    if (starNotificationActive || !starNotificationQueue.length) return;
+    starNotificationActive = true;
+    const reward = starNotificationQueue.shift();
+    let region = document.querySelector(".star-toast-region");
+    if (!region) {
+      region = document.createElement("div");
+      region.className = "star-toast-region";
+      region.setAttribute("aria-live", "polite");
+      document.body.appendChild(region);
+    }
+    const toast = document.createElement("div");
+    toast.className = "star-toast";
+    toast.textContent = `⭐ +${reward.amount} ${reward.amount === 1 ? "Star" : "Stars"} · ${reward.reason}`;
+    region.replaceChildren(toast);
+    setTimeout(() => {
+      toast.classList.add("leaving");
+      setTimeout(() => {
+        toast.remove();
+        starNotificationActive = false;
+        setTimeout(showNextStarNotification, 120);
+      }, 250);
+    }, 1900);
+  }
+
+  function awardStars(amount, eventId, reason, notify = true) {
+    const reward = Math.max(0, Math.round(Number(amount) || 0));
+    if (!reward || !eventId || achievementData.starEvents?.[eventId]) return 0;
+    if (!achievementData.starEvents) achievementData.starEvents = {};
+    achievementData.starEvents[eventId] = reward;
+    saveAchievementData();
+    if (notify) queueStarNotification(reward, reason);
+    return reward;
   }
 
   function getAchievementStorageKey(userId = currentUser?.id) {
@@ -2438,6 +2524,8 @@
         name: String(item.name).slice(0, 40),
         text: String(item.text),
         completed: Boolean(item.completed),
+        starEventId: String(item.starEventId || `paragraph-saved:${item.id}`),
+        starredWordKeys: Array.isArray(item.starredWordKeys) ? [...new Set(item.starredWordKeys.map((key) => String(key).toLowerCase()))] : [],
         words: item.words.slice(0, 5).filter((word) => word && word.word && word.definition).map((word) => ({
           word: String(word.word),
           definition: String(word.definition),
@@ -3030,6 +3118,8 @@
     return title.split(/(\s+)/).map((part) => /^\s+$/.test(part) ? part : part.charAt(0).toLocaleUpperCase() + part.slice(1)).join("");
   }
 
+  const achievementStarRewards = Object.freeze({ Basic: 1, Intermediate: 5, Advanced: 10, Mythical: 20, Miscellaneous: 3 });
+
   function getAchievementDefinitions() {
     const stats = achievementData.stats;
     const wordboundBest = highScores.wordboundTurns;
@@ -3145,7 +3235,7 @@
     toast.setAttribute("role", "status");
     toast.innerHTML = `<div class="achievement-toast-icon" aria-hidden="true"></div><div><div class="achievement-toast-label">Achievement Unlocked</div><div class="achievement-toast-title"></div></div>`;
     toast.querySelector(".achievement-toast-icon").textContent = achievement.icon;
-    toast.querySelector(".achievement-toast-title").textContent = achievement.title;
+    toast.querySelector(".achievement-toast-title").textContent = `${achievement.title}${achievement.starReward ? ` · +${achievement.starReward} ${achievement.starReward === 1 ? "Star" : "Stars"}` : ""}`;
     region.replaceChildren(toast);
     setTimeout(() => {
       toast.classList.add("leaving");
@@ -3160,16 +3250,28 @@
   function refreshAchievements(notify = true) {
     const unlocked = new Set(achievementData.unlocked);
     if (!achievementData.unlockedAt) achievementData.unlockedAt = {};
+    if (!achievementData.starEvents) achievementData.starEvents = {};
     const newlyUnlocked = [];
     let changed = false;
     const now = new Date().toISOString();
-    getAchievementDefinitions().forEach((achievement) => {
+    const achievements = getAchievementDefinitions();
+    achievements.forEach((achievement) => {
       if (achievement.value >= achievement.target && !unlocked.has(achievement.id)) {
         unlocked.add(achievement.id);
         achievementData.unlockedAt[achievement.id] = now;
         newlyUnlocked.push(achievement);
         changed = true;
       }
+    });
+    achievements.forEach((achievement) => {
+      if (!unlocked.has(achievement.id)) return;
+      const eventId = `achievement:${achievement.id}`;
+      const reward = achievementStarRewards[achievement.group] || 0;
+      if (!reward || achievementData.starEvents[eventId]) return;
+      achievementData.starEvents[eventId] = reward;
+      const newlyUnlockedAchievement = newlyUnlocked.find((item) => item.id === achievement.id);
+      if (newlyUnlockedAchievement) newlyUnlockedAchievement.starReward = reward;
+      changed = true;
     });
     if (changed) {
       achievementData.unlocked = [...unlocked];
@@ -3279,7 +3381,8 @@
     locked: false,
     paused: false,
     roundStartedAt: 0,
-    elapsed: 0
+    elapsed: 0,
+    starEventId: null
   };
 
   let bubbleTimerId = null;
@@ -3290,7 +3393,7 @@
     score: 0, streak: 0, correct: 0, incorrect: 0, answer: null, choices: [],
     elapsed: 0, roundStartedAt: 0, locked: false,
     feedback: "", feedbackType: "", paused: false,
-    answerShownAt: 0, answerResponseElapsed: 0
+    answerShownAt: 0, answerResponseElapsed: 0, starEventId: null
   };
   let whackTimerId = null;
   let moleTimeouts = [];
@@ -3579,6 +3682,7 @@
 
   function resetBubbleGame() {
     stopBubbleTimer();
+    finalizeBubbleStars();
     recordAchievementStat("bubblePlays");
     recordGamePlayed("bubble");
     bubbleGame.score = 0;
@@ -3587,7 +3691,13 @@
     bubbleGame.streak = 0;
     bubbleGame.missStreak = 0;
     bubbleGame.paused = false;
+    bubbleGame.starEventId = makeStarEventId("bubble");
     createBubbleRound();
+  }
+
+  function finalizeBubbleStars(notify = true) {
+    if (!bubbleGame.starEventId || bubbleGame.attempts < 1) return 0;
+    return awardStars(Math.round(bubbleGame.score / 1000), bubbleGame.starEventId, "Bubble Shot", notify);
   }
 
   function stopWhackTimers() {
@@ -3621,13 +3731,20 @@
 
   function resetWhackGame() {
     stopWhackTimers();
+    finalizeWhackStars();
     recordAchievementStat("whackPlays");
     recordGamePlayed("whack");
     whackGame.score = 0;
     whackGame.streak = 0;
     whackGame.correct = 0;
     whackGame.incorrect = 0;
+    whackGame.starEventId = makeStarEventId("whack");
     createWhackRound();
+  }
+
+  function finalizeWhackStars(notify = true) {
+    if (!whackGame.starEventId || whackGame.correct + whackGame.incorrect < 1) return 0;
+    return awardStars(Math.round(whackGame.score / 1000), whackGame.starEventId, "Whack-a-Word", notify);
   }
 
   function pauseWhackGame(shouldRender = true) {
@@ -3743,7 +3860,8 @@
       evade: false, counter: 0, focusNext: false,
       attackBonus: 0, cancelBoss: false, intentRevealed: false,
       bossIntent: chooseBossIntent(), result: null, achievementRecorded: false,
-      healthLost: false, incorrectAnswers: 0
+      healthLost: false, incorrectAnswers: 0,
+      starEventId: makeStarEventId("wordbound"), starsAwarded: false, starReward: 0
     };
     drawBattleCards(5);
     recordGamePlayed("wordbound");
@@ -3936,7 +4054,9 @@
       words: randomSample(source, 5),
       text: "",
       completed: false,
-      definitionViewed: false
+      definitionViewed: false,
+      starEventId: makeStarEventId("paragraph"),
+      starredWordKeys: new Set()
     };
     activeSavedParagraphId = null;
     recordGamePlayed("paragraph");
@@ -3962,6 +4082,8 @@
       name: name.slice(0, 40),
       text: paragraphChallenge.text.trim(),
       completed: Boolean(paragraphChallenge.completed),
+      starEventId: paragraphChallenge.starEventId,
+      starredWordKeys: [...paragraphChallenge.starredWordKeys],
       words: paragraphChallenge.words.map((item) => ({
         word: item.word,
         definition: item.definition,
@@ -3971,11 +4093,14 @@
   }
 
   function loadSavedParagraph(item) {
+    const alreadyUsedKeys = item.words.filter((word) => paragraphUsesWord(item.text, word.word)).map((word) => word.word.toLowerCase());
     paragraphChallenge = {
       words: item.words.map((word) => ({ ...word })),
       text: item.text,
       completed: Boolean(item.completed) || item.words.every((word) => paragraphUsesWord(item.text, word.word)),
-      definitionViewed: true
+      definitionViewed: true,
+      starEventId: item.starEventId || `paragraph-saved:${item.id}`,
+      starredWordKeys: new Set([...(item.starredWordKeys || []), ...alreadyUsedKeys])
     };
     activeSavedParagraphId = item.id;
     playClickSound();
@@ -4109,7 +4234,7 @@
       flipped: [], matched: new Set(), scores: [0, 0], currentPlayer: 0,
       locked: false, message: mode === "ai" ? "Your turn. Choose two cards." : "Player 1, choose two cards.",
       winner: null, mode, aiMemory: new Map(), aiPlannedSecond: null, memoryRound: 0, achievementRecorded: false,
-      playerTurns: 1, mistakes: [0, 0]
+      playerTurns: 1, mistakes: [0, 0], starEventId: makeStarEventId("memory"), starsEarned: 0
     };
     recordGamePlayed("memory");
   }
@@ -4198,6 +4323,9 @@
       memoryGame.matched.add(firstIndex);
       memoryGame.matched.add(secondIndex);
       memoryGame.scores[memoryGame.currentPlayer]++;
+      if (memoryGame.mode === "two-player" || actingPlayer === 0) {
+        memoryGame.starsEarned += awardStars(1, `${memoryGame.starEventId}:pair:${first.pairIndex}`, "Memory Match");
+      }
       if (!achievementData.stats.memoryMatchesFound) recordAchievementStat("memoryMatchesFound");
       memoryGame.message = `${memoryPlayerName(memoryGame.currentPlayer)} found a match and plays again!`;
     } else {
@@ -4326,6 +4454,8 @@
 
       currentUser = data.user;
       await Promise.all([initializeAchievementSync(currentUser), initializeProgressSync(currentUser)]);
+      refreshAchievements(false);
+      await flushAchievementDataToCloud();
       appSettingsOpen = false;
       render();
     });
@@ -4342,6 +4472,8 @@
     currentUser = session ? session.user : null;
     if (currentUser) {
       await Promise.all([initializeAchievementSync(currentUser), initializeProgressSync(currentUser)]);
+      refreshAchievements(false);
+      await flushAchievementDataToCloud();
       render();
     } else {
       renderAuthGate();
@@ -4356,6 +4488,8 @@
         setTimeout(async () => {
           if (currentUser?.id !== user.id) return;
           await Promise.all([initializeAchievementSync(user), initializeProgressSync(user)]);
+          refreshAchievements(false);
+          await flushAchievementDataToCloud();
           if (currentUser?.id === user.id) render();
         }, 0);
       } else if (!user && previousUserId) {
@@ -4408,6 +4542,8 @@
 
     app.querySelector("#backHome").addEventListener("click", () => {
       playClickSound();
+      if (view === "bubble") finalizeBubbleStars();
+      if (view === "whack") finalizeWhackStars();
       view = backTarget;
       render();
     });
@@ -4456,6 +4592,7 @@
         </button>
       </div>
       <div class="home-corner home-corner-right">
+        <div class="stars-pill" aria-label="${getStarBalance().toLocaleString()} Stars"><span aria-hidden="true">⭐</span>${getStarBalance().toLocaleString()}<span>Stars</span></div>
         <button class="streak-pill" id="streakAchievementButton" type="button" aria-label="Current streak: ${streak.count} day${streak.count === 1 ? "" : "s"}"><span class="streak-flame" aria-hidden="true">&#128293;</span>${streak.count}<span>day${streak.count === 1 ? "" : "s"}</span></button>
       </div>
       ${appSettingsOpen ? `
@@ -4479,7 +4616,7 @@
               <span class="switch-slider"></span>
             </label>
           </div>
-          <button class="missed-btn" id="resetProgressBtn" style="width:100%;">Reset progress &amp; high scores</button>
+          <button class="missed-btn" id="resetProgressBtn" style="width:100%;">Reset progress, achievements &amp; Stars</button>
           <div style="margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px;">
             <button class="small-btn" id="resetDefaultWords" style="width:100%;">Restore default dictionary words</button>
             <button class="small-btn danger-outline" id="deleteCustomWords" style="width:100%;">Delete all custom words</button>
@@ -4617,7 +4754,7 @@
         playClickSound();
       });
       app.querySelector("#resetProgressBtn").addEventListener("click", () => {
-        if (!confirm("Reset all progress, streak, and high scores? This can't be undone.")) return;
+        if (!confirm("Reset all progress, streak, high scores, achievements, and Stars? This can't be undone.")) return;
         progressStats = { ...defaultProgress };
         highScores = { ...defaultHighScores };
         streak = { ...defaultStreak };
@@ -4682,6 +4819,7 @@
       <div class="progress-view">
         <h2>Your progress</h2>
         <div class="progress-grid">
+          <div class="progress-card" tabindex="0" aria-describedby="starsStatHelp"><strong>${getStarBalance().toLocaleString()}</strong><span>Stars</span><span class="progress-info" aria-hidden="true">ⓘ</span><span class="progress-tooltip" id="starsStatHelp" role="tooltip">Your account's Stars earned from achievements and vocabulary games.</span></div>
           <div class="progress-card" tabindex="0" aria-describedby="dictionaryStatHelp"><strong>${getAllWords().length}</strong><span>Words in dictionary</span><span class="progress-info" aria-hidden="true">ⓘ</span><span class="progress-tooltip" id="dictionaryStatHelp" role="tooltip">The total number of default and custom words currently in your dictionary.</span></div>
           <div class="progress-card" tabindex="0" aria-describedby="masteredStatHelp"><strong>${progressStats.gotit}</strong><span>Words mastered</span><span class="progress-info" aria-hidden="true">ⓘ</span><span class="progress-tooltip" id="masteredStatHelp" role="tooltip">The total number of flashcards you marked “Got it” in completed sessions. A word counts again each time you master it.</span></div>
           <div class="progress-card" tabindex="0" aria-describedby="reviewedStatHelp"><strong>${totalReviewed}</strong><span>Flashcards reviewed</span><span class="progress-info" aria-hidden="true">ⓘ</span><span class="progress-tooltip" id="reviewedStatHelp" role="tooltip">All flashcards rated “Got it,” “Almost got it,” or “Didn't know” in completed sessions. Skipped cards are not counted.</span></div>
@@ -4760,6 +4898,7 @@
       <div class="achievements-heading">
         <div><h2 id="achievementsTitle">Achievements</h2><p>${showAll ? "All badges, unlocked and locked. Mythical and miscellaneous achievements stay secret until unlocked." : "Your unlocked badges. Tap one to flip it and see when you earned it."} ${achievementCloudAvailable ? "Progress is synced to your account." : "Progress is saved on this device."}</p></div>
         <div class="achievements-heading-actions">
+          <div class="achievement-total">⭐ ${getStarBalance().toLocaleString()} Stars</div>
           <div class="achievement-total">${unlockedCount} unlocked</div>
           <button class="small-btn" id="toggleAchievementView">${showAll ? "Show unlocked only" : "Show all badges"}</button>
         </div>
@@ -4870,7 +5009,7 @@
         <div class="memory-turn">${turnLabel}</div>
         <div class="memory-player ${memoryGame.currentPlayer === 1 && memoryGame.winner === null ? "active" : ""}">${playerTwoLabel}<strong>${memoryGame.scores[1]}</strong></div>
       </div>
-      ${memoryGame.winner !== null ? `<div class="memory-ending"><h3>${winnerText}</h3><p>Final score: ${memoryGame.scores[0]}–${memoryGame.scores[1]}</p><button class="accent-btn" id="memoryAgain">Play again</button></div>` : `
+      ${memoryGame.winner !== null ? `<div class="memory-ending"><h3>${winnerText}</h3><p>Final score: ${memoryGame.scores[0]}–${memoryGame.scores[1]}</p><p>⭐ ${memoryGame.starsEarned} ${memoryGame.starsEarned === 1 ? "Star" : "Stars"} earned</p><button class="accent-btn" id="memoryAgain">Play again</button></div>` : `
         <div class="memory-message" aria-live="polite">${escapeHtml(memoryGame.message)}</div>
         <div class="memory-grid" aria-label="Memory cards">
           ${memoryGame.cards.map((card, index) => {
@@ -4945,11 +5084,24 @@
     const saveButton = root.querySelector("#saveParagraph");
     const updateParagraphChecks = (recordCompletion = false) => {
       const usedWords = getUsedParagraphWords();
+      if (!(paragraphChallenge.starredWordKeys instanceof Set)) paragraphChallenge.starredWordKeys = new Set(paragraphChallenge.starredWordKeys || []);
+      let newStars = 0;
+      if (recordCompletion) {
+        usedWords.forEach((item) => {
+          const wordKey = item.word.toLowerCase();
+          if (paragraphChallenge.starredWordKeys.has(wordKey)) return;
+          paragraphChallenge.starredWordKeys.add(wordKey);
+          newStars += awardStars(1, `${paragraphChallenge.starEventId}:word:${wordKey}`, "Paragraph Challenge", false);
+        });
+        if (newStars) queueStarNotification(newStars, "Paragraph Challenge");
+      }
       paragraphChallenge.words.forEach((item, index) => {
         root.querySelector(`[data-paragraph-word-index="${index}"]`)?.classList.toggle("used", usedWords.includes(item));
       });
       usedCount.textContent = `${usedWords.length} / ${paragraphChallenge.words.length} used`;
       success.hidden = usedWords.length !== paragraphChallenge.words.length;
+      const paragraphStars = getStarsForEventPrefix(`${paragraphChallenge.starEventId}:word:`);
+      success.textContent = `Excellent! You used all five vocabulary words and earned ${paragraphStars} ${paragraphStars === 1 ? "Star" : "Stars"}.`;
       if (recordCompletion && usedWords.length === paragraphChallenge.words.length && !paragraphChallenge.completed) {
         paragraphChallenge.completed = true;
         recordAchievementStat("paragraphCompletions");
@@ -5072,6 +5224,10 @@
     if (!battleState) startBossBattle();
     if (battleState.result) {
       const won = battleState.result === "victory";
+      if (!battleState.starsAwarded) {
+        battleState.starsAwarded = true;
+        battleState.starReward = awardStars(Math.max(0, 8 - battleState.incorrectAnswers), battleState.starEventId, "Wordbound");
+      }
       if (won && !battleState.achievementRecorded) {
         battleState.achievementRecorded = true;
         recordAchievementStat("wordboundWins");
@@ -5091,6 +5247,7 @@
         <div style="font-size:64px">${won ? "🏆" : "💀"}</div>
         <h3>${won ? "Boss defeated!" : "Battle lost"}</h3>
         <p>${won ? `You won in ${battleState.turn} turn${battleState.turn === 1 ? "" : "s"}.` : "The boss got the better of you this time."}</p>
+        <p>⭐ ${battleState.starReward} ${battleState.starReward === 1 ? "Star" : "Stars"} earned (${battleState.incorrectAnswers} incorrect)</p>
         <button class="accent-btn" id="battleAgain">Battle again</button>
       </section>`;
       root.querySelector("#battleAgain").addEventListener("click", () => { playClickSound(); startBossBattle(); render(); });
@@ -5173,6 +5330,7 @@
         <div>
           <div class="game-stats" aria-label="Whack-a-Word score">
             <div class="stat-pill"><strong id="whackScore">${whackGame.score}</strong><span>Score</span></div>
+            <div class="stat-pill"><strong id="whackStars">${Math.round(whackGame.score / 1000)}</strong><span>Stars</span></div>
             <div class="stat-pill"><strong id="whackStreak">${whackGame.streak}</strong><span>Streak</span></div>
             <div class="stat-pill"><strong id="whackTimer">${whackGame.elapsed.toFixed(1)}s</strong><span>Time</span></div>
             <div class="stat-pill"><strong id="whackBest">${highScores.whack}</strong><span>Best</span></div>
@@ -5189,7 +5347,7 @@
         <img class="whack-mallet" src="assets/whack-mallet.png" alt="" aria-hidden="true">
       </div>
       <div class="whack-feedback ${whackGame.feedbackType}" aria-live="polite">${escapeHtml(whackGame.feedback)}</div>
-      <div class="game-footer"><button class="small-btn" id="newWhackGame">New game</button></div>
+      <div class="game-footer"><button class="small-btn" id="newWhackGame">Collect Stars &amp; start new game</button></div>
     </section>`;
 
     const yard = root.querySelector(".whack-yard");
@@ -5254,6 +5412,7 @@
       }
 
       root.querySelector("#whackScore").textContent = whackGame.score;
+      root.querySelector("#whackStars").textContent = Math.round(whackGame.score / 1000);
       root.querySelector("#whackBest").textContent = highScores.whack;
       root.querySelector("#whackStreak").textContent = whackGame.streak;
       root.querySelector("#whackTimer").textContent = `${whackGame.elapsed.toFixed(1)}s`;
@@ -5320,6 +5479,7 @@
           <div>
             <div class="game-stats" aria-label="Game score">
               <div class="stat-pill"><strong id="gameScore">${bubbleGame.score}</strong><span>Score</span></div>
+              <div class="stat-pill"><strong id="bubbleStars">${Math.round(bubbleGame.score / 1000)}</strong><span>Stars</span></div>
               <div class="stat-pill"><strong id="gameStreak">${bubbleGame.streak}</strong><span>Streak</span></div>
               <div class="stat-pill"><strong id="roundTimer">${bubbleGame.elapsed.toFixed(1)}s</strong><span>Time</span></div>
               <div class="stat-pill"><strong id="bubbleBest">${highScores.bubble}</strong><span>Best</span></div>
@@ -5355,7 +5515,7 @@
         </div>
 
         <div class="game-footer">
-          <button class="small-btn" id="newBubbleGame">New game</button>
+          <button class="small-btn" id="newBubbleGame">Collect Stars &amp; start new game</button>
         </div>
       </section>
     `;
@@ -5427,6 +5587,7 @@
         field.classList.add("round-locked");
         root.querySelectorAll(".word-bubble").forEach((bubble) => bubble.setAttribute("aria-disabled", "true"));
         root.querySelector("#gameScore").textContent = bubbleGame.score;
+        root.querySelector("#bubbleStars").textContent = Math.round(bubbleGame.score / 1000);
         root.querySelector("#bubbleBest").textContent = highScores.bubble;
         root.querySelector("#gameStreak").textContent = bubbleGame.streak;
         root.querySelector("#roundTimer").textContent = `${elapsed.toFixed(1)}s`;
@@ -6477,6 +6638,11 @@
         document.getElementById("gotit")?.click();
       }
     }
+  });
+
+  window.addEventListener("beforeunload", () => {
+    if (view === "bubble") finalizeBubbleStars(false);
+    if (view === "whack") finalizeWhackStars(false);
   });
 
   initAuth();
