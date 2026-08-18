@@ -1025,6 +1025,8 @@
   }
 
   .dictionary-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .dictionary-header-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+  .dictionary-header-actions button:disabled { opacity: .42; cursor: not-allowed; }
 
   .dictionary-header h2 {
     margin: 0 0 4px;
@@ -1603,6 +1605,8 @@
     .setting-toggle { grid-column: 1; }
     .selection-tray { align-items: stretch; flex-direction: column; }
     .selection-actions { justify-content: flex-start; }
+    .dictionary-header { align-items: stretch; flex-direction: column; }
+    .dictionary-header-actions { justify-content: flex-start; }
     .dictionary-toolbar { flex-wrap: wrap; }
     .batch-play-menu { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .batches-header, .batch-combine-heading, .batch-combine-footer { align-items: stretch; flex-direction: column; }
@@ -3342,6 +3346,7 @@
   let sortOrder = "az"; // "az" | "za" | "newest" | "oldest"
   let dictionarySearchQuery = "";
   let selectedDictionaryKeys = new Set();
+  let dictionaryUndo = null;
   let practiceWordPool = null;
   let bubbleWordPool = null;
   let whackWordPool = null;
@@ -3360,6 +3365,51 @@
   let practiceSourceBatchIds = [];
   let gameReturnView = "games";
   let gameSourceBatchId = null;
+
+  function createDictionaryUndoSnapshot(type, index, originalWord, currentKey = originalWord.word.toLowerCase()) {
+    const relevantKeys = [...new Set([originalWord.word.toLowerCase(), currentKey])];
+    return {
+      type,
+      index,
+      originalWord: { ...originalWord },
+      currentKey,
+      selectedState: relevantKeys.map((key) => [key, selectedDictionaryKeys.has(key)]),
+      batchSnapshots: batches
+        .filter((batch) => batch.wordKeys.some((key) => relevantKeys.includes(key)))
+        .map((batch) => ({ id: batch.id, wordKeys: [...batch.wordKeys] }))
+    };
+  }
+
+  function undoLastDictionaryChange() {
+    if (!dictionaryUndo) return false;
+    const undo = dictionaryUndo;
+    if (undo.type === "edit") {
+      const currentIndex = words.findIndex((item) => item.word.toLowerCase() === undo.currentKey);
+      if (currentIndex < 0) return false;
+      words[currentIndex] = { ...undo.originalWord };
+    } else if (undo.type === "delete") {
+      const restoreIndex = Math.max(0, Math.min(undo.index, words.length));
+      words.splice(restoreIndex, 0, { ...undo.originalWord });
+    } else {
+      return false;
+    }
+    undo.batchSnapshots.forEach((snapshot) => {
+      const batch = batches.find((item) => item.id === snapshot.id);
+      if (batch) batch.wordKeys = [...snapshot.wordKeys];
+    });
+    undo.selectedState.forEach(([key, wasSelected]) => {
+      selectedDictionaryKeys.delete(key);
+      if (wasSelected) selectedDictionaryKeys.add(key);
+    });
+    dictionaryUndo = null;
+    editingIndex = null;
+    showAddForm = false;
+    saveWords(words);
+    saveBatches();
+    generateNewSession();
+    refreshAchievements();
+    return true;
+  }
 
   function formatAchievementTitle(title) {
     return title.split(/(\s+)/).map((part) => /^\s+$/.test(part) ? part : part.charAt(0).toLocaleUpperCase() + part.slice(1)).join("");
@@ -4759,6 +4809,7 @@
       const previousUserId = currentUser?.id || null;
       currentUser = user;
       if (user && user.id !== previousUserId) {
+        dictionaryUndo = null;
         appSettingsOpen = false;
         setTimeout(async () => {
           if (currentUser?.id !== user.id) return;
@@ -4772,6 +4823,7 @@
         resetAchievementSyncSession();
         resetProgressSyncSession();
         resetPublicProfileSession();
+        dictionaryUndo = null;
         appSettingsOpen = false;
         renderAuthGate();
       }
@@ -5095,6 +5147,7 @@
       deleteCustomButton.disabled = homeCustomWordCount === 0;
       deleteCustomButton.title = homeCustomWordCount ? `Delete ${homeCustomWordCount} custom word${homeCustomWordCount === 1 ? "" : "s"}` : "There are no custom words";
       resetDefaultsButton.addEventListener("click", () => {
+        dictionaryUndo = null;
         const existingKeys = new Set(words.map((item) => item.word.toLowerCase()));
         builtInWords.forEach((item) => {
           if (!existingKeys.has(item.word.toLowerCase())) words.push({ ...item });
@@ -5106,6 +5159,7 @@
       });
       deleteCustomButton.addEventListener("click", () => {
         if (!confirm(`Delete all ${homeCustomWordCount} custom word${homeCustomWordCount === 1 ? "" : "s"}? This cannot be undone.`)) return;
+        dictionaryUndo = null;
         words.filter((item) => !homeBuiltInKeys.has(item.word.toLowerCase())).forEach((item) => removeWordFromBatches(item.word.toLowerCase()));
         words = words.filter((item) => homeBuiltInKeys.has(item.word.toLowerCase()));
         selectedDictionaryKeys = new Set([...selectedDictionaryKeys].filter((key) => homeBuiltInKeys.has(key)));
@@ -6828,7 +6882,10 @@
       <div class="manage">
         <div class="dictionary-header">
           <div><h2>Dictionary</h2><p>${allWords.length} words &mdash; search, add, edit, or remove any of them.</p></div>
-          <button class="small-btn" id="openBatches">Batches (${batches.length}/${MAX_BATCHES})</button>
+          <div class="dictionary-header-actions">
+            <button class="small-btn" id="undoDictionaryChange" ${dictionaryUndo ? "" : "disabled"} title="${dictionaryUndo ? `Undo the last word ${dictionaryUndo.type}` : "Edit or delete a word to enable Back"}">↶ Back</button>
+            <button class="small-btn" id="openBatches">Batches (${batches.length}/${MAX_BATCHES})</button>
+          </div>
         </div>
         <div class="dictionary-toolbar">
           <input
@@ -6918,6 +6975,12 @@
       render();
     });
 
+    root.querySelector("#undoDictionaryChange").addEventListener("click", () => {
+      if (!undoLastDictionaryChange()) return;
+      playGotItSound();
+      render();
+    });
+
     root.querySelector("#sortSelect").addEventListener("change", (e) => {
       playClickSound();
       sortOrder = e.target.value;
@@ -6988,9 +7051,12 @@
         }
         playClickSound();
         if (editingIndex === null) {
+          dictionaryUndo = null;
           words.push({ word, definition, partOfSpeech });
         } else {
-          const previousKey = words[editingIndex].word.toLowerCase();
+          const originalWord = { ...words[editingIndex] };
+          const previousKey = originalWord.word.toLowerCase();
+          dictionaryUndo = createDictionaryUndoSnapshot("edit", editingIndex, originalWord, word.toLowerCase());
           const wasSelected = selectedDictionaryKeys.delete(previousKey);
           words[editingIndex] = { word, definition, partOfSpeech };
           replaceWordInBatches(previousKey, word.toLowerCase());
@@ -7065,7 +7131,9 @@
           const listScrollPosition = list.scrollTop;
           const pageScrollPosition = window.scrollY;
           const i = parseInt(btn.getAttribute("data-index"), 10);
-          const deletedKey = words[i].word.toLowerCase();
+          const deletedWord = { ...words[i] };
+          const deletedKey = deletedWord.word.toLowerCase();
+          dictionaryUndo = createDictionaryUndoSnapshot("delete", i, deletedWord);
           selectedDictionaryKeys.delete(deletedKey);
           removeWordFromBatches(deletedKey);
           words.splice(i, 1);
