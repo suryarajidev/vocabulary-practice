@@ -357,7 +357,10 @@
   .streak-pill:hover { border-color: #f59e0b; box-shadow: 0 7px 16px rgba(245, 158, 11, .14); }
   .streak-pill:active { transform: translateY(1px) scale(.98); }
   .streak-pill:focus-visible { outline: 3px solid rgba(245, 158, 11, .3); outline-offset: 3px; }
-  .streak-pill .streak-flame { font-size: 16px; line-height: 1; }
+  .streak-pill .streak-flame { display: inline-flex; }
+  .streak-pill .streak-flame .flame-icon { width: 17px; height: 17px; }
+  .star-icon-wrap { display: inline-flex; vertical-align: middle; }
+  .star-icon-wrap .star-icon { width: 15px; height: 15px; }
   .streak-pill span { color: var(--muted); font-weight: 700; font-size: 12px; }
 
   .stars-pill {
@@ -443,11 +446,12 @@
   .achievement-group-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .achievement-group-heading h3 { margin: 0; font-size: 20px; }
   .achievement-group-heading span { color: var(--muted); font-size: 13px; font-weight: 750; }
-  .achievement-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .achievement-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
   .achievement-card { position: relative; display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 13px; padding: 16px; overflow: hidden; border: 1px solid var(--border); border-radius: 14px; background: var(--card-bg); }
   .achievement-card.unlocked { display: block; padding: 0; overflow: visible; border-color: rgba(13,148,136,.45); box-shadow: 0 5px 16px rgba(13,148,136,.08); }
   .achievement-card.locked { filter: grayscale(.75); opacity: .72; }
   .achievement-icon { display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 13px; background: var(--chip-bg); font-size: 25px; flex: 0 0 auto; }
+  .achievement-icon .flame-icon { width: 26px; height: 26px; }
   .achievement-copy { min-width: 0; }
   .achievement-copy h4, .achievement-copy .achievement-title { margin: 1px 0 4px; font-size: 16px; font-weight: 800; }
   .achievement-copy p, .achievement-copy .achievement-desc { display: block; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
@@ -464,8 +468,8 @@
   .achievement-flip { display: block; width: 100%; min-height: 150px; margin: 0; padding: 0; border: none; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; perspective: 1100px; -webkit-tap-highlight-color: transparent; }
   .achievement-flip-inner { position: relative; display: block; width: 100%; height: 100%; min-height: 150px; transition: transform 0.5s cubic-bezier(0.4, 0.2, 0.2, 1); transform-style: preserve-3d; }
   .achievement-flip.flipped .achievement-flip-inner { transform: rotateY(180deg); }
-  .achievement-face { position: absolute; inset: 0; display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: start; gap: 13px; padding: 16px; border-radius: 14px; background: transparent; backface-visibility: hidden; }
-  .achievement-face-back { align-items: center; transform: rotateY(180deg); }
+  .achievement-face { position: absolute; inset: 0; display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: center; gap: 13px; padding: 16px; border-radius: 14px; background: transparent; backface-visibility: hidden; }
+  .achievement-face-back { transform: rotateY(180deg); }
   .achievement-flip:focus-visible .achievement-face { outline: 2px solid var(--accent); outline-offset: -2px; }
 
   .achievement-toast-region {
@@ -1107,7 +1111,11 @@
     border-radius: 8px;
     font-family: inherit;
     resize: vertical;
+    background: var(--card-bg);
+    color: var(--text);
   }
+
+  [data-theme="dark"] select { color-scheme: dark; }
 
   .part-of-speech { display: inline-block; width: fit-content; margin: 3px 0 5px; padding: 3px 7px; border-radius: 999px; background: #e5f4f1; color: var(--brand-dark); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; }
   .card-part-of-speech { margin: 9px auto 0; }
@@ -1381,12 +1389,18 @@
     width: 100%;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 18px;
+    row-gap: 36px;
+    column-gap: 24px;
   }
 
-  .game-menu-heading { grid-column: 1 / -1; }
+  .game-menu-heading { grid-column: 1 / -1; margin-bottom: 6px; }
   .game-menu-heading h2 { margin: 0 0 5px; }
   .game-menu-heading p { margin: 0; color: var(--muted); }
+  .game-choice:last-child { grid-column: 1 / -1; }
+
+  @media (min-width: 621px) {
+    .game-menu { row-gap: 48px; column-gap: 32px; }
+  }
 
   .game-choice {
     min-height: 220px;
@@ -1471,6 +1485,7 @@
   [data-theme="dark"] .paragraph-success { border-color: #60776a; background: #354139; color: #c3ddcb; }
 
   .app.battle-mode { max-width: 1100px; }
+  .app.wide-mode { max-width: 1180px; }
 
   .boss-battle {
     width: 100%;
@@ -2082,6 +2097,8 @@
   const ACHIEVEMENTS_KEY = "vocabPracticeAchievements";
   const MAX_BATCHES = 5;
   const MAX_SAVED_PARAGRAPHS = 5;
+  const FLAME_ICON_SVG = `<svg class="flame-icon" viewBox="0 0 20 20" aria-hidden="true" fill-rule="evenodd" clip-rule="evenodd"><path fill="#f59e0b" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654a1 1 0 00-1.7-.707A6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.88 2.12z"/></svg>`;
+  const STAR_ICON_SVG = `<svg class="star-icon" viewBox="0 0 20 20" aria-hidden="true"><path fill="#eab308" d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.957a1 1 0 00.951.69h4.162c.969 0 1.371 1.24.588 1.81l-3.367 2.446a1 1 0 00-.364 1.118l1.287 3.957c.3.922-.755 1.688-1.538 1.118l-3.367-2.446a1 1 0 00-1.175 0l-3.368 2.446c-.783.57-1.838-.196-1.538-1.118l1.287-3.957a1 1 0 00-.364-1.118L2.75 9.384c-.783-.57-.38-1.81.588-1.81h4.163a1 1 0 00.95-.69l1.286-3.957z"/></svg>`;
   const defaultFlashcardSettings = { length: "standard", showPercentages: true, cardCount: SESSION_SIZE, firstSide: "term" };
   const defaultHighScores = { bubble: 0, whack: 0, wordboundTurns: null };
   const defaultProgress = { sessionsCompleted: 0, gotit: 0, almost: 0, dontknow: 0 };
@@ -3467,7 +3484,7 @@
       { id: "well-rounded", group: "Intermediate", icon: "🎡", title: "Well Rounded", description: "Play every vocabulary game at least once.", value: gamesPlayed, target: 5, progressText: `${Math.min(gamesPlayed, 5)} / 5 games` },
 
       { id: "advanced-author", group: "Advanced", icon: "📖", title: "Advanced author", description: "Complete Paragraph Challenge 5 times.", value: stats.paragraphCompletions, target: 5, progressText: `${Math.min(stats.paragraphCompletions, 5)} / 5 paragraphs` },
-      { id: "on-fire", group: "Advanced", icon: "🔥", title: "On fire!", description: "Reach a 28-day Vocab Lab streak.", value: streak.count, target: 28, progressText: `${Math.min(streak.count, 28)} / 28 days` },
+      { id: "on-fire", group: "Advanced", icon: FLAME_ICON_SVG, title: "On fire!", description: "Reach a 28-day Vocab Lab streak.", value: streak.count, target: 28, progressText: `${Math.min(streak.count, 28)} / 28 days` },
       { id: "boss-breaker", group: "Advanced", icon: "⚔️", title: "Boss Breaker", description: "Defeat the Wordbound boss 5 times.", value: stats.wordboundWins, target: 5, progressText: `${Math.min(stats.wordboundWins, 5)} / 5 wins` },
       { id: "memory-master", group: "Advanced", icon: "🏛️", title: "Memory Master", description: "Complete 10 Memory Match games.", value: stats.memoryGamesCompleted, target: 10, progressText: `${Math.min(stats.memoryGamesCompleted, 10)} / 10 games` },
       { id: "study-scholar", group: "Advanced", icon: "🎓", title: "Study Scholar", description: "Complete 25 flashcard sessions.", value: progressStats.sessionsCompleted, target: 25, progressText: `${Math.min(progressStats.sessionsCompleted, 25)} / 25 sessions` },
@@ -4857,6 +4874,7 @@
     stopBubbleTimer();
     stopBubblePhysics();
     app.classList.toggle("battle-mode", view === "boss");
+    app.classList.toggle("wide-mode", view === "games" || view === "achievements" || view === "challenges");
     if (view === "home") {
       renderHome();
       return;
@@ -4944,8 +4962,8 @@
         </button>
       </div>
       <div class="home-corner home-corner-right">
-        <div class="stars-pill" aria-label="${getStarBalance().toLocaleString()} Stars"><span aria-hidden="true">⭐</span>${getStarBalance().toLocaleString()}<span>Stars</span></div>
-        <button class="streak-pill" id="streakAchievementButton" type="button" aria-label="Current streak: ${streak.count} day${streak.count === 1 ? "" : "s"}"><span class="streak-flame" aria-hidden="true">&#128293;</span>${streak.count}<span>day${streak.count === 1 ? "" : "s"}</span></button>
+        <div class="stars-pill" aria-label="${getStarBalance().toLocaleString()} Stars"><span class="star-icon-wrap" aria-hidden="true">${STAR_ICON_SVG}</span>${getStarBalance().toLocaleString()}<span>Stars</span></div>
+        <button class="streak-pill" id="streakAchievementButton" type="button" aria-label="Current streak: ${streak.count} day${streak.count === 1 ? "" : "s"}"><span class="streak-flame" aria-hidden="true">${FLAME_ICON_SVG}</span>${streak.count}<span>day${streak.count === 1 ? "" : "s"}</span></button>
       </div>
       ${appSettingsOpen ? `
         <div class="settings-backdrop" id="appSettingsBackdrop"></div>
@@ -5229,7 +5247,7 @@
     return `<article class="public-profile-card ${isOwnProfile ? "own-profile" : ""}">
       <button class="public-profile-summary" type="button" aria-expanded="false" aria-controls="${detailsId}">
         <span class="public-profile-username">${rank ? `<span class="leaderboard-rank ${rank <= 3 ? `rank-${rank}` : ""}">#${rank}</span>` : ""}${escapeHtml(profile.username)}</span>
-        <span class="public-profile-stars">⭐ ${Number(profile.stars || 0).toLocaleString()}</span>
+        <span class="public-profile-stars"><span class="star-icon-wrap" aria-hidden="true">${STAR_ICON_SVG}</span> ${Number(profile.stars || 0).toLocaleString()}</span>
         <span class="public-profile-chevron" aria-hidden="true">⌄</span>
       </button>
       <div class="public-profile-details" id="${detailsId}" hidden>
@@ -5422,7 +5440,7 @@
       <div class="achievements-heading">
         <div><h2 id="achievementsTitle">Achievements</h2><p>${showAll ? "All badges, unlocked and locked. Mythical and miscellaneous achievements stay secret until unlocked." : "Your unlocked badges. Tap one to flip it and see when you earned it."} ${achievementCloudAvailable ? "Progress is synced to your account." : "Progress is saved on this device."}</p></div>
         <div class="achievements-heading-actions">
-          <div class="achievement-total">⭐ ${getStarBalance().toLocaleString()} Stars</div>
+          <div class="achievement-total"><span class="star-icon-wrap" aria-hidden="true">${STAR_ICON_SVG}</span> ${getStarBalance().toLocaleString()} Stars</div>
           <div class="achievement-total">${unlockedCount} unlocked</div>
           <button class="small-btn" id="toggleAchievementView">${showAll ? "Show unlocked only" : "Show all badges"}</button>
         </div>
