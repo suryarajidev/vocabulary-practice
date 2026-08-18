@@ -1197,6 +1197,10 @@
   .batch-panel-header h3 { margin: 0 0 3px; font-size: 24px; }
   .batch-panel-header p { margin: 0; color: var(--muted); font-size: 13px; }
   .batch-header-actions { display: flex; gap: 7px; }
+  .batch-header-actions button:disabled { opacity: .42; cursor: not-allowed; }
+  .batch-title-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+  .batch-mastered-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border: 1px solid rgba(22,163,74,.3); border-radius: 999px; background: rgba(34,197,94,.12); color: #15803d; font-size: 11px; font-weight: 900; letter-spacing: .03em; text-transform: uppercase; }
+  [data-theme="dark"] .batch-mastered-badge { color: #86efac; background: rgba(34,197,94,.16); }
   .batch-play-menu { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
   .batch-play-menu button { padding: 10px 7px; font-size: 12px; }
   .batch-play-menu button:disabled { opacity: .42; cursor: not-allowed; }
@@ -1212,6 +1216,30 @@
   .batch-word-copy strong { display: block; }
   .batch-word-copy p { margin: 4px 0 0; color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .batch-empty { padding: 34px 18px; border: 1px dashed var(--border); border-radius: 14px; color: var(--muted); text-align: center; }
+
+  .mastery-view { width: min(720px, 100%); display: flex; flex-direction: column; gap: 16px; }
+  .mastery-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .mastery-heading h2 { margin: 0 0 5px; }
+  .mastery-heading p { margin: 0; color: var(--muted); }
+  .mastery-progress { flex: 0 0 auto; padding: 8px 12px; border-radius: 999px; background: var(--card-bg); border: 1px solid var(--border); color: var(--muted); font-size: 13px; font-weight: 800; }
+  .mastery-card { padding: clamp(24px, 5vw, 42px); border: 1px solid var(--border); border-radius: 20px; background: var(--card-bg); box-shadow: 0 18px 45px rgba(4,52,44,.09); text-align: center; }
+  .mastery-card-label { display: block; margin-bottom: 12px; color: var(--muted); font-size: 12px; font-weight: 900; letter-spacing: .09em; text-transform: uppercase; }
+  .mastery-definition { margin: 0 auto 24px; max-width: 590px; font-size: clamp(21px, 4vw, 30px); font-weight: 800; line-height: 1.35; }
+  .mastery-answer-form { display: flex; gap: 9px; max-width: 520px; margin: 0 auto; }
+  .mastery-answer-form input { min-width: 0; flex: 1; padding: 13px 14px; border: 1px solid var(--border); border-radius: 11px; background: var(--bg); color: var(--text); font: inherit; }
+  .mastery-answer-form button { padding-inline: 22px; }
+  .mastery-rule { margin: 14px 0 0; color: var(--muted); font-size: 12px; }
+  .mastery-result { padding: clamp(26px, 6vw, 48px); border: 1px solid var(--border); border-radius: 20px; background: var(--card-bg); text-align: center; }
+  .mastery-result h2 { margin: 0 0 10px; }
+  .mastery-result p { margin: 7px auto; max-width: 560px; color: var(--muted); }
+  .mastery-result strong { color: var(--text); }
+  .mastery-result-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 9px; margin-top: 22px; }
+  .mastery-success-icon, .mastery-failure-icon { display: block; margin-bottom: 13px; font-size: 48px; }
+  @media (max-width: 560px) {
+    .mastery-heading { flex-direction: column; }
+    .mastery-answer-form { flex-direction: column; }
+    .mastery-answer-form button { width: 100%; }
+  }
 
   .batch-modal-backdrop { position: fixed; inset: 0; z-index: 1200; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(4,52,44,.48); }
   .batch-modal { width: min(470px, 100%); max-height: calc(100vh - 40px); overflow-y: auto; padding: 22px; border-radius: 16px; background: var(--card-bg); box-shadow: 0 24px 60px rgba(4,52,44,.28); }
@@ -2194,7 +2222,7 @@
   }
 
   function createEmptyAchievementData() {
-    return { stats: { ...defaultAchievementStats }, unlocked: [], unlockedAt: {}, batchGames: {}, gamesPlayed: [], masteredWords: [], batchPerfectActivities: {}, starEvents: {} };
+    return { stats: { ...defaultAchievementStats }, unlocked: [], unlockedAt: {}, batchGames: {}, gamesPlayed: [], masteredWords: [], masteredBatches: {}, batchPerfectActivities: {}, starEvents: {} };
   }
 
   function normalizeAchievementData(saved = {}) {
@@ -2208,6 +2236,9 @@
       batchGames: safeSaved.batchGames && typeof safeSaved.batchGames === "object" ? Object.fromEntries(Object.entries(safeSaved.batchGames).map(([id, games]) => [String(id), Array.isArray(games) ? [...new Set(games.map(String))] : []])) : {},
       gamesPlayed: Array.isArray(safeSaved.gamesPlayed) ? [...new Set(safeSaved.gamesPlayed.map(String))] : [],
       masteredWords: Array.isArray(safeSaved.masteredWords) ? [...new Set(safeSaved.masteredWords.map((word) => String(word).toLowerCase()))] : [],
+      masteredBatches: safeSaved.masteredBatches && typeof safeSaved.masteredBatches === "object" && !Array.isArray(safeSaved.masteredBatches)
+        ? Object.fromEntries(Object.entries(safeSaved.masteredBatches).filter(([, signature]) => typeof signature === "string").map(([id, signature]) => [String(id), signature]))
+        : {},
       batchPerfectActivities: safeSaved.batchPerfectActivities && typeof safeSaved.batchPerfectActivities === "object" ? Object.fromEntries(Object.entries(safeSaved.batchPerfectActivities).map(([id, activities]) => [String(id), Array.isArray(activities) ? [...new Set(activities.map(String))] : []])) : {},
       starEvents: safeSaved.starEvents && typeof safeSaved.starEvents === "object" && !Array.isArray(safeSaved.starEvents)
         ? Object.fromEntries(Object.entries(safeSaved.starEvents).map(([id, amount]) => [String(id), Math.max(0, Math.round(Number(amount) || 0))]).filter(([, amount]) => amount > 0))
@@ -2258,6 +2289,7 @@
       batchGames: mergeAchievementCollections(local.batchGames, cloud.batchGames),
       gamesPlayed: [...new Set([...local.gamesPlayed, ...cloud.gamesPlayed])],
       masteredWords: [...new Set([...local.masteredWords, ...cloud.masteredWords])],
+      masteredBatches: { ...cloud.masteredBatches, ...local.masteredBatches },
       batchPerfectActivities: mergeAchievementCollections(local.batchPerfectActivities, cloud.batchPerfectActivities),
       starEvents: mergeStarEvents(local.starEvents, cloud.starEvents)
     });
@@ -3085,6 +3117,24 @@
     return batch.wordKeys.map((key) => byKey.get(key)).filter(Boolean);
   }
 
+  function getBatchMasterySignature(batch) {
+    if (!batch?.wordKeys?.length) return "";
+    return [...new Set(batch.wordKeys.map((key) => String(key).toLowerCase()))].sort().join("\u001f");
+  }
+
+  function isBatchMastered(batch) {
+    const signature = getBatchMasterySignature(batch);
+    return Boolean(signature && achievementData.masteredBatches?.[batch.id] === signature);
+  }
+
+  function markBatchMastered(batch) {
+    const signature = getBatchMasterySignature(batch);
+    if (!signature) return;
+    if (!achievementData.masteredBatches) achievementData.masteredBatches = {};
+    achievementData.masteredBatches[batch.id] = signature;
+    saveAchievementData();
+  }
+
   function getCombinedBatchWords(batchIds) {
     const selectedIds = new Set(batchIds);
     const byKey = new Map(words.map((item) => [item.word.toLowerCase(), item]));
@@ -3267,7 +3317,7 @@
   let batches = loadBatches();
   let savedParagraphs = loadSavedParagraphs();
   let deck = randomSample(getAllWords(), flashcardSettings.cardCount);
-  let view = "home"; // "home" | "practice" | "dictionary" | "batches" | "games" | "bubble" | "whack" | "boss" | "memory" | "paragraph" | "progress" | "achievements" | "users"
+  let view = "home"; // "home" | "practice" | "dictionary" | "batches" | "batchMastery" | "games" | "bubble" | "whack" | "boss" | "memory" | "paragraph" | "progress" | "achievements" | "users"
   let editingIndex = null;
   let showAddForm = false;
   let sortOrder = "az"; // "az" | "za" | "newest" | "oldest"
@@ -3286,6 +3336,7 @@
   let batchCombineOpen = false;
   let batchAddOpen = false;
   let batchSearchQuery = "";
+  let batchMasteryQuiz = null;
   let practiceReturnView = "home";
   let practiceSourceBatchIds = [];
   let gameReturnView = "games";
@@ -4718,7 +4769,7 @@
     }
 
     const gameViews = ["bubble", "whack", "boss", "memory", "paragraph"];
-    const backTarget = view === "batches" ? "dictionary" : view === "practice" ? practiceReturnView : gameViews.includes(view) ? gameReturnView : "home";
+    const backTarget = view === "batchMastery" ? "batches" : view === "batches" ? "dictionary" : view === "practice" ? practiceReturnView : gameViews.includes(view) ? gameReturnView : "home";
     const backLabel = backTarget === "games" ? "Games" : backTarget === "batches" ? "Batches" : backTarget === "dictionary" ? "Dictionary" : "Home";
     app.innerHTML = `
       <button class="back-home-btn" id="backHome">&#8249; Back to ${backLabel}</button>
@@ -4740,6 +4791,8 @@
       renderDictionary(root);
     } else if (view === "batches") {
       renderBatches(root);
+    } else if (view === "batchMastery") {
+      renderBatchMastery(root);
     } else if (view === "games") {
       renderGameMenu(root);
     } else if (view === "bubble") {
@@ -6312,6 +6365,118 @@
     });
   }
 
+  function startBatchMasteryQuiz(batch) {
+    const batchWords = getBatchWords(batch);
+    if (!batch || !batchWords.length) return false;
+    batchMasteryQuiz = {
+      batchId: batch.id,
+      batchName: batch.name,
+      words: randomSample(batchWords, batchWords.length).map((item) => ({
+        word: item.word,
+        definition: item.definition,
+        partOfSpeech: item.partOfSpeech || ""
+      })),
+      position: 0,
+      failed: null,
+      completed: false,
+      earnedStars: 0
+    };
+    view = "batchMastery";
+    return true;
+  }
+
+  function renderBatchMastery(root) {
+    const quiz = batchMasteryQuiz;
+    const batch = quiz ? batches.find((item) => item.id === quiz.batchId) : null;
+    if (!quiz || !batch || !quiz.words.length) {
+      root.innerHTML = `<div class="empty-state">This mastery quiz is no longer available. Return to Batches and start it again.</div>`;
+      return;
+    }
+
+    const returnToBatch = () => {
+      activeBatchId = batch.id;
+      batchMasteryQuiz = null;
+      view = "batches";
+      render();
+    };
+    const restartQuiz = () => {
+      playClickSound();
+      startBatchMasteryQuiz(batch);
+      render();
+    };
+
+    if (quiz.failed) {
+      root.innerHTML = `<section class="mastery-view" aria-labelledby="masteryFailureTitle">
+        <div class="mastery-result">
+          <span class="mastery-failure-icon" aria-hidden="true">↻</span>
+          <h2 id="masteryFailureTitle">Restart Required</h2>
+          <p>Your answer was <strong>${escapeHtml(quiz.failed.answer || "(blank)")}</strong>. The exact word was <strong>${escapeHtml(quiz.failed.expected)}</strong>.</p>
+          <p>One mistake ends a mastery attempt. You need to restart the quiz and answer every word correctly to master this batch.</p>
+          <div class="mastery-result-actions"><button class="accent-btn" id="restartMasteryQuiz">Restart Quiz</button><button class="small-btn" id="returnToMasteryBatch">Back to Batch</button></div>
+        </div>
+      </section>`;
+      root.querySelector("#restartMasteryQuiz").addEventListener("click", restartQuiz);
+      root.querySelector("#returnToMasteryBatch").addEventListener("click", () => { playClickSound(); returnToBatch(); });
+      return;
+    }
+
+    if (quiz.completed) {
+      const rewardMessage = quiz.earnedStars > 0
+        ? `You earned <strong>${quiz.earnedStars} Stars</strong> — two for each of the ${quiz.words.length} words.`
+        : "This batch remains mastered. Its one-time mastery Star reward was already collected.";
+      root.innerHTML = `<section class="mastery-view" aria-labelledby="masterySuccessTitle">
+        <div class="mastery-result">
+          <span class="mastery-success-icon" aria-hidden="true">🏅</span>
+          <h2 id="masterySuccessTitle">Batch Mastered!</h2>
+          <p>You answered every word in <strong>${escapeHtml(batch.name)}</strong> correctly.</p>
+          <p>${rewardMessage}</p>
+          <div class="mastery-result-actions"><button class="accent-btn" id="returnToMasteredBatch">View Mastered Batch</button><button class="small-btn" id="retryMasteredBatch">Quiz Again</button></div>
+        </div>
+      </section>`;
+      root.querySelector("#returnToMasteredBatch").addEventListener("click", () => { playClickSound(); returnToBatch(); });
+      root.querySelector("#retryMasteredBatch").addEventListener("click", restartQuiz);
+      return;
+    }
+
+    const currentWord = quiz.words[quiz.position];
+    root.innerHTML = `<section class="mastery-view" aria-labelledby="masteryQuizTitle">
+      <div class="mastery-heading">
+        <div><h2 id="masteryQuizTitle">Master ${escapeHtml(batch.name)}</h2><p>Type every word exactly. Capitalization does not matter, but one mistake restarts the attempt.</p></div>
+        <span class="mastery-progress">${quiz.position + 1} / ${quiz.words.length}</span>
+      </div>
+      <div class="mastery-card">
+        <span class="mastery-card-label">${escapeHtml(currentWord.partOfSpeech || "Definition")}</span>
+        <p class="mastery-definition">${escapeHtml(currentWord.definition)}</p>
+        <form class="mastery-answer-form" id="masteryAnswerForm">
+          <input id="masteryAnswer" type="text" required autocomplete="off" autocapitalize="none" spellcheck="false" aria-label="Type the matching vocabulary word" placeholder="Type the exact word">
+          <button class="accent-btn" type="submit">Check</button>
+        </form>
+        <p class="mastery-rule">Complete all ${quiz.words.length} cards flawlessly to earn ${quiz.words.length * 2} Stars.</p>
+      </div>
+    </section>`;
+
+    const answerInput = root.querySelector("#masteryAnswer");
+    root.querySelector("#masteryAnswerForm").addEventListener("submit", (event) => {
+      event.preventDefault();
+      const answer = answerInput.value.trim();
+      if (answer.toLocaleLowerCase() !== currentWord.word.toLocaleLowerCase()) {
+        quiz.failed = { answer, expected: currentWord.word };
+        playDontKnowSound();
+        render();
+        return;
+      }
+      playGotItSound();
+      quiz.position++;
+      if (quiz.position >= quiz.words.length) {
+        quiz.completed = true;
+        markBatchMastered(batch);
+        quiz.earnedStars = awardStars(quiz.words.length * 2, `batch-mastery:${batch.id}`, "Batch Mastery");
+      }
+      render();
+    });
+    answerInput.focus();
+  }
+
   function renderBatches(root) {
     if (!batches.some((batch) => batch.id === activeBatchId)) activeBatchId = batches[0]?.id || null;
     const validBatchIds = new Set(batches.map((batch) => batch.id));
@@ -6345,12 +6510,12 @@
         </div>
       </div>` : ""}
       ${batches.length ? `<div class="batch-tabs" aria-label="Saved batches">
-        ${batches.map((batch) => `<button class="batch-tab ${batch.id === activeBatchId ? "active" : ""}" data-batch-id="${batch.id}">${escapeHtml(batch.name)} <span>(${getBatchWords(batch).length})</span></button>`).join("")}
+        ${batches.map((batch) => `<button class="batch-tab ${batch.id === activeBatchId ? "active" : ""}" data-batch-id="${batch.id}">${escapeHtml(batch.name)} <span>(${getBatchWords(batch).length})</span>${isBatchMastered(batch) ? ` <span class="batch-mastered-badge">✓ Mastered</span>` : ""}</button>`).join("")}
       </div>` : ""}
       ${activeBatch ? `<div class="batch-panel">
         <div class="batch-panel-header">
-          <div><h3>${escapeHtml(activeBatch.name)}</h3><p>${batchWords.length} word${batchWords.length === 1 ? "" : "s"} in this batch</p></div>
-          <div class="batch-header-actions"><button class="small-btn" id="renameBatch">Rename</button><button class="small-btn danger-outline" id="deleteBatch">Delete</button></div>
+          <div><div class="batch-title-row"><h3>${escapeHtml(activeBatch.name)}</h3>${isBatchMastered(activeBatch) ? `<span class="batch-mastered-badge">✓ Mastered</span>` : ""}</div><p>${batchWords.length} word${batchWords.length === 1 ? "" : "s"} in this batch</p></div>
+          <div class="batch-header-actions"><button class="small-btn" id="masterBatch" ${batchWords.length < 1 ? "disabled" : ""}>Master</button><button class="small-btn" id="renameBatch">Rename</button><button class="small-btn danger-outline" id="deleteBatch">Delete</button></div>
         </div>
         <div class="batch-play-menu" aria-label="Study this batch">
           <button class="small-btn" id="batchFlashcards" ${batchWords.length < 1 ? "disabled" : ""}>Flashcards</button>
@@ -6417,6 +6582,11 @@
     }
     if (!activeBatch) return;
 
+    root.querySelector("#masterBatch").addEventListener("click", () => {
+      if (!batchWords.length || !startBatchMasteryQuiz(activeBatch)) return;
+      playClickSound();
+      render();
+    });
     root.querySelector("#renameBatch").addEventListener("click", () => {
       const name = prompt("Rename this batch:", activeBatch.name)?.trim();
       if (!name) return;
