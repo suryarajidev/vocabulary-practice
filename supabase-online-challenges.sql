@@ -1,4 +1,4 @@
--- Run this file once in the Supabase SQL Editor.
+-- Run this file in the Supabase SQL Editor, and re-run it after updates that add an online game type.
 -- Challenge rows are private: only the two participating accounts can read or change them.
 
 create table if not exists public.online_challenges (
@@ -7,7 +7,7 @@ create table if not exists public.online_challenges (
   opponent_id uuid not null references auth.users(id) on delete cascade,
   challenger_username text not null,
   opponent_username text not null,
-  game_type text not null check (game_type in ('memory', 'paragraph', 'whack', 'bubble')),
+  game_type text not null check (game_type in ('memory', 'paragraph', 'whack', 'bubble', 'taboo')),
   status text not null default 'pending' check (status in ('pending', 'active', 'completed', 'declined', 'cancelled')),
   game_state jsonb not null default '{}'::jsonb,
   challenger_result jsonb,
@@ -19,6 +19,13 @@ create table if not exists public.online_challenges (
   completed_at timestamptz,
   constraint online_challenges_different_players check (challenger_id <> opponent_id)
 );
+
+-- Re-running this setup upgrades existing projects to include Taboo challenges.
+alter table public.online_challenges
+  drop constraint if exists online_challenges_game_type_check;
+alter table public.online_challenges
+  add constraint online_challenges_game_type_check
+  check (game_type in ('memory', 'paragraph', 'whack', 'bubble', 'taboo'));
 
 create index if not exists online_challenges_challenger_status_idx
   on public.online_challenges (challenger_id, status, updated_at desc);

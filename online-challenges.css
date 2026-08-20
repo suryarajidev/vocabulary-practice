@@ -134,9 +134,130 @@
 .online-bubble-field { min-height: 430px; }
 .online-whack-yard { min-height: 430px; }
 
+.online-taboo {
+  width: min(920px, 100%);
+  margin: 0 auto;
+}
+.taboo-game-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 18px;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: linear-gradient(135deg, var(--card-bg), var(--bg));
+}
+.taboo-game-header h2 { margin: 4px 0 5px; }
+.taboo-game-header p { margin: 0; color: var(--muted); }
+.taboo-clock {
+  min-width: 104px;
+  padding: 12px 15px;
+  border: 2px solid #ef4444;
+  border-radius: 14px;
+  background: rgba(239,68,68,.09);
+  color: #dc2626;
+  font-size: 24px;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.taboo-clock.finished { min-width: 150px; border-color: var(--border); background: var(--bg); color: var(--muted); font-size: 15px; }
+.taboo-describer-layout, .taboo-guesser-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.taboo-secret-card, .taboo-clue-panel, .taboo-speech-card, .taboo-guess-form {
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--card-bg);
+}
+.taboo-secret-card > h2 { display: inline-block; margin: 7px 9px 14px 0; color: var(--accent); font-size: 34px; }
+.taboo-secret-card > small { display: block; margin-top: 14px; color: var(--muted); line-height: 1.45; }
+.taboo-definition { padding: 14px; border-left: 4px solid var(--accent); border-radius: 0 12px 12px 0; background: var(--bg); }
+.taboo-definition strong, .taboo-forbidden > strong { display: block; margin-bottom: 6px; font-size: 13px; }
+.taboo-definition p { margin: 0; color: var(--muted); line-height: 1.55; }
+.taboo-forbidden { margin-top: 15px; }
+.taboo-forbidden > div { display: flex; flex-wrap: wrap; gap: 7px; }
+.taboo-forbidden span { padding: 6px 9px; border: 1px solid rgba(239,68,68,.28); border-radius: 999px; background: rgba(239,68,68,.1); color: #dc2626; font-size: 12px; font-weight: 850; }
+.taboo-clue-panel, .taboo-guess-form { display: flex; flex-direction: column; gap: 9px; }
+.taboo-clue-panel label, .taboo-guess-form label { font-weight: 850; }
+.taboo-clue-panel textarea {
+  width: 100%;
+  min-height: 230px;
+  padding: 16px;
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 17px;
+  line-height: 1.55;
+  resize: vertical;
+}
+.taboo-clue-panel textarea:focus, .taboo-guess-form input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px rgba(13,148,136,.13); }
+.taboo-clue-panel p, .taboo-guess-form p { min-height: 20px; margin: 0; color: var(--muted); font-size: 13px; }
+.taboo-guesser-layout { grid-template-columns: minmax(0, 1.35fr) minmax(270px, .65fr); }
+.taboo-speech-card { min-height: 260px; }
+.taboo-speech-bubble {
+  position: relative;
+  min-height: 135px;
+  margin: 14px 0 18px;
+  padding: 22px;
+  border-radius: 22px 22px 22px 5px;
+  background: var(--chip-bg);
+  color: var(--text);
+  font-size: 21px;
+  font-weight: 750;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.taboo-speech-bubble::after { content: ""; position: absolute; left: 0; bottom: -13px; border: 14px solid transparent; border-left-color: var(--chip-bg); transform: rotate(16deg); }
+.taboo-typing-note { color: var(--muted); font-size: 12px; }
+.taboo-guess-form { justify-content: center; }
+.taboo-guess-form > div { display: flex; gap: 8px; }
+.taboo-guess-form input { min-width: 0; flex: 1; padding: 13px; border: 2px solid var(--border); border-radius: 12px; background: var(--bg); color: var(--text); font: inherit; }
+.taboo-score-strip, .taboo-role-order {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 11px 14px;
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--muted);
+}
+.taboo-score-strip strong, .taboo-role-order strong { color: var(--accent); }
+.taboo-inline-result { margin-top: 15px; padding: 13px; border-radius: 12px; font-weight: 900; text-align: center; }
+.taboo-inline-result.won { background: rgba(22,163,74,.12); color: #15803d; }
+.taboo-inline-result.lost { background: rgba(239,68,68,.1); color: #dc2626; }
+.taboo-finish-card { padding: 28px; border: 1px solid var(--border); border-radius: 18px; background: var(--card-bg); text-align: center; }
+.taboo-finish-card h2 { margin: 8px 0 5px; }
+.taboo-finish-card > p { margin: 0; color: var(--muted); }
+.taboo-round-history { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin-top: 20px; text-align: left; }
+.taboo-round-summary { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); }
+.taboo-round-summary > span { display: grid; place-items: center; width: 29px; height: 29px; border-radius: 50%; color: white; font-size: 18px; font-weight: 900; }
+.taboo-round-summary.won > span { background: #16a34a; }
+.taboo-round-summary.lost > span { background: #ef4444; }
+.taboo-round-summary strong, .taboo-round-summary small { display: block; }
+.taboo-round-summary small { margin-top: 2px; color: var(--muted); }
+.taboo-alert-card { max-width: 410px; border-top: 5px solid #ef4444; text-align: center; }
+.taboo-alert-card.won { border-top-color: #16a34a; }
+.taboo-alert-card p { color: var(--muted); line-height: 1.5; }
+.taboo-alert-icon { font-size: 45px; }
+[data-theme="dark"] .taboo-forbidden span { color: #fca5a5; }
+[data-theme="dark"] .taboo-clock { color: #fca5a5; }
+[data-theme="dark"] .taboo-inline-result.won { color: #86efac; }
+[data-theme="dark"] .taboo-inline-result.lost { color: #fca5a5; }
+
 @media (max-width: 720px) {
   .online-challenge-list, .online-paragraph-columns { grid-template-columns: 1fr; }
   .challenge-modal-grid { grid-template-columns: 1fr; }
   .online-challenge-heading, .online-match-banner { align-items: stretch; flex-direction: column; }
   .online-game-shell .game-stats { justify-content: flex-start; }
+  .taboo-game-header { align-items: stretch; flex-direction: column; }
+  .taboo-clock { width: 100%; }
+  .taboo-describer-layout, .taboo-guesser-layout, .taboo-round-history { grid-template-columns: 1fr; }
+  .taboo-guess-form > div { align-items: stretch; flex-direction: column; }
 }
