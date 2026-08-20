@@ -220,6 +220,7 @@ async function createOnlineChallenge(opponentId, opponentUsername, type) {
     game_state: gameState
   });
   if (error) return { ok: false, message: error.message || "The challenge could not be sent." };
+  recordAchievementStat("onlineChallengesSent");
   return { ok: true };
 }
 
@@ -584,6 +585,7 @@ function ensureOnlineArcadeGame(challenge) {
   onlineArcadeGame = {
     challengeId: challenge.id, type: challenge.game_type,
     words: localWords,
+    answerQueue: [], lastAnswerWord: null,
     score: 0, correct: 0, incorrect: 0, streak: 0,
     deadline: performance.now() + Number(challenge.game_state?.durationSeconds || 60) * 1000,
     roundStartedAt: performance.now(), answerShownAt: 0,
@@ -598,7 +600,7 @@ function createOnlineArcadeRound(challenge = activeOnlineChallenge) {
   const words = game?.words || [];
   const choiceCount = game.type === "whack" ? 6 : 4;
   if (words.length < choiceCount) return;
-  const answer = words[Math.floor(Math.random() * words.length)];
+  const answer = drawNonRepeatingAnswer(game, words);
   const decoys = randomSample(words.filter((item) => item.word.toLowerCase() !== answer.word.toLowerCase()), choiceCount - 1);
   game.answer = answer;
   game.choices = randomSample([answer, ...decoys], choiceCount);
@@ -780,7 +782,7 @@ async function finishOnlineArcade() {
   stopOnlineArcadeVisuals();
   const result = { score: Math.max(0, Math.round(game.score)), correct: game.correct, incorrect: game.incorrect, finishedAt: new Date().toISOString() };
   const resultColumn = challenge.challenger_id === currentUser.id ? "challenger_result" : "opponent_result";
-  const stars = Math.round(result.score / 1000);
+  const stars = arcadeStarsForScore(result.score);
   if (stars) awardStars(stars, `online-arcade:${challenge.id}:${currentUser.id}`, onlineGameMeta(challenge.game_type).label);
   const { data } = await updateOnlineChallenge(challenge.id, { [resultColumn]: result });
   if (data?.challenger_result && data?.opponent_result) {
