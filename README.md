@@ -78,4 +78,6 @@ Following the same pattern as achievements, session stats (got it/almost/don't k
 
 Online Memory Match, Paragraph Duel, Bubble Shot, Whack-a-Word, and Taboo challenges use a participant-only Supabase table with live updates. Open the Supabase SQL Editor, paste the contents of `supabase-online-challenges.sql`, and run it once. Re-run the same file after pulling an update that adds a new online game type. The included Row Level Security policies only let the challenger and opponent read or update their match, and the setup adds the table to Supabase Realtime so turns, live clues, and results appear on both devices.
 
-I'm disappointed in your username. Also, CleverYak970 is Nila.
+SURYA: I'm disappointed in your username. Also, CleverYak970 is Nila.
+
+SURYA: What do you think we should do next for the website?
