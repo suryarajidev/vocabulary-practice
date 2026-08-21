@@ -81,3 +81,9 @@ Online Memory Match, Paragraph Duel, Bubble Shot, Whack-a-Word, and Taboo challe
 SURYA: I'm disappointed in your username. Also, CleverYak970 is Nila.
 
 SURYA: What do you think we should do next for the website?
+
+
+JAI: 
+
+#1 how do you know that suryaloves67 is from me??? It's clearly not
+#2: I think we should shift into UI improvement because everything looks a little messy. Also are we publishing the app?
