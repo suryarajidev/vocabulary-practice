@@ -5720,9 +5720,8 @@
 
     root.innerHTML = `<section class="achievements-view" aria-labelledby="achievementsTitle">
       <div class="achievements-heading">
-        <div><h2 id="achievementsTitle">Badges</h2><p>${showAll ? "All badges, unlocked and locked. Mythical and miscellaneous badges stay secret until unlocked." : "Your unlocked badges."} Cards open on the name and unlock date; tap one for its details. Tap a group heading to collapse it. ${achievementCloudAvailable ? "Progress is synced to your account." : "Progress is saved on this device."}</p></div>
+        <div><h2 id="achievementsTitle">Badges</h2></div>
         <div class="achievements-heading-actions">
-          <div class="achievement-total"><span class="star-icon-wrap" aria-hidden="true">${STAR_ICON_SVG}</span> ${getStarBalance().toLocaleString()} Stars</div>
           <div class="achievement-total">${unlockedCount} unlocked</div>
           <button class="small-btn" id="toggleAchievementView">${showAll ? "Show unlocked only" : "Show all badges"}</button>
         </div>
