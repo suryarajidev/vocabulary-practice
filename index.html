@@ -2130,6 +2130,11 @@
   let progressSyncUserId = null;
   let progressSyncPromise = null;
   let progressSaveTimer = null;
+  let dictionarySyncReady = false;
+  let dictionaryCloudAvailable = false;
+  let dictionarySyncUserId = null;
+  let dictionarySyncPromise = null;
+  let dictionarySaveTimer = null;
   let publicProfile = null;
   let publicProfileReady = false;
   let publicProfileAvailable = false;
@@ -2137,6 +2142,7 @@
   let publicProfileSaveTimer = null;
 
   const STORAGE_KEY = "vocabPracticeWords";
+  const DICTIONARY_META_KEY = "vocabPracticeDictionaryMeta";
   const LEGACY_CUSTOM_KEY = "vocabPracticeCustomWords";
   const LEGACY_DECK_KEY = "vocabPracticeDeck";
   const SESSION_SIZE = 10;
@@ -3136,9 +3142,9 @@
 
   builtInWords.forEach((item) => { item.partOfSpeech = item.partOfSpeech || defaultPartOfSpeech(item.word); });
 
-  function loadWords() {
+  function loadWords(storageKey = STORAGE_KEY) {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(storageKey);
       if (raw) {
         let saved = JSON.parse(raw);
         if (localStorage.getItem(WORD_EXPANSION_KEY) !== "1") {
@@ -3146,7 +3152,7 @@
           expandedBuiltInWords.forEach((item) => {
             if (!savedKeys.has(item.word.toLowerCase())) saved.push({ ...item });
           });
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+          localStorage.setItem(storageKey, JSON.stringify(saved));
           localStorage.setItem(WORD_EXPANSION_KEY, "1");
         }
         if (localStorage.getItem(SECOND_WORD_EXPANSION_KEY) !== "1") {
@@ -3154,7 +3160,7 @@
           additionalBuiltInWords.forEach((item) => {
             if (!savedKeys.has(item.word.toLowerCase())) saved.push({ ...item });
           });
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+          localStorage.setItem(storageKey, JSON.stringify(saved));
           localStorage.setItem(SECOND_WORD_EXPANSION_KEY, "1");
         }
         const defaultByWord = new Map(builtInWords.map((item) => [item.word.toLowerCase(), item.partOfSpeech]));
@@ -3164,7 +3170,7 @@
           addedParts = true;
           return { ...item, partOfSpeech: defaultByWord.get(item.word.toLowerCase()) || "Not specified" };
         });
-        if (addedParts) localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+        if (addedParts) localStorage.setItem(storageKey, JSON.stringify(saved));
         return saved;
       }
     } catch (e) {}
@@ -3195,14 +3201,185 @@
       ...item,
       partOfSpeech: item.partOfSpeech || defaultByWord.get(item.word.toLowerCase()) || "Not specified"
     }));
-    saveWords(initialWords);
+    localStorage.setItem(storageKey, JSON.stringify(initialWords));
     localStorage.setItem(WORD_EXPANSION_KEY, "1");
     localStorage.setItem(SECOND_WORD_EXPANSION_KEY, "1");
     return initialWords;
   }
 
   function saveWords(list) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+    const storageKey = getWordsStorageKey();
+    localStorage.setItem(storageKey, JSON.stringify(list));
+    if (!currentUser) return;
+    localStorage.setItem(getDictionaryMetaKey(currentUser.id), JSON.stringify({ updatedAt: new Date().toISOString() }));
+    queueDictionaryCloudSync();
+  }
+
+  function getWordsStorageKey(userId = currentUser?.id) {
+    return userId ? `${STORAGE_KEY}:${userId}` : STORAGE_KEY;
+  }
+
+  function getDictionaryMetaKey(userId = currentUser?.id) {
+    return userId ? `${DICTIONARY_META_KEY}:${userId}` : DICTIONARY_META_KEY;
+  }
+
+  function normalizeDictionaryWord(item) {
+    if (!item || typeof item !== "object") return null;
+    const word = String(item.word || "").trim();
+    const definition = String(item.definition || "").trim();
+    if (!word || !definition) return null;
+    const normalized = {
+      word,
+      definition,
+      partOfSpeech: String(item.partOfSpeech || "Not specified").trim() || "Not specified"
+    };
+    if (item.isCustom === true) normalized.isCustom = true;
+    return normalized;
+  }
+
+  function isCustomDictionaryWord(item) {
+    const normalized = normalizeDictionaryWord(item);
+    if (!normalized) return false;
+    if (normalized.isCustom) return true;
+    const builtIn = builtInWords.find((word) => word.word.toLowerCase() === normalized.word.toLowerCase());
+    if (!builtIn) return true;
+    return normalized.definition !== String(builtIn.definition || "").trim()
+      || normalized.partOfSpeech !== String(builtIn.partOfSpeech || "Not specified").trim();
+  }
+
+  function getCustomWordsFromList(list = words) {
+    return (Array.isArray(list) ? list : [])
+      .map(normalizeDictionaryWord)
+      .filter((item) => item && isCustomDictionaryWord(item))
+      .map((item) => ({ ...item, isCustom: true }));
+  }
+
+  function mergeCustomWordLists(first = [], second = []) {
+    const merged = new Map();
+    [...first, ...second].forEach((item) => {
+      const normalized = normalizeDictionaryWord(item);
+      if (normalized) merged.set(normalized.word.toLowerCase(), { ...normalized, isCustom: true });
+    });
+    return [...merged.values()];
+  }
+
+  function applyCustomWordsToDictionary(baseWords, customWords) {
+    const merged = new Map();
+    (Array.isArray(baseWords) ? baseWords : []).forEach((item) => {
+      const normalized = normalizeDictionaryWord(item);
+      if (normalized && !isCustomDictionaryWord(normalized)) merged.set(normalized.word.toLowerCase(), normalized);
+    });
+    getCustomWordsFromList(customWords).forEach((item) => merged.set(item.word.toLowerCase(), item));
+    return [...merged.values()];
+  }
+
+  function readDictionaryUpdatedAt(userId) {
+    try {
+      const saved = JSON.parse(localStorage.getItem(getDictionaryMetaKey(userId)) || "{}");
+      const timestamp = Date.parse(saved.updatedAt || "");
+      return Number.isFinite(timestamp) ? timestamp : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  function cacheDictionaryForUser(userId, list, updatedAt = new Date().toISOString()) {
+    localStorage.setItem(getWordsStorageKey(userId), JSON.stringify(list));
+    localStorage.setItem(getDictionaryMetaKey(userId), JSON.stringify({ updatedAt }));
+  }
+
+  function queueDictionaryCloudSync() {
+    if (!currentUser || !dictionarySyncReady || !dictionaryCloudAvailable || dictionarySyncUserId !== currentUser.id) return;
+    clearTimeout(dictionarySaveTimer);
+    dictionarySaveTimer = setTimeout(() => flushDictionaryWordsToCloud(), 600);
+  }
+
+  async function flushDictionaryWordsToCloud() {
+    clearTimeout(dictionarySaveTimer);
+    dictionarySaveTimer = null;
+    const userId = currentUser?.id;
+    if (!userId || !dictionarySyncReady || !dictionaryCloudAvailable || dictionarySyncUserId !== userId) return;
+    const updatedAt = new Date().toISOString();
+    const customWords = getCustomWordsFromList(words);
+    const { error } = await supabaseClient.from("user_dictionary_words").upsert({
+      user_id: userId,
+      custom_words: customWords,
+      updated_at: updatedAt
+    }, { onConflict: "user_id" });
+    if (error) {
+      dictionaryCloudAvailable = false;
+      console.warn("Dictionary cloud sync is unavailable; custom words are still saved on this device.", error.message);
+      return;
+    }
+    if (currentUser?.id === userId) localStorage.setItem(getDictionaryMetaKey(userId), JSON.stringify({ updatedAt }));
+  }
+
+  function resetDictionarySyncSession() {
+    clearTimeout(dictionarySaveTimer);
+    dictionarySaveTimer = null;
+    dictionarySyncReady = false;
+    dictionaryCloudAvailable = false;
+    dictionarySyncUserId = null;
+    dictionarySyncPromise = null;
+    words = builtInWords.map((item) => ({ ...item }));
+  }
+
+  async function initializeDictionarySync(user) {
+    if (!user?.id) return;
+    if (dictionarySyncReady && dictionarySyncUserId === user.id) return;
+    if (dictionarySyncPromise && dictionarySyncUserId === user.id) return dictionarySyncPromise;
+
+    dictionarySyncUserId = user.id;
+    dictionarySyncReady = false;
+    dictionaryCloudAvailable = false;
+    dictionarySyncPromise = (async () => {
+      const userStorageKey = getWordsStorageKey(user.id);
+      const hasUserCache = localStorage.getItem(userStorageKey) !== null;
+      const localWords = loadWords(hasUserCache ? userStorageKey : STORAGE_KEY);
+      const localUpdatedAt = readDictionaryUpdatedAt(user.id);
+      const localCustomWords = getCustomWordsFromList(localWords);
+      const { data, error } = await supabaseClient
+        .from("user_dictionary_words")
+        .select("custom_words, updated_at")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (currentUser?.id !== user.id) return;
+      let chosenCustomWords = localCustomWords;
+      let chosenUpdatedAt = new Date(localUpdatedAt || Date.now()).toISOString();
+      if (!error && data) {
+        const cloudCustomWords = getCustomWordsFromList(data.custom_words);
+        const cloudUpdatedAt = Date.parse(data.updated_at || "") || 0;
+        if (!hasUserCache) {
+          chosenCustomWords = mergeCustomWordLists(localCustomWords, cloudCustomWords);
+          chosenUpdatedAt = new Date(Math.max(localUpdatedAt, cloudUpdatedAt, Date.now())).toISOString();
+        } else if (cloudUpdatedAt >= localUpdatedAt) {
+          chosenCustomWords = cloudCustomWords;
+          chosenUpdatedAt = data.updated_at || new Date().toISOString();
+        }
+      }
+
+      words = applyCustomWordsToDictionary(localWords, chosenCustomWords);
+      cacheDictionaryForUser(user.id, words, chosenUpdatedAt);
+      if (!hasUserCache) {
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(LEGACY_CUSTOM_KEY);
+        localStorage.removeItem(LEGACY_DECK_KEY);
+      }
+      dictionarySyncReady = true;
+      dictionaryCloudAvailable = !error;
+      selectedDictionaryKeys = new Set([...selectedDictionaryKeys].filter((key) => words.some((item) => item.word.toLowerCase() === key)));
+      generateNewSession();
+
+      if (error) {
+        console.warn("Dictionary cloud sync is unavailable; custom words are still saved on this device.", error.message);
+        return;
+      }
+      await flushDictionaryWordsToCloud();
+    })().finally(() => {
+      if (dictionarySyncUserId === user.id) dictionarySyncPromise = null;
+    });
+    return dictionarySyncPromise;
   }
 
   function getAllWords() {
@@ -3758,8 +3935,7 @@
     stats.whackPlays = Math.max(stats.whackPlays, highScores.whack > 0 ? 1 : 0);
     stats.wordboundWins = Math.max(stats.wordboundWins, highScores.wordboundTurns !== null ? 1 : 0);
     stats.batchesCreated = Math.max(stats.batchesCreated, batches.length);
-    const builtInKeys = new Set(builtInWords.map((item) => item.word.toLowerCase()));
-    const customWordCount = words.filter((item) => !builtInKeys.has(item.word.toLowerCase())).length;
+    const customWordCount = getCustomWordsFromList(words).length;
     stats.customWordHighWater = Math.max(stats.customWordHighWater, customWordCount);
     const played = new Set(achievementData.gamesPlayed || []);
     if (stats.bubblePlays || highScores.bubble > 0) played.add("bubble");
@@ -4884,7 +5060,7 @@
       }
 
       currentUser = data.user;
-      await Promise.all([initializeAchievementSync(currentUser), initializeProgressSync(currentUser)]);
+      await Promise.all([initializeAchievementSync(currentUser), initializeProgressSync(currentUser), initializeDictionarySync(currentUser)]);
       refreshAchievements(false);
       await flushAchievementDataToCloud();
       await initializePublicProfile(currentUser);
@@ -4903,7 +5079,7 @@
     const { data: { session } } = await supabaseClient.auth.getSession();
     currentUser = session ? session.user : null;
     if (currentUser) {
-      await Promise.all([initializeAchievementSync(currentUser), initializeProgressSync(currentUser)]);
+      await Promise.all([initializeAchievementSync(currentUser), initializeProgressSync(currentUser), initializeDictionarySync(currentUser)]);
       refreshAchievements(false);
       await flushAchievementDataToCloud();
       await initializePublicProfile(currentUser);
@@ -4921,7 +5097,7 @@
         appSettingsOpen = false;
         setTimeout(async () => {
           if (currentUser?.id !== user.id) return;
-          await Promise.all([initializeAchievementSync(user), initializeProgressSync(user)]);
+          await Promise.all([initializeAchievementSync(user), initializeProgressSync(user), initializeDictionarySync(user)]);
           refreshAchievements(false);
           await flushAchievementDataToCloud();
           await initializePublicProfile(user);
@@ -4930,6 +5106,7 @@
       } else if (!user && previousUserId) {
         resetAchievementSyncSession();
         resetProgressSyncSession();
+        resetDictionarySyncSession();
         resetPublicProfileSession();
         dictionaryUndo = null;
         appSettingsOpen = false;
@@ -5269,9 +5446,8 @@
         playClickSound();
         render();
       });
-      const homeBuiltInKeys = new Set(builtInWords.map((item) => item.word.toLowerCase()));
       const homeMissingDefaultCount = builtInWords.filter((item) => !words.some((word) => word.word.toLowerCase() === item.word.toLowerCase())).length;
-      const homeCustomWordCount = words.filter((item) => !homeBuiltInKeys.has(item.word.toLowerCase())).length;
+      const homeCustomWordCount = getCustomWordsFromList(words).length;
       const resetDefaultsButton = app.querySelector("#resetDefaultWords");
       const deleteCustomButton = app.querySelector("#deleteCustomWords");
       resetDefaultsButton.disabled = homeMissingDefaultCount === 0;
@@ -5292,9 +5468,10 @@
       deleteCustomButton.addEventListener("click", () => {
         if (!confirm(`Delete all ${homeCustomWordCount} custom word${homeCustomWordCount === 1 ? "" : "s"}? This cannot be undone.`)) return;
         dictionaryUndo = null;
-        words.filter((item) => !homeBuiltInKeys.has(item.word.toLowerCase())).forEach((item) => removeWordFromBatches(item.word.toLowerCase()));
-        words = words.filter((item) => homeBuiltInKeys.has(item.word.toLowerCase()));
-        selectedDictionaryKeys = new Set([...selectedDictionaryKeys].filter((key) => homeBuiltInKeys.has(key)));
+        words.filter(isCustomDictionaryWord).forEach((item) => removeWordFromBatches(item.word.toLowerCase()));
+        words = words.filter((item) => !isCustomDictionaryWord(item));
+        const remainingKeys = new Set(words.map((item) => item.word.toLowerCase()));
+        selectedDictionaryKeys = new Set([...selectedDictionaryKeys].filter((key) => remainingKeys.has(key)));
         editingIndex = null;
         showAddForm = false;
         saveWords(words);
@@ -5309,6 +5486,7 @@
           signOutBtn.disabled = true;
           signOutBtn.textContent = "Signing out...";
           await flushAchievementDataToCloud();
+          await flushDictionaryWordsToCloud();
           await flushPublicProfileSnapshot();
           await supabaseClient.auth.signOut();
         });
@@ -7020,7 +7198,7 @@
     root.innerHTML = `
       <div class="manage">
         <div class="dictionary-header">
-          <div><h2>Dictionary</h2><p>${allWords.length} words &mdash; search, add, edit, or remove any of them.</p></div>
+          <div><h2>Dictionary</h2><p>${allWords.length} words &mdash; search, add, edit, or remove any of them. ${dictionaryCloudAvailable ? "Custom words are synced to your account." : "Custom words are saved on this device."}</p></div>
           <div class="dictionary-header-actions">
             <button class="small-btn" id="undoDictionaryChange" ${dictionaryUndo ? "" : "disabled"} title="${dictionaryUndo ? `Undo the last word ${dictionaryUndo.type}` : "Edit or delete a word to enable Back"}">↶ Back</button>
             <button class="small-btn" id="openBatches">Batches (${batches.length}/${MAX_BATCHES})</button>
@@ -7126,8 +7304,6 @@
       render();
     });
 
-    const builtInKeys = new Set(builtInWords.map((item) => item.word.toLowerCase()));
-
     const updateSelectionTray = () => {
       const count = getSelectedDictionaryWords().length;
       const tray = root.querySelector("#selectionTray");
@@ -7191,18 +7367,18 @@
         playClickSound();
         if (editingIndex === null) {
           dictionaryUndo = null;
-          words.push({ word, definition, partOfSpeech });
+          words.push({ word, definition, partOfSpeech, isCustom: true });
         } else {
           const originalWord = { ...words[editingIndex] };
           const previousKey = originalWord.word.toLowerCase();
           dictionaryUndo = createDictionaryUndoSnapshot("edit", editingIndex, originalWord, word.toLowerCase());
           const wasSelected = selectedDictionaryKeys.delete(previousKey);
-          words[editingIndex] = { word, definition, partOfSpeech };
+          words[editingIndex] = { word, definition, partOfSpeech, isCustom: true };
           replaceWordInBatches(previousKey, word.toLowerCase());
           if (wasSelected) selectedDictionaryKeys.add(word.toLowerCase());
         }
         saveWords(words);
-        recordAchievementMax("customWordHighWater", words.filter((item) => !builtInKeys.has(item.word.toLowerCase())).length);
+        recordAchievementMax("customWordHighWater", getCustomWordsFromList(words).length);
         showAddForm = false;
         editingIndex = null;
         generateNewSession();
