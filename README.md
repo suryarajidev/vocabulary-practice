@@ -96,3 +96,6 @@ SURYA: What do you mean publishing the app? How would we do that? I'm new to thi
 Also, I do agree that it is pretty messy, especially on mobile. We should fix that. Nila also suggested adding unlockable games, but I feel like we already have a lot.
 
 Last question: Do you know how to change a user's username from supabase? 
+
+
+JAI: By publishing the app we could buy a domain and put it on the internet or publish it as an app store app or both. Also, I don't know how to change a Supabase username. You can probably change it in account settings.
