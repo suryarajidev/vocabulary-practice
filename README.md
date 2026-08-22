@@ -87,3 +87,8 @@ JAI:
 
 #1 how do you know that suryaloves67 is from me??? It's clearly not
 #2: I think we should shift into UI improvement because everything looks a little messy. Also are we publishing the app?
+
+SURYA: What do you mean publishing the app? How would we do that? I'm new to this whole concept. 
+Also, I do agree that it is pretty messy, especially on mobile. We should fix that. Nila also suggested adding unlockable games, but I feel like we already have a lot.
+
+Last question: Do you know how to change a user's username from supabase? 
