@@ -117,6 +117,8 @@
 .online-waiting-icon { font-size: 48px; }
 .online-waiting h2, .online-result h2 { margin: 10px 0 6px; }
 .online-waiting p, .online-result p { color: var(--muted); }
+.online-waiting .taboo-setup-error { color: #dc2626; }
+.online-waiting #retryTabooWordChoice { margin: 4px 0 16px; }
 .online-result-score { display: flex; justify-content: center; align-items: center; gap: 18px; margin: 20px 0; }
 .online-result-player { min-width: 130px; padding: 15px; border-radius: 13px; background: var(--bg); }
 .online-result-player strong { display: block; color: var(--accent); font-size: 30px; }

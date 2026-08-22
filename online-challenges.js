@@ -23,6 +23,8 @@ let onlineTabooInputTimer = null;
 let onlineTabooPendingClue = null;
 let onlineTabooClueSaving = false;
 let onlineTabooActionPending = false;
+let onlineTabooInitializeTimer = null;
+let onlineTabooSetupError = "";
 let onlineTabooNoticeKeys = new Set();
 let onlineLastUserId = null;
 
@@ -80,11 +82,14 @@ function stopOnlineArcadeVisuals() {
 function stopOnlineTabooTimers() {
   if (onlineTabooTimer) clearInterval(onlineTabooTimer);
   if (onlineTabooInputTimer) clearTimeout(onlineTabooInputTimer);
+  if (onlineTabooInitializeTimer) clearTimeout(onlineTabooInitializeTimer);
   onlineTabooTimer = null;
   onlineTabooInputTimer = null;
+  onlineTabooInitializeTimer = null;
   onlineTabooPendingClue = null;
   onlineTabooClueSaving = false;
   onlineTabooActionPending = false;
+  onlineTabooSetupError = "";
 }
 
 function resetOnlineChallengeSession(clearActive = true) {
@@ -662,42 +667,65 @@ async function commitOnlineTabooMutation(mutator, attempts = 3) {
   return null;
 }
 
+function scheduleOnlineTabooRoundInitialization(delay = 0) {
+  if (onlineTabooInitializeTimer) clearTimeout(onlineTabooInitializeTimer);
+  onlineTabooInitializeTimer = setTimeout(() => {
+    onlineTabooInitializeTimer = null;
+    initializeOnlineTabooRound();
+  }, delay);
+}
+
 async function initializeOnlineTabooRound() {
   const challenge = activeOnlineChallenge;
   const taboo = challenge?.game_state?.taboo;
-  if (!challenge || challenge.game_type !== "taboo" || challenge.status !== "active" || !taboo || taboo.current || taboo.completed || onlineTabooActionPending) return;
+  if (!challenge || challenge.game_type !== "taboo" || challenge.status !== "active" || !taboo || taboo.current || taboo.completed) return;
   const roundIndex = Number(taboo.roundIndex || 0);
   const roles = tabooRoles(challenge, roundIndex);
   if (roles.guesserId !== currentUser?.id) return;
+  if (onlineTabooActionPending) {
+    scheduleOnlineTabooRoundInitialization(250);
+    return;
+  }
   const words = getAllWords().map(onlineWordData);
-  if (!words.length) return;
+  if (!words.length) {
+    onlineTabooSetupError = "Your dictionary has no words available for this round.";
+    if (view === "onlineGame") render();
+    return;
+  }
   const used = new Set((taboo.usedWords || []).map((word) => String(word).toLocaleLowerCase()));
   const unused = words.filter((item) => !used.has(item.word.toLocaleLowerCase()));
   const chosen = randomSample(unused.length ? unused : words, 1)[0];
   const roundId = `${roundIndex + 1}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
   onlineTabooActionPending = true;
-  const updated = await commitOnlineTabooMutation((next, latestChallenge) => {
-    if (Number(next.roundIndex || 0) !== roundIndex || next.current || next.completed) return false;
-    const latestRoles = tabooRoles(latestChallenge, roundIndex);
-    next.current = {
-      id: roundId,
-      roundNumber: roundIndex + 1,
-      describerId: latestRoles.describerId,
-      guesserId: latestRoles.guesserId,
-      word: chosen.word,
-      definition: chosen.definition,
-      partOfSpeech: chosen.partOfSpeech || "",
-      forbiddenWords: tabooForbiddenWords(chosen),
-      clue: "",
-      startedAt: new Date().toISOString(),
-      endsAt: new Date(Date.now() + Number(activeOnlineChallenge?.game_state?.durationSeconds || 30) * 1000).toISOString(),
-      outcome: null,
-      reason: null
-    };
-    next.usedWords = [...(next.usedWords || []), chosen.word.toLocaleLowerCase()];
-  });
-  onlineTabooActionPending = false;
-  if (updated && view === "onlineGame") render();
+  let updated = null;
+  try {
+    updated = await commitOnlineTabooMutation((next, latestChallenge) => {
+      if (Number(next.roundIndex || 0) !== roundIndex || next.current || next.completed) return false;
+      const latestRoles = tabooRoles(latestChallenge, roundIndex);
+      next.current = {
+        id: roundId,
+        roundNumber: roundIndex + 1,
+        describerId: latestRoles.describerId,
+        guesserId: latestRoles.guesserId,
+        word: chosen.word,
+        definition: chosen.definition,
+        partOfSpeech: chosen.partOfSpeech || "",
+        forbiddenWords: tabooForbiddenWords(chosen),
+        clue: "",
+        startedAt: new Date().toISOString(),
+        endsAt: new Date(Date.now() + Number(activeOnlineChallenge?.game_state?.durationSeconds || 30) * 1000).toISOString(),
+        outcome: null,
+        reason: null
+      };
+      next.usedWords = [...(next.usedWords || []), chosen.word.toLocaleLowerCase()];
+    });
+  } catch (error) {
+    console.warn("Unable to initialize the Taboo round:", error);
+  } finally {
+    onlineTabooActionPending = false;
+  }
+  onlineTabooSetupError = updated ? "" : "We couldn't choose a word. Check your connection and try again.";
+  if (view === "onlineGame") render();
 }
 
 async function flushOnlineTabooClue() {
@@ -726,17 +754,23 @@ async function finishOnlineTabooRound(outcome, reason, clueText = null) {
   if (!challenge || !current || current.outcome || onlineTabooActionPending) return;
   const roundId = current.id;
   onlineTabooActionPending = true;
-  const updated = await commitOnlineTabooMutation((taboo) => {
-    if (!taboo.current || taboo.current.id !== roundId || taboo.current.outcome) return false;
-    if (clueText !== null) taboo.current.clue = clueText;
-    taboo.current.outcome = outcome;
-    taboo.current.reason = reason;
-    taboo.current.finishedAt = new Date().toISOString();
-    taboo.current.advanceAt = new Date(Date.now() + 3500).toISOString();
-    if (outcome === "won") taboo.successes = Number(taboo.successes || 0) + 1;
-    taboo.rounds = [...(taboo.rounds || []), cloneOnlineState(taboo.current)];
-  });
-  onlineTabooActionPending = false;
+  let updated = null;
+  try {
+    updated = await commitOnlineTabooMutation((taboo) => {
+      if (!taboo.current || taboo.current.id !== roundId || taboo.current.outcome) return false;
+      if (clueText !== null) taboo.current.clue = clueText;
+      taboo.current.outcome = outcome;
+      taboo.current.reason = reason;
+      taboo.current.finishedAt = new Date().toISOString();
+      taboo.current.advanceAt = new Date(Date.now() + 3500).toISOString();
+      if (outcome === "won") taboo.successes = Number(taboo.successes || 0) + 1;
+      taboo.rounds = [...(taboo.rounds || []), cloneOnlineState(taboo.current)];
+    });
+  } catch (error) {
+    console.warn("Unable to finish the Taboo round:", error);
+  } finally {
+    onlineTabooActionPending = false;
+  }
   if (updated) {
     showOnlineTabooRoundNotice(updated);
     if (outcome === "won") playGotItSound(); else playDontKnowSound();
@@ -747,15 +781,25 @@ async function finishOnlineTabooRound(outcome, reason, clueText = null) {
 async function advanceOnlineTabooRound(roundId) {
   if (onlineTabooActionPending) return;
   onlineTabooActionPending = true;
-  const updated = await commitOnlineTabooMutation((taboo) => {
-    if (!taboo.current || taboo.current.id !== roundId || !taboo.current.outcome) return false;
-    const nextRound = Number(taboo.roundIndex || 0) + 1;
-    taboo.current = null;
-    taboo.roundIndex = nextRound;
-    if (nextRound >= Number(taboo.totalRounds || 4)) taboo.completed = true;
-  });
-  onlineTabooActionPending = false;
-  if (!updated) return;
+  let updated = null;
+  try {
+    updated = await commitOnlineTabooMutation((taboo) => {
+      if (!taboo.current || taboo.current.id !== roundId || !taboo.current.outcome) return false;
+      const nextRound = Number(taboo.roundIndex || 0) + 1;
+      taboo.current = null;
+      taboo.roundIndex = nextRound;
+      if (nextRound >= Number(taboo.totalRounds || 4)) taboo.completed = true;
+    });
+  } catch (error) {
+    console.warn("Unable to advance the Taboo round:", error);
+  } finally {
+    onlineTabooActionPending = false;
+  }
+  if (!updated) {
+    if (view === "onlineGame") render();
+    return;
+  }
+  onlineTabooSetupError = "";
   const taboo = updated.game_state?.taboo;
   if (taboo?.completed) {
     const result = {
@@ -855,10 +899,22 @@ function renderOnlineTaboo(root, challenge) {
   const current = taboo.current;
   if (!current) {
     const amGuesser = roles.guesserId === currentUser?.id;
-    root.innerHTML = `<section class="online-taboo"><div class="online-waiting"><div class="online-waiting-icon">${amGuesser ? "🎲" : "⏳"}</div><h2>Round ${roundIndex + 1} of ${Number(taboo.totalRounds || 4)}</h2><p>${amGuesser ? "Choosing a word from your dictionary…" : `${escapeHtml(onlinePlayerName(challenge, roles.guesserId))} is choosing a word from their dictionary.`}</p><div class="taboo-role-order"><strong>${escapeHtml(onlinePlayerName(challenge, roles.describerId))}</strong> describes · <strong>${escapeHtml(onlinePlayerName(challenge, roles.guesserId))}</strong> guesses</div></div></section>`;
-    if (amGuesser) setTimeout(initializeOnlineTabooRound, 0);
+    const setupMessage = amGuesser && onlineTabooSetupError ? onlineTabooSetupError : (amGuesser ? "Choosing a word from your dictionary…" : `${escapeHtml(onlinePlayerName(challenge, roles.guesserId))} is choosing a word from their dictionary.`);
+    root.innerHTML = `<section class="online-taboo"><div class="online-waiting"><div class="online-waiting-icon">${amGuesser ? "🎲" : "⏳"}</div><h2>Round ${roundIndex + 1} of ${Number(taboo.totalRounds || 4)}</h2><p class="${amGuesser && onlineTabooSetupError ? "taboo-setup-error" : ""}">${escapeHtml(setupMessage)}</p>${amGuesser && onlineTabooSetupError ? `<button class="small-btn" id="retryTabooWordChoice" type="button">Try choosing again</button>` : ""}<div class="taboo-role-order"><strong>${escapeHtml(onlinePlayerName(challenge, roles.describerId))}</strong> describes · <strong>${escapeHtml(onlinePlayerName(challenge, roles.guesserId))}</strong> guesses</div></div></section>`;
+    if (amGuesser && onlineTabooSetupError) {
+      root.querySelector("#retryTabooWordChoice")?.addEventListener("click", (event) => {
+        event.currentTarget.disabled = true;
+        onlineTabooSetupError = "";
+        scheduleOnlineTabooRoundInitialization();
+      });
+    } else if (amGuesser) {
+      scheduleOnlineTabooRoundInitialization(onlineTabooActionPending ? 250 : 0);
+    }
     return;
   }
+  if (onlineTabooInitializeTimer) clearTimeout(onlineTabooInitializeTimer);
+  onlineTabooInitializeTimer = null;
+  onlineTabooSetupError = "";
   const amDescriber = current.describerId === currentUser?.id;
   const amGuesser = current.guesserId === currentUser?.id;
   const finished = Boolean(current.outcome);
