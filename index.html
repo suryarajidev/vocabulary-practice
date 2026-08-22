@@ -471,18 +471,21 @@
   .achievement-group-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .achievement-group-heading h3 { margin: 0; font-size: 20px; }
   .achievement-group-heading span { color: var(--muted); font-size: 13px; font-weight: 750; }
-  .achievement-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
-  .achievement-card { position: relative; display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 13px; padding: 16px; overflow: hidden; border: 1px solid var(--border); border-radius: 14px; background: var(--card-bg); }
-  .achievement-card.unlocked { display: block; padding: 0; overflow: visible; border-color: rgba(13,148,136,.45); box-shadow: 0 5px 16px rgba(13,148,136,.08); }
+  .achievement-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(175px, 1fr)); gap: 14px; }
+  .achievement-card { position: relative; display: block; min-width: 0; aspect-ratio: 1; padding: 0; overflow: visible; border: 1px solid var(--border); border-radius: 18px; background: var(--card-bg); box-shadow: 0 5px 16px rgba(15,23,42,.05); transition: transform .18s ease, box-shadow .18s ease; }
+  .achievement-card:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(15,23,42,.1); }
+  .achievement-card.unlocked { border-color: rgba(13,148,136,.45); box-shadow: 0 7px 20px rgba(13,148,136,.1); }
   .achievement-card.locked { filter: grayscale(.75); opacity: .72; }
-  .achievement-icon { display: flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 13px; background: var(--chip-bg); font-size: 25px; flex: 0 0 auto; }
-  .achievement-icon .flame-icon { width: 26px; height: 26px; }
-  .achievement-copy { min-width: 0; }
-  .achievement-copy h4, .achievement-copy .achievement-title { margin: 1px 0 4px; font-size: 16px; font-weight: 800; }
-  .achievement-copy p, .achievement-copy .achievement-desc { display: block; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
-  .achievement-status { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; color: var(--muted); font-size: 11px; font-weight: 800; }
+  .achievement-icon { display: flex; align-items: center; justify-content: center; width: 58px; height: 58px; border-radius: 17px; background: var(--chip-bg); font-size: 30px; flex: 0 0 auto; }
+  .achievement-icon .flame-icon { width: 31px; height: 31px; }
+  .achievement-copy { min-width: 0; width: 100%; }
+  .achievement-copy .achievement-title { display: block; margin: 0; font-size: 16px; font-weight: 850; line-height: 1.25; overflow-wrap: anywhere; }
+  .achievement-copy .achievement-desc { display: block; margin: 7px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+  .achievement-date { display: block; margin-top: 9px; color: var(--muted); font-size: 12px; font-weight: 750; line-height: 1.35; }
+  .achievement-date time { color: var(--accent); }
+  .achievement-status { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; margin-top: 9px; color: var(--muted); font-size: 10px; font-weight: 800; }
   .achievement-card.unlocked .achievement-status { color: var(--accent); }
-  .achievement-progress { grid-column: 1 / -1; height: 5px; overflow: hidden; border-radius: 999px; background: var(--border); }
+  .achievement-progress { width: 100%; height: 5px; overflow: hidden; border-radius: 999px; background: var(--border); }
   .achievement-progress span { display: block; height: 100%; border-radius: inherit; background: var(--accent); }
   .achievement-card.mythical.unlocked { border-color: #a855f7; background: linear-gradient(145deg, var(--card-bg), rgba(168,85,247,.09)); }
   .achievement-card.mythical.unlocked .achievement-icon { background: rgba(168,85,247,.16); }
@@ -490,11 +493,17 @@
   .achievement-card.miscellaneous.unlocked { border-color: #d97706; background: linear-gradient(145deg, var(--card-bg), rgba(245,158,11,.09)); }
   .achievement-card.miscellaneous.unlocked .achievement-icon { background: rgba(245,158,11,.16); }
   .achievement-card.miscellaneous.unlocked .achievement-status { color: #b45309; }
-  .achievement-flip { display: block; width: 100%; min-height: 150px; margin: 0; padding: 0; border: none; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; perspective: 1100px; -webkit-tap-highlight-color: transparent; }
-  .achievement-flip-inner { position: relative; display: block; width: 100%; height: 100%; min-height: 150px; transition: transform 0.5s cubic-bezier(0.4, 0.2, 0.2, 1); transform-style: preserve-3d; }
+  .achievement-flip { display: block; width: 100%; height: 100%; aspect-ratio: 1; margin: 0; padding: 0; border: none; border-radius: inherit; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; perspective: 1100px; -webkit-tap-highlight-color: transparent; }
+  .achievement-flip-inner { position: relative; display: block; width: 100%; height: 100%; transition: transform 0.5s cubic-bezier(0.4, 0.2, 0.2, 1); transform-style: preserve-3d; }
   .achievement-flip.flipped .achievement-flip-inner { transform: rotateY(180deg); }
-  .achievement-face { position: absolute; inset: 0; display: grid; grid-template-columns: 48px minmax(0, 1fr); align-items: center; gap: 13px; padding: 16px; border-radius: 14px; background: transparent; backface-visibility: hidden; }
-  .achievement-face-back { transform: rotateY(180deg); }
+  .achievement-face { position: absolute; inset: 0; display: flex; flex-direction: column; padding: 16px; overflow: hidden; border-radius: 17px; background: transparent; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+  .achievement-face-front { align-items: center; justify-content: center; text-align: center; }
+  .achievement-face-front .achievement-copy { margin-top: 12px; }
+  .achievement-face-front .achievement-status { justify-content: center; margin-top: 12px; }
+  .achievement-face-back { align-items: flex-start; justify-content: space-between; transform: rotateY(180deg); }
+  .achievement-face-back .achievement-copy { margin: 0 0 auto; }
+  .achievement-face-back .achievement-desc { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 5; }
+  .achievement-face-back .achievement-status span:last-child { text-align: right; }
   .achievement-flip:focus-visible .achievement-face { outline: 2px solid var(--accent); outline-offset: -2px; }
 
   .achievement-toast-region {
@@ -1681,7 +1690,9 @@
     .paragraph-heading { flex-direction: column; }
     .paragraph-heading-actions { justify-content: flex-start; }
     .paragraph-progress, .paragraph-actions { align-items: stretch; flex-direction: column; }
-    .achievement-grid { grid-template-columns: 1fr; }
+    .achievement-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+    .achievement-face { padding: 13px; }
+    .achievement-face-back .achievement-desc { -webkit-line-clamp: 4; }
     .achievements-heading { flex-direction: column; }
     .combatant-row { align-items: flex-end; }
     .combatant { width: 46%; }
@@ -5466,39 +5477,37 @@
     const unlockedCount = achievements.filter((achievement) => unlocked.has(achievement.id)).length;
     const showAll = achievementsShowAll;
 
-    const renderLockedCard = (achievement, group) => {
-      const progress = Math.max(0, Math.min(100, Math.round((achievement.value / achievement.target) * 100)));
-      return `<article class="achievement-card locked ${group.toLowerCase()}" aria-label="${escapeHtml(achievement.title)}: locked">
-        <div class="achievement-icon" aria-hidden="true">${achievement.icon}</div>
-        <div class="achievement-copy"><h4>${escapeHtml(achievement.title)}</h4><p>${escapeHtml(achievement.description)}</p><div class="achievement-status"><span>🔒 Locked</span><span>${escapeHtml(achievement.progressText)}</span></div></div>
-        <div class="achievement-progress" aria-hidden="true"><span style="width:${progress}%"></span></div>
-      </article>`;
-    };
-
-    const renderUnlockedCard = (achievement, group) => {
+    const renderAchievementCard = (achievement, group, isUnlocked) => {
       const isFlipped = flippedAchievementIds.has(achievement.id);
+      const progress = Math.max(0, Math.min(100, Math.round((achievement.value / achievement.target) * 100)));
       const unlockedAtIso = achievementData.unlockedAt && achievementData.unlockedAt[achievement.id];
-      const dateLabel = unlockedAtIso ? formatAchievementDate(unlockedAtIso) : "an unknown date";
+      const dateLabel = unlockedAtIso ? formatAchievementDate(unlockedAtIso) : "Date unavailable";
+      const dateMarkup = isUnlocked
+        ? (unlockedAtIso
+          ? `<span class="achievement-date">Unlocked <time datetime="${escapeHtml(unlockedAtIso)}">${escapeHtml(dateLabel)}</time></span>`
+          : `<span class="achievement-date">Unlock date unavailable</span>`)
+        : `<span class="achievement-date">🔒 Not unlocked yet</span>`;
       const flipLabel = isFlipped
-        ? `${achievement.title}: unlocked ${dateLabel}. Tap to flip back.`
-        : `${achievement.title}: unlocked. Tap to flip and see when you earned it.`;
-      return `<article class="achievement-card unlocked ${group.toLowerCase()}">
+        ? `${achievement.title}: details shown. Tap to return to the name and ${isUnlocked ? "unlock date" : "locked status"}.`
+        : `${achievement.title}: ${isUnlocked ? `unlocked ${dateLabel}` : "locked"}. Tap for details.`;
+      return `<article class="achievement-card ${isUnlocked ? "unlocked" : "locked"} ${group.toLowerCase()}">
         <button type="button" class="achievement-flip ${isFlipped ? "flipped" : ""}" data-achievement-id="${escapeHtml(achievement.id)}" aria-label="${escapeHtml(flipLabel)}" aria-pressed="${isFlipped}">
           <span class="achievement-flip-inner">
             <span class="achievement-face achievement-face-front">
               <span class="achievement-icon" aria-hidden="true">${achievement.icon}</span>
               <span class="achievement-copy">
                 <span class="achievement-title">${escapeHtml(achievement.title)}</span>
-                <span class="achievement-desc">${escapeHtml(achievement.description)}</span>
-                <span class="achievement-status"><span>✓ Unlocked</span><span>Tap to flip</span></span>
+                ${dateMarkup}
               </span>
+              <span class="achievement-status"><span>${isUnlocked ? "✓ Earned" : "Locked"}</span><span>Tap for details</span></span>
             </span>
             <span class="achievement-face achievement-face-back">
-              <span class="achievement-icon" aria-hidden="true">${achievement.icon}</span>
               <span class="achievement-copy">
                 <span class="achievement-title">${escapeHtml(achievement.title)}</span>
-                <span class="achievement-desc">Unlocked ${escapeHtml(dateLabel)}</span>
+                <span class="achievement-desc">${escapeHtml(achievement.description)}</span>
               </span>
+              <span class="achievement-progress" aria-hidden="true"><span style="width:${isUnlocked ? 100 : progress}%"></span></span>
+              <span class="achievement-status"><span>${isUnlocked ? "✓ Unlocked" : "🔒 Locked"}</span><span>${isUnlocked ? "Tap for date" : escapeHtml(achievement.progressText)}</span></span>
             </span>
           </span>
         </button>
@@ -5515,14 +5524,14 @@
       return `<div class="achievement-group">
         <div class="achievement-group-heading"><h3>${group}</h3><span>${secretGroups.has(group) ? `${groupUnlocked.length} unlocked` : `${groupUnlocked.length} / ${groupAchievements.length}`}</span></div>
         <div class="achievement-grid">
-          ${visibleAchievements.map((achievement) => unlocked.has(achievement.id) ? renderUnlockedCard(achievement, group) : renderLockedCard(achievement, group)).join("")}
+          ${visibleAchievements.map((achievement) => renderAchievementCard(achievement, group, unlocked.has(achievement.id))).join("")}
         </div>
       </div>`;
     }).join("");
 
     root.innerHTML = `<section class="achievements-view" aria-labelledby="achievementsTitle">
       <div class="achievements-heading">
-        <div><h2 id="achievementsTitle">Achievements</h2><p>${showAll ? "All badges, unlocked and locked. Mythical and miscellaneous achievements stay secret until unlocked." : "Your unlocked badges. Tap one to flip it and see when you earned it."} ${achievementCloudAvailable ? "Progress is synced to your account." : "Progress is saved on this device."}</p></div>
+        <div><h2 id="achievementsTitle">Achievements</h2><p>${showAll ? "All badges, unlocked and locked. Mythical and miscellaneous achievements stay secret until unlocked." : "Your unlocked badges."} Cards open on the name and unlock date; tap one for its details. ${achievementCloudAvailable ? "Progress is synced to your account." : "Progress is saved on this device."}</p></div>
         <div class="achievements-heading-actions">
           <div class="achievement-total"><span class="star-icon-wrap" aria-hidden="true">${STAR_ICON_SVG}</span> ${getStarBalance().toLocaleString()} Stars</div>
           <div class="achievement-total">${unlockedCount} unlocked</div>
