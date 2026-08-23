@@ -25,6 +25,7 @@ let onlineTabooClueSaving = false;
 let onlineTabooActionPending = false;
 let onlineTabooInitializeTimer = null;
 let onlineTabooSetupError = "";
+let onlineTabooLobbyStatus = "";
 let onlineTabooNoticeKeys = new Set();
 let onlineGamePresenceChannel = null;
 let onlineGamePresenceChallengeId = null;
@@ -97,6 +98,7 @@ function stopOnlineTabooTimers() {
   onlineTabooClueSaving = false;
   onlineTabooActionPending = false;
   onlineTabooSetupError = "";
+  onlineTabooLobbyStatus = "";
   onlineTabooLocalClock = null;
   onlineTabooClockSyncPending = false;
   onlineTabooLastCheckpointAt = 0;
@@ -143,7 +145,8 @@ function refreshOnlineGamePresence(challenge, channel) {
   if (challenge.game_type !== "taboo" || !presenceChanged) return;
   if (onlineTabooLocalClock) onlineTabooLocalClock.lastTickAt = Date.now();
   if (!bothPresent) checkpointOnlineTabooClock(true);
-  updateOnlineTabooPresenceUI();
+  if (view === "onlineGame" && onlineTabooBeforeFirstRound(activeOnlineChallenge)) render();
+  else updateOnlineTabooPresenceUI();
 }
 
 function startOnlineGamePresence(challenge) {
@@ -272,6 +275,10 @@ function buildOnlineGameState(type, challengerId, opponentId) {
       current: null,
       rounds: [],
       usedWords: [],
+      playerSelections: {},
+      playerWordPools: {},
+      lobbyRequired: true,
+      lobbyCompleted: false,
       successes: 0,
       completed: false
     };
@@ -741,6 +748,69 @@ function scheduleOnlineTabooRoundInitialization(delay = 0) {
   }, delay);
 }
 
+function onlineTabooBeforeFirstRound(challenge = activeOnlineChallenge) {
+  const taboo = challenge?.game_state?.taboo;
+  return Boolean(taboo && taboo.lobbyRequired !== false && !taboo.current && Number(taboo.roundIndex || 0) === 0 && !(taboo.rounds || []).length);
+}
+
+function onlineTabooLobbyReady(challenge = activeOnlineChallenge) {
+  const taboo = challenge?.game_state?.taboo;
+  if (!challenge || !taboo) return false;
+  return [challenge.challenger_id, challenge.opponent_id].every((userId) => {
+    const selection = taboo.playerSelections?.[userId];
+    const pool = taboo.playerWordPools?.[userId];
+    return Boolean(selection && Array.isArray(pool) && pool.length);
+  });
+}
+
+function onlineTabooLocalSources() {
+  const allWords = getAllWords().map(onlineWordData);
+  const batchSources = batches.map((batch) => ({
+    id: batch.id,
+    label: batch.name,
+    words: getBatchWords(batch).map(onlineWordData)
+  })).filter((source) => source.words.length);
+  return { allWords, batchSources };
+}
+
+async function chooseOnlineTabooWordSource(sourceType, batchId = null) {
+  const challenge = activeOnlineChallenge;
+  if (!challenge || challenge.game_type !== "taboo" || challenge.status !== "active" || !onlineTabooBeforeFirstRound(challenge) || onlineTabooActionPending) return;
+  const { allWords, batchSources } = onlineTabooLocalSources();
+  const batchSource = sourceType === "batch" ? batchSources.find((source) => source.id === batchId) : null;
+  const chosenWords = batchSource?.words || allWords;
+  if (!chosenWords.length) {
+    onlineTabooLobbyStatus = "Add at least one word to your Dictionary before choosing a word source.";
+    if (view === "onlineGame") render();
+    return;
+  }
+  const selection = {
+    source: batchSource ? "batch" : "all",
+    batchId: batchSource?.id || null,
+    label: batchSource?.label || "All words",
+    wordCount: chosenWords.length,
+    selectedAt: new Date().toISOString()
+  };
+  onlineTabooActionPending = true;
+  onlineTabooLobbyStatus = "Saving your choice…";
+  let updated = null;
+  try {
+    updated = await commitOnlineTabooMutation((taboo, latestChallenge) => {
+      if (taboo.current || Number(taboo.roundIndex || 0) !== 0 || (taboo.rounds || []).length) return false;
+      taboo.playerSelections = { ...(taboo.playerSelections || {}), [currentUser.id]: selection };
+      taboo.playerWordPools = { ...(taboo.playerWordPools || {}), [currentUser.id]: chosenWords };
+      taboo.lobbyRequired = true;
+      taboo.lobbyCompleted = [latestChallenge.challenger_id, latestChallenge.opponent_id].every((userId) => taboo.playerSelections[userId] && taboo.playerWordPools[userId]?.length);
+    });
+  } catch (error) {
+    console.warn("Unable to save the Taboo word source:", error);
+  } finally {
+    onlineTabooActionPending = false;
+  }
+  onlineTabooLobbyStatus = updated ? "" : "We couldn't save your choice. Check your connection and try again.";
+  if (view === "onlineGame") render();
+}
+
 async function initializeOnlineTabooRound() {
   const challenge = activeOnlineChallenge;
   const taboo = challenge?.game_state?.taboo;
@@ -748,11 +818,13 @@ async function initializeOnlineTabooRound() {
   const roundIndex = Number(taboo.roundIndex || 0);
   const roles = tabooRoles(challenge, roundIndex);
   if (roles.guesserId !== currentUser?.id) return;
+  if (onlineTabooBeforeFirstRound(challenge) && (!onlineTabooLobbyReady(challenge) || !onlineTabooBothPlayersPresent)) return;
   if (onlineTabooActionPending) {
     scheduleOnlineTabooRoundInitialization(250);
     return;
   }
-  const words = getAllWords().map(onlineWordData);
+  const selectedWords = taboo.playerWordPools?.[roles.guesserId];
+  const words = Array.isArray(selectedWords) && selectedWords.length ? selectedWords.map(onlineWordData) : getAllWords().map(onlineWordData);
   if (!words.length) {
     onlineTabooSetupError = "Your dictionary has no words available for this round.";
     if (view === "onlineGame") render();
@@ -1028,6 +1100,38 @@ function startOnlineTabooClock(root, challenge, current) {
   onlineTabooTimer = setInterval(update, 100);
 }
 
+function renderOnlineTabooLobby(root, challenge) {
+  const taboo = challenge.game_state?.taboo || {};
+  const { allWords, batchSources } = onlineTabooLocalSources();
+  const ownId = currentUser?.id;
+  const opponentId = challenge.challenger_id === ownId ? challenge.opponent_id : challenge.challenger_id;
+  const ownSelection = taboo.playerSelections?.[ownId] || null;
+  const opponentSelection = taboo.playerSelections?.[opponentId] || null;
+  const bothSelected = onlineTabooLobbyReady(challenge);
+  const lobbyMessage = onlineTabooLobbyStatus || (!ownSelection
+    ? "Choose the words you want to use."
+    : !opponentSelection
+      ? `Waiting for ${onlinePlayerName(challenge, opponentId)} to choose their words.`
+      : !onlineTabooBothPlayersPresent
+        ? `Both choices are saved. Waiting for ${onlinePlayerName(challenge, opponentId)} to enter the game.`
+        : "Both players are ready. Starting the first round…");
+  const selectionCard = (label, selection, isPresent) => `<div class="taboo-lobby-player ${selection ? "ready" : ""}"><span class="taboo-lobby-presence ${isPresent ? "online" : ""}"></span><div><strong>${escapeHtml(label)}</strong><small>${selection ? `${escapeHtml(selection.label)} · ${Number(selection.wordCount || 0)} words` : "Choosing words…"}</small></div><b>${selection ? "Ready" : "Waiting"}</b></div>`;
+  const sourceButton = (sourceType, source, selected) => `<button class="taboo-source-option ${selected ? "selected" : ""}" type="button" data-taboo-source="${sourceType}" aria-pressed="${selected}" ${sourceType === "batch" ? `data-taboo-batch-index="${source.index}"` : ""} ${onlineTabooActionPending ? "disabled" : ""}><span>${sourceType === "all" ? "📚" : "🗂️"}</span><div><strong>${escapeHtml(source.label)}</strong><small>${source.words.length} word${source.words.length === 1 ? "" : "s"}</small></div>${selected ? "<b>Selected</b>" : ""}</button>`;
+  root.innerHTML = `<section class="online-taboo"><div class="taboo-lobby"><div class="online-waiting-icon">🤐</div><h2>Choose your Taboo words</h2><p>Each player can use a different batch. The match starts when both players are here and ready.</p><div class="taboo-lobby-players">${selectionCard("You", ownSelection, onlineGamePresenceUserIds.has(ownId))}${selectionCard(onlinePlayerName(challenge, opponentId), opponentSelection, onlineGamePresenceUserIds.has(opponentId))}</div><div class="taboo-source-list">${sourceButton("all", { label: "All words", words: allWords }, ownSelection?.source === "all")}${batchSources.map((source, index) => sourceButton("batch", { ...source, index }, ownSelection?.source === "batch" && ownSelection.batchId === source.id)).join("")}</div>${batchSources.length ? "" : `<p class="taboo-no-batches">You have no non-empty batches, so all your words will be selected automatically.</p>`}<p class="taboo-lobby-status ${onlineTabooLobbyStatus && !onlineTabooActionPending ? "error" : ""}" role="status">${escapeHtml(lobbyMessage)}</p></div></section>`;
+  root.querySelector('[data-taboo-source="all"]')?.addEventListener("click", () => {
+    playClickSound();
+    chooseOnlineTabooWordSource("all");
+  });
+  root.querySelectorAll('[data-taboo-source="batch"]').forEach((button) => button.addEventListener("click", () => {
+    const source = batchSources[Number(button.dataset.tabooBatchIndex)];
+    if (!source) return;
+    playClickSound();
+    chooseOnlineTabooWordSource("batch", source.id);
+  }));
+  if (!batchSources.length && !ownSelection && !onlineTabooActionPending) setTimeout(() => chooseOnlineTabooWordSource("all"), 0);
+  if (bothSelected && onlineTabooBothPlayersPresent) scheduleOnlineTabooRoundInitialization(onlineTabooActionPending ? 250 : 0);
+}
+
 function onlineTabooRoundSummary(challenge, round) {
   const won = round.outcome === "won";
   return `<article class="taboo-round-summary ${won ? "won" : "lost"}"><span>${won ? "✓" : "×"}</span><div><strong>Round ${Number(round.roundNumber || 0)}: ${escapeHtml(round.word)}</strong><small>${escapeHtml(onlinePlayerName(challenge, round.describerId))} described · ${escapeHtml(onlinePlayerName(challenge, round.guesserId))} guessed</small></div></article>`;
@@ -1042,6 +1146,10 @@ function renderOnlineTaboo(root, challenge) {
   if (taboo.completed || challenge.status === "completed") {
     const successes = Number(taboo.successes || 0);
     root.innerHTML = `<section class="online-taboo"><div class="taboo-finish-card"><div class="online-waiting-icon">🤐</div><h2>Taboo complete!</h2><p>You cleared <strong>${successes} of ${Number(taboo.totalRounds || 4)}</strong> rounds together.</p><div class="taboo-round-history">${(taboo.rounds || []).map((round) => onlineTabooRoundSummary(challenge, round)).join("")}</div></div></section>`;
+    return;
+  }
+  if (onlineTabooBeforeFirstRound(challenge)) {
+    renderOnlineTabooLobby(root, challenge);
     return;
   }
   const roundIndex = Number(taboo.roundIndex || 0);

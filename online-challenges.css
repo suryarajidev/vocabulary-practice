@@ -140,6 +140,38 @@
   width: min(920px, 100%);
   margin: 0 auto;
 }
+.taboo-lobby {
+  width: min(760px, 100%);
+  margin: 20px auto;
+  padding: 26px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--card-bg);
+  text-align: center;
+}
+.taboo-lobby > h2 { margin: 8px 0 5px; }
+.taboo-lobby > p { color: var(--muted); }
+.taboo-lobby-players { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 20px 0; }
+.taboo-lobby-player { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 13px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg); text-align: left; }
+.taboo-lobby-player div { min-width: 0; }
+.taboo-lobby-player strong, .taboo-lobby-player small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.taboo-lobby-player small { margin-top: 3px; color: var(--muted); }
+.taboo-lobby-player b { color: var(--muted); font-size: 12px; }
+.taboo-lobby-player.ready b { color: #16a34a; }
+.taboo-lobby-presence { width: 10px; height: 10px; border-radius: 50%; background: var(--border); }
+.taboo-lobby-presence.online { background: #10b981; box-shadow: 0 0 0 4px rgba(16,185,129,.12); }
+.taboo-source-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; text-align: left; }
+.taboo-source-option { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 11px; min-height: 68px; padding: 13px 14px; border: 2px solid var(--border); border-radius: 14px; background: var(--bg); color: var(--text); cursor: pointer; font: inherit; transition: border-color 150ms ease, background 150ms ease, transform 150ms ease; }
+.taboo-source-option:hover:not(:disabled) { border-color: var(--accent); transform: translateY(-1px); }
+.taboo-source-option.selected { border-color: var(--accent); background: rgba(20,184,166,.1); }
+.taboo-source-option > span { font-size: 26px; }
+.taboo-source-option strong, .taboo-source-option small { display: block; }
+.taboo-source-option small { margin-top: 3px; color: var(--muted); }
+.taboo-source-option b { color: var(--accent); font-size: 12px; }
+.taboo-source-option:disabled { cursor: wait; opacity: .65; }
+.taboo-lobby .taboo-no-batches { margin: 13px 0 0; font-size: 13px; }
+.taboo-lobby .taboo-lobby-status { margin: 18px 0 0; padding: 11px; border-radius: 11px; background: var(--bg); color: var(--muted); font-weight: 750; }
+.taboo-lobby .taboo-lobby-status.error { background: rgba(239,68,68,.09); color: #dc2626; }
 .taboo-game-header {
   display: flex;
   align-items: flex-start;
@@ -251,6 +283,7 @@
 .taboo-alert-icon { font-size: 45px; }
 [data-theme="dark"] .taboo-forbidden span { color: #fca5a5; }
 [data-theme="dark"] .taboo-clock { color: #fca5a5; }
+[data-theme="dark"] .taboo-lobby .taboo-lobby-status.error { color: #fca5a5; }
 [data-theme="dark"] .taboo-inline-result.won { color: #86efac; }
 [data-theme="dark"] .taboo-inline-result.lost { color: #fca5a5; }
 
@@ -261,6 +294,6 @@
   .online-game-shell .game-stats { justify-content: flex-start; }
   .taboo-game-header { align-items: stretch; flex-direction: column; }
   .taboo-clock { width: 100%; }
-  .taboo-describer-layout, .taboo-guesser-layout, .taboo-round-history { grid-template-columns: 1fr; }
+  .taboo-lobby-players, .taboo-source-list, .taboo-describer-layout, .taboo-guesser-layout, .taboo-round-history { grid-template-columns: 1fr; }
   .taboo-guess-form > div { align-items: stretch; flex-direction: column; }
 }
