@@ -26,6 +26,13 @@ let onlineTabooActionPending = false;
 let onlineTabooInitializeTimer = null;
 let onlineTabooSetupError = "";
 let onlineTabooNoticeKeys = new Set();
+let onlineGamePresenceChannel = null;
+let onlineGamePresenceChallengeId = null;
+let onlineGamePresenceUserIds = new Set();
+let onlineTabooBothPlayersPresent = false;
+let onlineTabooLocalClock = null;
+let onlineTabooClockSyncPending = false;
+let onlineTabooLastCheckpointAt = 0;
 let onlineLastUserId = null;
 
 const TABOO_ALLOWED_WORDS = new Set([
@@ -90,15 +97,73 @@ function stopOnlineTabooTimers() {
   onlineTabooClueSaving = false;
   onlineTabooActionPending = false;
   onlineTabooSetupError = "";
+  onlineTabooLocalClock = null;
+  onlineTabooClockSyncPending = false;
+  onlineTabooLastCheckpointAt = 0;
+}
+
+function stopOnlineGamePresence() {
+  const channel = onlineGamePresenceChannel;
+  onlineGamePresenceChannel = null;
+  onlineGamePresenceChallengeId = null;
+  onlineGamePresenceUserIds = new Set();
+  onlineTabooBothPlayersPresent = false;
+  if (channel) {
+    Promise.resolve(channel.untrack()).catch(() => {});
+    Promise.resolve(supabaseClient.removeChannel(channel)).catch(() => {});
+  }
 }
 
 function resetOnlineChallengeSession(clearActive = true) {
   stopOnlineMemoryTimer();
   stopOnlineArcadeVisuals();
   stopOnlineTabooTimers();
+  stopOnlineGamePresence();
   onlineArcadeGame = null;
   onlineTabooNoticeKeys = new Set();
   if (clearActive) activeOnlineChallenge = null;
+}
+
+function onlinePresenceData(challenge) {
+  return {
+    user_id: currentUser?.id,
+    challenge_id: challenge.id,
+    viewing: "onlineGame",
+    joined_at: new Date().toISOString()
+  };
+}
+
+function refreshOnlineGamePresence(challenge, channel) {
+  if (channel !== onlineGamePresenceChannel || challenge.id !== onlineGamePresenceChallengeId) return;
+  const state = channel.presenceState();
+  onlineGamePresenceUserIds = new Set(Object.values(state || {}).flat().map((entry) => entry.user_id).filter(Boolean));
+  const bothPresent = onlineGamePresenceUserIds.has(challenge.challenger_id) && onlineGamePresenceUserIds.has(challenge.opponent_id);
+  const presenceChanged = bothPresent !== onlineTabooBothPlayersPresent;
+  onlineTabooBothPlayersPresent = bothPresent;
+  if (challenge.game_type !== "taboo" || !presenceChanged) return;
+  if (onlineTabooLocalClock) onlineTabooLocalClock.lastTickAt = Date.now();
+  if (!bothPresent) checkpointOnlineTabooClock(true);
+  updateOnlineTabooPresenceUI();
+}
+
+function startOnlineGamePresence(challenge) {
+  if (!challenge || challenge.status !== "active" || challenge.game_type !== "taboo" || !currentUser) {
+    if (onlineGamePresenceChannel) stopOnlineGamePresence();
+    return;
+  }
+  if (onlineGamePresenceChallengeId === challenge.id && onlineGamePresenceChannel) return;
+  stopOnlineGamePresence();
+  onlineGamePresenceChallengeId = challenge.id;
+  const channel = supabaseClient.channel(`online-taboo-presence-${challenge.id}`, {
+    config: { presence: { key: currentUser.id } }
+  });
+  onlineGamePresenceChannel = channel;
+  channel
+    .on("presence", { event: "sync" }, () => refreshOnlineGamePresence(challenge, channel))
+    .subscribe(async (status) => {
+      if (status !== "SUBSCRIBED" || channel !== onlineGamePresenceChannel || view !== "onlineGame" || document.hidden) return;
+      await channel.track(onlinePresenceData(challenge));
+    });
 }
 
 async function initializeOnlineChallengeSystem(user = currentUser) {
@@ -199,7 +264,7 @@ function buildOnlineGameState(type, challengerId, opponentId) {
     base.words = words;
     base.paragraphs = {};
   } else if (type === "taboo") {
-    base.durationSeconds = 30;
+    base.durationSeconds = 60;
     base.wordSource = "round-guesser-dictionary";
     base.taboo = {
       roundIndex: 0,
@@ -404,6 +469,7 @@ function renderOnlineGame(root) {
     root.innerHTML = `<div class="online-empty">Choose a challenge from the Online Challenges page.</div>`;
     return;
   }
+  startOnlineGamePresence(challenge);
   awardOnlineChallengeBonus(challenge);
   root.innerHTML = `<section class="online-game-shell">${onlineMatchBanner(challenge)}<div id="onlineGameBody"></div></section>`;
   const body = root.querySelector("#onlineGameBody");
@@ -713,7 +779,8 @@ async function initializeOnlineTabooRound() {
         forbiddenWords: tabooForbiddenWords(chosen),
         clue: "",
         startedAt: new Date().toISOString(),
-        endsAt: new Date(Date.now() + Number(activeOnlineChallenge?.game_state?.durationSeconds || 30) * 1000).toISOString(),
+        remainingMs: Math.max(60, Number(activeOnlineChallenge?.game_state?.durationSeconds || 60)) * 1000,
+        clockUpdatedAt: null,
         outcome: null,
         reason: null
       };
@@ -848,13 +915,95 @@ function syncOnlineTabooRealtime(previous, changed) {
   const afterRound = after?.current;
   if (!before || !after || previous.status !== changed.status || before.completed !== after.completed || before.roundIndex !== after.roundIndex || beforeRound?.id !== afterRound?.id || beforeRound?.outcome !== afterRound?.outcome) return false;
   if (!afterRound || afterRound.outcome) return false;
+  const authoritativeRemaining = Number(afterRound.remainingMs);
+  if (onlineTabooLocalClock?.roundId === afterRound.id && Number.isFinite(authoritativeRemaining)) {
+    onlineTabooLocalClock.remainingMs = Math.min(onlineTabooLocalClock.remainingMs, Math.max(0, authoritativeRemaining));
+  }
   const liveClue = document.getElementById("tabooLiveClue");
   if (liveClue && afterRound.guesserId === currentUser?.id) liveClue.textContent = afterRound.clue || "Waiting for the describer to begin…";
   return true;
 }
 
+function onlineTabooRoundDuration(challenge = activeOnlineChallenge) {
+  return Math.max(60, Number(challenge?.game_state?.durationSeconds || 60)) * 1000;
+}
+
+function ensureOnlineTabooLocalClock(current, challenge = activeOnlineChallenge) {
+  if (onlineTabooLocalClock?.roundId === current?.id) return onlineTabooLocalClock;
+  const savedRemaining = Number(current?.remainingMs);
+  onlineTabooLocalClock = {
+    roundId: current?.id,
+    remainingMs: Number.isFinite(savedRemaining) ? Math.max(0, savedRemaining) : onlineTabooRoundDuration(challenge),
+    lastTickAt: Date.now()
+  };
+  onlineTabooLastCheckpointAt = Date.now();
+  return onlineTabooLocalClock;
+}
+
+function onlineTabooRemaining(current, challenge = activeOnlineChallenge) {
+  const clock = ensureOnlineTabooLocalClock(current, challenge);
+  const now = Date.now();
+  if (onlineTabooBothPlayersPresent && !current?.outcome) {
+    clock.remainingMs = Math.max(0, clock.remainingMs - Math.max(0, now - clock.lastTickAt));
+  }
+  clock.lastTickAt = now;
+  return clock.remainingMs;
+}
+
+async function checkpointOnlineTabooClock(force = false) {
+  const challenge = activeOnlineChallenge;
+  const current = challenge?.game_state?.taboo?.current;
+  const clock = current && ensureOnlineTabooLocalClock(current, challenge);
+  if (!challenge || challenge.game_type !== "taboo" || challenge.status !== "active" || !current || current.outcome || !clock || onlineTabooClockSyncPending) return;
+  if (!force && (currentUser?.id !== challenge.challenger_id || !onlineTabooBothPlayersPresent)) return;
+  const roundId = current.id;
+  const remainingMs = Math.max(0, Math.round(clock.remainingMs));
+  onlineTabooClockSyncPending = true;
+  onlineTabooLastCheckpointAt = Date.now();
+  let updated = null;
+  try {
+    updated = await commitOnlineTabooMutation((taboo) => {
+      if (!taboo.current || taboo.current.id !== roundId || taboo.current.outcome) return false;
+      const existing = Number(taboo.current.remainingMs);
+      taboo.current.remainingMs = Number.isFinite(existing) ? Math.min(existing, remainingMs) : remainingMs;
+      taboo.current.clockUpdatedAt = new Date().toISOString();
+      delete taboo.current.endsAt;
+    });
+  } catch (error) {
+    console.warn("Unable to save the paused Taboo timer:", error);
+  } finally {
+    onlineTabooClockSyncPending = false;
+  }
+  const savedRemaining = Number(updated?.game_state?.taboo?.current?.remainingMs);
+  if (onlineTabooLocalClock?.roundId === roundId && Number.isFinite(savedRemaining)) {
+    onlineTabooLocalClock.remainingMs = Math.min(onlineTabooLocalClock.remainingMs, savedRemaining);
+  }
+}
+
+function updateOnlineTabooPresenceUI() {
+  const challenge = activeOnlineChallenge;
+  const current = challenge?.game_state?.taboo?.current;
+  if (!challenge || challenge.game_type !== "taboo" || !current || current.outcome) return;
+  const status = document.getElementById("tabooRoundStatus");
+  const clock = document.getElementById("tabooRoundClock");
+  const missingId = challenge.challenger_id === currentUser?.id ? challenge.opponent_id : challenge.challenger_id;
+  if (status) {
+    status.textContent = onlineTabooBothPlayersPresent
+      ? status.dataset.activeCopy
+      : `Waiting for ${onlinePlayerName(challenge, missingId)} — timer paused.`;
+  }
+  if (clock) clock.classList.toggle("paused", !onlineTabooBothPlayersPresent);
+  const textarea = document.getElementById("tabooDescriptionInput");
+  const guessInput = document.getElementById("tabooGuessInput");
+  const guessButton = document.querySelector("#tabooGuessForm button");
+  if (textarea) textarea.disabled = !onlineTabooBothPlayersPresent;
+  if (guessInput) guessInput.disabled = !onlineTabooBothPlayersPresent;
+  if (guessButton) guessButton.disabled = !onlineTabooBothPlayersPresent;
+}
+
 function startOnlineTabooClock(root, challenge, current) {
   if (onlineTabooTimer) clearInterval(onlineTabooTimer);
+  ensureOnlineTabooLocalClock(current, challenge);
   const update = () => {
     if (view !== "onlineGame" || activeOnlineChallenge?.id !== challenge.id) {
       clearInterval(onlineTabooTimer);
@@ -870,9 +1019,10 @@ function startOnlineTabooClock(root, challenge, current) {
       if (remaining <= 0) advanceOnlineTabooRound(latest.id);
       return;
     }
-    const remaining = Math.max(0, (new Date(latest.endsAt).getTime() - Date.now()) / 1000);
-    if (clock) clock.textContent = `${remaining.toFixed(1)}s`;
-    if (remaining <= 0) finishOnlineTabooRound("lost", "timeout");
+    const remainingMs = onlineTabooRemaining(latest, challenge);
+    if (clock) clock.textContent = onlineTabooBothPlayersPresent ? `${(remainingMs / 1000).toFixed(1)}s` : `Paused · ${Math.ceil(remainingMs / 1000)}s`;
+    if (onlineTabooBothPlayersPresent && Date.now() - onlineTabooLastCheckpointAt >= 2000) checkpointOnlineTabooClock();
+    if (onlineTabooBothPlayersPresent && remainingMs <= 0) finishOnlineTabooRound("lost", "timeout");
   };
   update();
   onlineTabooTimer = setInterval(update, 100);
@@ -927,7 +1077,9 @@ function renderOnlineTaboo(root, challenge) {
   } else if (amGuesser) {
     playArea = `<div class="taboo-guesser-layout"><section class="taboo-speech-card"><span class="side-label">LIVE DESCRIPTION</span><div class="taboo-speech-bubble" id="tabooLiveClue">${escapeHtml(current.clue || "Waiting for the describer to begin…")}</div><span class="taboo-typing-note">${escapeHtml(onlinePlayerName(challenge, current.describerId))} is describing the word</span></section><form class="taboo-guess-form" id="tabooGuessForm"><label for="tabooGuessInput">What is the word?</label><div><input id="tabooGuessInput" type="text" autocomplete="off" placeholder="Type your guess" ${finished ? "disabled" : ""}><button class="accent-btn" type="submit" ${finished ? "disabled" : ""}>Guess</button></div><p id="tabooGuessFeedback" role="status"></p></form></div>`;
   }
-  root.innerHTML = `<section class="online-taboo"><header class="taboo-game-header"><div><span class="side-label">ROUND ${Number(current.roundNumber || roundIndex + 1)} OF ${Number(taboo.totalRounds || 4)}</span><h2>${amDescriber ? "You are the describer" : "You are the guesser"}</h2><p>${statusCopy}</p></div><div class="taboo-clock ${finished ? "finished" : ""}" id="tabooRoundClock">30.0s</div></header>${playArea}${finished ? `<div class="taboo-inline-result ${current.outcome}">${current.outcome === "won" ? "Round won!" : "Round lost."}</div>` : ""}<div class="taboo-score-strip"><span>Team score</span><strong>${Number(taboo.successes || 0)} / ${Number(taboo.totalRounds || 4)} rounds</strong></div></section>`;
+  const startingRemaining = Number.isFinite(Number(current.remainingMs)) ? Number(current.remainingMs) : onlineTabooRoundDuration(challenge);
+  root.innerHTML = `<section class="online-taboo"><header class="taboo-game-header"><div><span class="side-label">ROUND ${Number(current.roundNumber || roundIndex + 1)} OF ${Number(taboo.totalRounds || 4)}</span><h2>${amDescriber ? "You are the describer" : "You are the guesser"}</h2><p id="tabooRoundStatus" data-active-copy="${escapeHtml(statusCopy)}">${statusCopy}</p></div><div class="taboo-clock ${finished ? "finished" : ""}" id="tabooRoundClock">${(startingRemaining / 1000).toFixed(1)}s</div></header>${playArea}${finished ? `<div class="taboo-inline-result ${current.outcome}">${current.outcome === "won" ? "Round won!" : "Round lost."}</div>` : ""}<div class="taboo-score-strip"><span>Team score</span><strong>${Number(taboo.successes || 0)} / ${Number(taboo.totalRounds || 4)} rounds</strong></div></section>`;
+  updateOnlineTabooPresenceUI();
   if (amDescriber && !finished) {
     const textarea = root.querySelector("#tabooDescriptionInput");
     textarea.addEventListener("input", () => {
@@ -1206,6 +1358,23 @@ function leaveOnlineGame() {
   }
   resetOnlineChallengeSession();
 }
+
+document.addEventListener("visibilitychange", () => {
+  const channel = onlineGamePresenceChannel;
+  const challenge = activeOnlineChallenge;
+  if (!channel || !challenge || challenge.game_type !== "taboo") return;
+  if (document.hidden) {
+    const current = challenge.game_state?.taboo?.current;
+    if (current && !current.outcome) onlineTabooRemaining(current, challenge);
+    onlineGamePresenceUserIds.delete(currentUser?.id);
+    onlineTabooBothPlayersPresent = false;
+    checkpointOnlineTabooClock(true);
+    updateOnlineTabooPresenceUI();
+    Promise.resolve(channel.untrack()).catch(() => {});
+  } else if (view === "onlineGame" && channel === onlineGamePresenceChannel) {
+    Promise.resolve(channel.track(onlinePresenceData(challenge))).catch(() => {});
+  }
+});
 
 supabaseClient.auth.onAuthStateChange((_event, session) => {
   setTimeout(() => initializeOnlineChallengeSystem(session?.user || null), 0);

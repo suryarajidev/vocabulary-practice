@@ -166,6 +166,7 @@
   text-align: center;
 }
 .taboo-clock.finished { min-width: 150px; border-color: var(--border); background: var(--bg); color: var(--muted); font-size: 15px; }
+.taboo-clock.paused { min-width: 150px; border-color: var(--border); background: var(--bg); color: var(--muted); font-size: 15px; }
 .taboo-describer-layout, .taboo-guesser-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
 .taboo-secret-card, .taboo-clue-panel, .taboo-speech-card, .taboo-guess-form {
   padding: 20px;
