@@ -1137,7 +1137,8 @@ function ensureOnlineArcadeGame(challenge) {
     score: 0, correct: 0, incorrect: 0, streak: 0,
     deadline: performance.now() + Number(challenge.game_state?.durationSeconds || 60) * 1000,
     roundStartedAt: performance.now(), answerShownAt: 0,
-    answer: null, choices: [], locked: false, feedback: "", feedbackType: "", submitted: false
+    answer: null, choices: [], locked: false, feedback: "", feedbackType: "", submitted: false,
+    malletX: null, malletY: null, malletActive: false
   };
   createOnlineArcadeRound(challenge);
   return true;
@@ -1284,9 +1285,7 @@ function renderOnlineWhack(root, challenge) {
   root.innerHTML = `<section class="whack-game"><div class="game-heading"><div><h2>Whack-a-Word Duel</h2><p>Whack the matching mole. Your 60-second run cannot be paused.</p></div>${onlineArcadeStatsHtml(game)}</div><div class="definition-prompt"><div class="side-label">WHACK THIS WORD</div><p>${escapeHtml(game.answer.definition)}</p></div><div class="whack-yard online-whack-yard">${game.choices.map((choice, index) => `<div class="mole-hole"><button class="mole" data-online-mole="${index}" disabled><span class="mole-word">${escapeHtml(choice.word)}</span></button></div>`).join("")}<img class="whack-mallet" src="assets/whack-mallet.png" alt=""></div><div class="whack-feedback ${game.feedbackType}">${escapeHtml(game.feedback)}</div></section>`;
   const yard = root.querySelector(".whack-yard");
   const mallet = root.querySelector(".whack-mallet");
-  yard.addEventListener("pointermove", (event) => { const rect = yard.getBoundingClientRect(); mallet.style.left = `${event.clientX - rect.left}px`; mallet.style.top = `${event.clientY - rect.top}px`; });
-  yard.addEventListener("pointerenter", () => yard.classList.add("mallet-active"));
-  yard.addEventListener("pointerleave", () => yard.classList.remove("mallet-active"));
+  attachWhackMalletTracking(yard, mallet, game);
   startOnlineArcadeClock(root);
   scheduleOnlineMoles(root);
   root.querySelectorAll("[data-online-mole]").forEach((button) => button.addEventListener("click", () => hitOnlineMole(button, Number(button.dataset.onlineMole))));

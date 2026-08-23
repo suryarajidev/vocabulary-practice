@@ -4005,11 +4005,36 @@
     elapsed: 0, roundStartedAt: 0, locked: false,
     feedback: "", feedbackType: "", paused: false,
     answerShownAt: 0, answerResponseElapsed: 0, starEventId: null,
-    answerQueue: [], lastAnswerWord: null
+    answerQueue: [], lastAnswerWord: null,
+    malletX: null, malletY: null, malletActive: false
   };
   let whackTimerId = null;
   let moleTimeouts = [];
   let visibleMoles = new Set();
+
+  function attachWhackMalletTracking(yard, mallet, game) {
+    const placeMallet = () => {
+      if (!Number.isFinite(game.malletX) || !Number.isFinite(game.malletY)) return;
+      mallet.style.left = `${game.malletX * 100}%`;
+      mallet.style.top = `${game.malletY * 100}%`;
+    };
+    placeMallet();
+    yard.classList.toggle("mallet-active", Boolean(game.malletActive));
+    yard.addEventListener("pointermove", (event) => {
+      const rect = yard.getBoundingClientRect();
+      game.malletX = Math.max(0, Math.min(1, (event.clientX - rect.left) / Math.max(1, rect.width)));
+      game.malletY = Math.max(0, Math.min(1, (event.clientY - rect.top) / Math.max(1, rect.height)));
+      placeMallet();
+    });
+    yard.addEventListener("pointerenter", () => {
+      game.malletActive = true;
+      yard.classList.add("mallet-active");
+    });
+    yard.addEventListener("pointerleave", () => {
+      game.malletActive = false;
+      yard.classList.remove("mallet-active");
+    });
+  }
 
   let memoryGame = null;
   let memoryResolveTimer = null;
@@ -6201,13 +6226,7 @@
 
     const yard = root.querySelector(".whack-yard");
     const mallet = root.querySelector(".whack-mallet");
-    yard.addEventListener("pointermove", (event) => {
-      const rect = yard.getBoundingClientRect();
-      mallet.style.left = `${event.clientX - rect.left}px`;
-      mallet.style.top = `${event.clientY - rect.top}px`;
-    });
-    yard.addEventListener("pointerenter", () => yard.classList.add("mallet-active"));
-    yard.addEventListener("pointerleave", () => yard.classList.remove("mallet-active"));
+    attachWhackMalletTracking(yard, mallet, whackGame);
 
     scheduleMoleCycles(root);
     root.querySelectorAll(".mole").forEach((button) => button.addEventListener("click", () => {
