@@ -326,7 +326,6 @@
   .home-corner-left { left: 24px; }
   .home-corner-right { right: 24px; }
   .home-corner-bottom-left { top: auto; bottom: 24px; left: 24px; }
-  .settings-btn-mobile { display: none; }
 
   .home-corner-btn {
     display: inline-flex;
@@ -413,12 +412,10 @@
     .home-corner { position: fixed; top: 8px; gap: 5px; }
     .home-corner-left { left: 8px; }
     .home-corner-right { right: 8px; justify-content: flex-end; }
-    .home-corner-bottom-left { display: none; }
+    .home-corner-bottom-left { left: 8px; bottom: 8px; }
     .home-view { padding-top: 50px; }
     .brand-bar { margin-top: 0; padding: 0 0 8px; }
     .stars-pill { display: none; }
-    .settings-btn-desktop { display: none; }
-    .settings-btn-mobile { display: inline-flex; }
     .home-corner-btn { padding: 6px 9px; font-size: 11px; gap: 4px; border-radius: 9px; }
     .home-corner-btn svg { width: 13px; height: 13px; }
     .home-corner-icon-btn { width: 28px; height: 28px; border-radius: 8px; }
@@ -5246,19 +5243,13 @@
           </svg>
           Find Users
         </button>
-        <button class="home-corner-icon-btn settings-btn-mobile app-settings-trigger" aria-label="Settings">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="3"></circle>
-            <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 9 19.35a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.65 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.65 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.65a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15 4.65a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.35 9a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.09A1.7 1.7 0 0 0 19.4 15z"></path>
-          </svg>
-        </button>
       </div>
       <div class="home-corner home-corner-right">
         <div class="stars-pill" aria-label="${getStarBalance().toLocaleString()} Stars"><span class="star-icon-wrap" aria-hidden="true">${STAR_ICON_SVG}</span>${getStarBalance().toLocaleString()}<span>Stars</span></div>
         <button class="streak-pill" id="streakAchievementButton" type="button" aria-label="Current streak: ${streak.count} day${streak.count === 1 ? "" : "s"}"><span class="streak-flame" aria-hidden="true">${FLAME_ICON_SVG}</span>${streak.count}<span>day${streak.count === 1 ? "" : "s"}</span></button>
       </div>
       <div class="home-corner home-corner-bottom-left">
-        <button class="home-corner-icon-btn settings-btn-desktop app-settings-trigger" aria-label="Settings">
+        <button class="home-corner-icon-btn app-settings-trigger" aria-label="Settings">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="3"></circle>
             <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09A1.7 1.7 0 0 0 9 19.35a1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.65 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.65 9a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.65a1.7 1.7 0 0 0 1.03-1.56V3a2 2 0 1 1 4 0v.09A1.7 1.7 0 0 0 15 4.65a1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.35 9a1.7 1.7 0 0 0 1.56 1.03H21a2 2 0 1 1 0 4h-.09A1.7 1.7 0 0 0 19.4 15z"></path>
