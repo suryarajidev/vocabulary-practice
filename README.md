@@ -102,3 +102,5 @@ JAI: By publishing the app we could buy a domain and put it on the internet or p
 
 
 SURYA: I’ll let you decide if you think we should publish the app. also, I may or may not have wanted to change a username that had the number 6 in it, not to mention the number coming after it…
+
+JAI: Did you change my beautiful and definitely true username? Also, when does your school start? Mine starts on September 2nd, also did you take the PSAT?
