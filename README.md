@@ -106,3 +106,5 @@ SURYA: I’ll let you decide if you think we should publish the app. also, I may
 JAI: Did you change my beautiful and definitely true username? Also, when does your school start? Mine starts on September 2nd, also did you take the PSAT?
 
 SURYA: Unfortunately, I couldn't figure out how to change your ugly and definitely false username. My school starts on Sept. 8th, and I haven't taken the SSAT or PSAT yet. I've never heard of the PSAT before you said it, by the way.
+
+JAI: LETS GO MY BEAUTIFUL AND TRUE USERNAME WILL STAND FOR THE REST OF YOUR LIFE. You school starts pretty late. When are you taking the SSAT???????????????
