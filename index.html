@@ -107,6 +107,7 @@
   [data-theme="dark"] .batch-combine-panel { border-color: #45504e; background: #222a29; }
   [data-theme="dark"] .batch-combine-option { border-color: #444849; background: #292c2d; }
   [data-theme="dark"] .batch-combine-option.selected { border-color: #68716f; background: #3b4442; }
+  [data-theme="dark"] .batch-combine-save-status.error { color: #fca5a5; }
 
   /* This pill keeps a fixed light/pastel background in both themes, so its text
      must stay a fixed dark color instead of following --text/--brand-dark/etc. */
@@ -1278,6 +1279,14 @@
   .batch-combine-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .batch-combine-footer button { padding: 11px 18px; }
   .batch-combine-footer button:disabled { opacity: .42; cursor: not-allowed; }
+  .batch-combine-save { display: flex; flex-direction: column; gap: 8px; padding-top: 13px; border-top: 1px solid rgba(13,148,136,.2); }
+  .batch-combine-save > label { font-size: 13px; font-weight: 800; }
+  .batch-combine-save-row { display: grid; grid-template-columns: minmax(170px, 1fr) auto auto; gap: 8px; }
+  .batch-combine-save-row input { min-width: 0; padding: 11px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--card-bg); color: var(--text); font: inherit; }
+  .batch-combine-save-row button { padding: 11px 16px; }
+  .batch-combine-save-row button:disabled { opacity: .42; cursor: not-allowed; }
+  .batch-combine-save-status { color: var(--muted); font-size: 12px; }
+  .batch-combine-save-status.error { color: #b91c1c; font-weight: 750; }
   .batch-panel { display: flex; flex-direction: column; gap: 14px; padding: 18px; border: 1px solid var(--border); border-radius: 16px; background: rgba(253,252,249,.72); }
   .batch-panel-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
   .batch-panel-header h3 { margin: 0 0 3px; font-size: 24px; }
@@ -1699,6 +1708,7 @@
     .dictionary-toolbar { flex-wrap: wrap; }
     .batch-play-menu { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .batches-header, .batch-combine-heading, .batch-combine-footer { align-items: stretch; flex-direction: column; }
+    .batch-combine-save-row { grid-template-columns: 1fr; }
     .batches-header-actions { justify-content: flex-start; }
     .batch-panel-header { flex-direction: column; }
     .batch-header-actions { width: 100%; }
@@ -2185,7 +2195,7 @@
   const STREAK_KEY = "vocabPracticeStreak";
   const APP_SETTINGS_KEY = "vocabPracticeAppSettings";
   const ACHIEVEMENTS_KEY = "vocabPracticeAchievements";
-  const MAX_BATCHES = 5;
+  const MAX_BATCHES = 10;
   const MAX_SAVED_PARAGRAPHS = 5;
   const FLAME_ICON_SVG = `<svg class="flame-icon" viewBox="0 0 20 20" aria-hidden="true" fill-rule="evenodd" clip-rule="evenodd"><path fill="#f59e0b" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654a1 1 0 00-1.7-.707A6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.88 2.12z"/></svg>`;
   const STAR_ICON_SVG = `<svg class="star-icon" viewBox="0 0 20 20" aria-hidden="true"><path fill="#eab308" d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.957a1 1 0 00.951.69h4.162c.969 0 1.371 1.24.588 1.81l-3.367 2.446a1 1 0 00-.364 1.118l1.287 3.957c.3.922-.755 1.688-1.538 1.118l-3.367-2.446a1 1 0 00-1.175 0l-3.368 2.446c-.783.57-1.838-.196-1.538-1.118l1.287-3.957a1 1 0 00-.364-1.118L2.75 9.384c-.783-.57-.38-1.81.588-1.81h4.163a1 1 0 00.95-.69l1.286-3.957z"/></svg>`;
@@ -3458,6 +3468,42 @@
     return combinedKeys.map((key) => byKey.get(key));
   }
 
+  function mergeSelectedBatches(batchIds, name, replaceOriginals = false) {
+    const cleanName = String(name || "").trim().slice(0, 40);
+    const existingIds = new Set(batches.map((batch) => batch.id));
+    const sourceBatchIds = [...new Set(batchIds)].filter((id) => existingIds.has(id));
+    if (sourceBatchIds.length < 2) return { ok: false, message: "Choose at least two batches to merge." };
+    if (!cleanName) return { ok: false, message: "Give the merged batch a name." };
+    const combinedWords = getCombinedBatchWords(sourceBatchIds);
+    if (!combinedWords.length) return { ok: false, message: "The selected batches do not contain any available dictionary words." };
+    if (!replaceOriginals && batches.length >= MAX_BATCHES) return { ok: false, message: `You can keep up to ${MAX_BATCHES} batches. Replace the selected batches instead.` };
+    const wordKeys = combinedWords.map((item) => item.word.toLowerCase());
+    let mergedBatch;
+    if (replaceOriginals) {
+      const sourceIds = new Set(sourceBatchIds);
+      batches = batches.flatMap((batch) => {
+        if (!sourceIds.has(batch.id)) return [batch];
+        if (mergedBatch) return [];
+        mergedBatch = { id: batch.id, name: cleanName, wordKeys };
+        return [mergedBatch];
+      });
+      if (achievementData.masteredBatches) {
+        sourceBatchIds.forEach((id) => delete achievementData.masteredBatches[id]);
+        saveAchievementData();
+      }
+    } else {
+      mergedBatch = { id: makeBatchId(), name: cleanName, wordKeys };
+      batches.push(mergedBatch);
+      recordAchievementStat("batchesCreated");
+    }
+    activeBatchId = mergedBatch.id;
+    selectedBatchIds = new Set();
+    batchCombineOpen = false;
+    saveBatches();
+    refreshAchievements();
+    return { ok: true, batch: mergedBatch };
+  }
+
   function removeWordFromBatches(wordKey) {
     let changed = false;
     batches.forEach((batch) => {
@@ -3500,7 +3546,7 @@
         <button class="small-btn" id="cancelBatchSave">Cancel</button>
         <button class="accent-btn" id="createSavedBatch" ${batches.length >= MAX_BATCHES ? "disabled" : ""}>Create batch</button>
       </div>
-      ${batches.length ? `<div class="batch-replace"><p>${batches.length >= MAX_BATCHES ? "You have five batches. Replace one to save these words:" : "Or replace the words in an existing batch:"}</p><div class="batch-replace-list">
+      ${batches.length ? `<div class="batch-replace"><p>${batches.length >= MAX_BATCHES ? `You have ${MAX_BATCHES} batches. Replace one to save these words:` : "Or replace the words in an existing batch:"}</p><div class="batch-replace-list">
         ${batches.map((batch) => `<button class="small-btn replace-batch-btn" data-batch-id="${batch.id}"><span>${escapeHtml(batch.name)}</span><span>${getBatchWords(batch).length} words</span></button>`).join("")}
       </div></div>` : ""}
     </div>`;
@@ -7007,6 +7053,12 @@
     const activeBatch = batches.find((batch) => batch.id === activeBatchId) || null;
     const batchWords = getBatchWords(activeBatch);
     const combinedBatchWords = getCombinedBatchWords([...selectedBatchIds]);
+    const selectedBatches = batches.filter((batch) => selectedBatchIds.has(batch.id));
+    const combinedBatchNameSuggestion = (selectedBatches.length === 2
+      ? `${selectedBatches[0].name} + ${selectedBatches[1].name}`
+      : selectedBatches.length > 2
+        ? `${selectedBatches[0].name} + ${selectedBatches.length - 1} more`
+        : "Combined batch").slice(0, 40);
 
     root.innerHTML = `<section class="batches-view" aria-labelledby="batchesTitle">
       <div class="batches-header">
@@ -7030,6 +7082,15 @@
         <div class="batch-combine-footer">
           <span class="batch-combine-summary" id="batchCombineSummary">${selectedBatchIds.size < 2 ? "Choose at least two batches to begin." : `${selectedBatchIds.size} batches &bull; ${combinedBatchWords.length} unique word${combinedBatchWords.length === 1 ? "" : "s"}`}</span>
           <button class="accent-btn" id="practiceCombinedBatches" ${selectedBatchIds.size < 2 || combinedBatchWords.length < 1 ? "disabled" : ""}>Practice combined</button>
+        </div>
+        <div class="batch-combine-save">
+          <label for="combinedBatchName">Merged batch name</label>
+          <div class="batch-combine-save-row">
+            <input id="combinedBatchName" maxlength="40" value="${escapeHtml(combinedBatchNameSuggestion)}" placeholder="Combined batch">
+            <button class="small-btn" id="replaceCombinedBatches" ${selectedBatchIds.size < 2 || combinedBatchWords.length < 1 ? "disabled" : ""}>Merge &amp; replace selected</button>
+            <button class="accent-btn" id="createCombinedBatch" ${selectedBatchIds.size < 2 || combinedBatchWords.length < 1 || batches.length >= MAX_BATCHES ? "disabled" : ""} title="${batches.length >= MAX_BATCHES ? `You have reached the ${MAX_BATCHES}-batch limit. Replace the selected batches instead.` : "Keep the originals and save another batch."}">Save as new batch</button>
+          </div>
+          <span class="batch-combine-save-status" id="batchCombineSaveStatus" role="status">${batches.length >= MAX_BATCHES ? `The ${MAX_BATCHES}-batch limit is full, but you can still replace the selected batches.` : "Create a new batch or replace all selected batches with one merged batch."}</span>
         </div>
       </div>` : ""}
       ${batches.length ? `<div class="batch-tabs" aria-label="Saved batches">
@@ -7076,20 +7137,64 @@
       const summary = root.querySelector("#batchCombineSummary");
       const selectedCount = root.querySelector("#batchCombineCount");
       const practiceCombinedButton = root.querySelector("#practiceCombinedBatches");
+      const combinedNameInput = root.querySelector("#combinedBatchName");
+      const replaceCombinedButton = root.querySelector("#replaceCombinedBatches");
+      const createCombinedButton = root.querySelector("#createCombinedBatch");
+      const combineSaveStatus = root.querySelector("#batchCombineSaveStatus");
+      let combinedNameCustomized = false;
+      const suggestedCombinedName = () => {
+        const selected = batches.filter((batch) => selectedBatchIds.has(batch.id));
+        return (selected.length === 2
+          ? `${selected[0].name} + ${selected[1].name}`
+          : selected.length > 2
+            ? `${selected[0].name} + ${selected.length - 1} more`
+            : "Combined batch").slice(0, 40);
+      };
       const updateCombinedSelection = () => {
         const combinedWords = getCombinedBatchWords([...selectedBatchIds]);
+        const canMerge = selectedBatchIds.size >= 2 && combinedWords.length > 0;
         root.querySelectorAll("[data-combine-option]").forEach((option) => option.classList.toggle("selected", selectedBatchIds.has(option.dataset.combineOption)));
         selectedCount.textContent = `${selectedBatchIds.size} selected`;
         summary.textContent = selectedBatchIds.size < 2
           ? "Choose at least two batches to begin."
           : `${selectedBatchIds.size} batches • ${combinedWords.length} unique word${combinedWords.length === 1 ? "" : "s"}`;
-        practiceCombinedButton.disabled = selectedBatchIds.size < 2 || combinedWords.length < 1;
+        if (!combinedNameCustomized) combinedNameInput.value = suggestedCombinedName();
+        const hasName = Boolean(combinedNameInput.value.trim());
+        practiceCombinedButton.disabled = !canMerge;
+        replaceCombinedButton.disabled = !canMerge || !hasName;
+        createCombinedButton.disabled = !canMerge || !hasName || batches.length >= MAX_BATCHES;
       };
       root.querySelectorAll("[data-combine-batch-id]").forEach((checkbox) => checkbox.addEventListener("change", () => {
         if (checkbox.checked) selectedBatchIds.add(checkbox.dataset.combineBatchId);
         else selectedBatchIds.delete(checkbox.dataset.combineBatchId);
         updateCombinedSelection();
       }));
+      combinedNameInput.addEventListener("input", () => {
+        combinedNameCustomized = true;
+        combinedNameInput.setCustomValidity("");
+        combineSaveStatus.classList.remove("error");
+        updateCombinedSelection();
+      });
+      const saveCombinedBatch = (replaceOriginals) => {
+        const sourceBatchIds = [...selectedBatchIds].filter((id) => validBatchIds.has(id));
+        const name = combinedNameInput.value.trim();
+        if (!name) {
+          combinedNameInput.setCustomValidity("Give the merged batch a name.");
+          combinedNameInput.reportValidity();
+          return;
+        }
+        if (replaceOriginals && !confirm(`Delete the ${sourceBatchIds.length} selected batches and replace them with one merged batch named “${name}”?`)) return;
+        const result = mergeSelectedBatches(sourceBatchIds, name, replaceOriginals);
+        if (!result.ok) {
+          combineSaveStatus.textContent = result.message;
+          combineSaveStatus.classList.add("error");
+          return;
+        }
+        playGotItSound();
+        render();
+      };
+      replaceCombinedButton.addEventListener("click", () => saveCombinedBatch(true));
+      createCombinedButton.addEventListener("click", () => saveCombinedBatch(false));
       practiceCombinedButton.addEventListener("click", () => {
         const sourceBatchIds = [...selectedBatchIds].filter((id) => validBatchIds.has(id));
         const combinedWords = getCombinedBatchWords(sourceBatchIds);
