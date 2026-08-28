@@ -3608,6 +3608,25 @@
     return shuffled.slice(0, Math.min(count, shuffled.length));
   }
 
+  function getBubbleHitMessage(elapsed, streak) {
+    let messages;
+    if (streak >= 5 && streak % 5 === 0) {
+      messages = [`${streak} in a row!`, "Pop streak!", "Unstoppable!", "On a roll!"];
+    } else if (elapsed <= 1.5) {
+      messages = ["Lightning pop!", "Quick draw!", "Instant hit!", "Blazing shot!"];
+    } else if (elapsed <= 3.5) {
+      messages = ["Bullseye!", "Sharp shot!", "Perfect aim!", "Direct hit!"];
+    } else if (elapsed <= 7) {
+      messages = ["Nice shot!", "Clean pop!", "Right on target!", "Great find!"];
+    } else {
+      messages = ["Good find!", "Careful aim!", "You got it!", "Patience pays off!"];
+    }
+    const freshMessages = messages.filter((message) => message !== bubbleGame.lastHitMessage);
+    const message = randomSample(freshMessages.length ? freshMessages : messages, 1)[0];
+    bubbleGame.lastHitMessage = message;
+    return message;
+  }
+
   function drawNonRepeatingAnswer(game, pool) {
     if (!game || !Array.isArray(pool) || !pool.length) return null;
     const poolByKey = new Map(pool.map((item) => [item.word.toLowerCase(), item]));
@@ -4036,7 +4055,8 @@
     elapsed: 0,
     starEventId: null,
     answerQueue: [],
-    lastAnswerWord: null
+    lastAnswerWord: null,
+    lastHitMessage: null
   };
 
   let bubbleTimerId = null;
@@ -6460,7 +6480,8 @@
             saveHighScores();
             refreshAchievements();
           }
-          bubbleGame.feedback = `Bullseye! +${pointsEarned} points in ${elapsed.toFixed(1)}s.`;
+          const hitMessage = getBubbleHitMessage(elapsed, bubbleGame.streak);
+          bubbleGame.feedback = `${hitMessage} +${pointsEarned} points in ${elapsed.toFixed(1)}s.`;
           bubbleGame.feedbackType = "correct";
           playGotItSound();
         } else {
