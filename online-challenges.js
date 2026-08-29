@@ -1416,7 +1416,8 @@ function scheduleOnlineMoles(root) {
   };
   const show = (button, index) => {
     if (!button.isConnected || onlineArcadeGame?.locked || onlineArcadeRemaining() <= 0) return;
-    if (visible.size >= 3) { onlineMoleTimeouts.push(setTimeout(() => show(button, index), 180)); return; }
+    const columnBusy = [...visible].some((visibleIndex) => visibleIndex % 3 === index % 3);
+    if (visible.size >= 3 || columnBusy) { onlineMoleTimeouts.push(setTimeout(() => show(button, index), 180)); return; }
     visible.add(index); button.classList.add("up"); button.disabled = false;
     if (onlineArcadeGame.choices[index].word === onlineArcadeGame.answer.word) onlineArcadeGame.answerShownAt = performance.now();
     onlineMoleTimeouts.push(setTimeout(() => hide(button, index), 1800 + Math.random() * 900));
