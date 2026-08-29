@@ -1323,6 +1323,34 @@ function startOnlineBubblePhysics(field) {
       body.x += body.vx * dt; body.y += body.vy * dt;
       if (body.x <= 0 || body.x + body.size >= width) { body.vx *= -1; body.x = Math.max(0, Math.min(width - body.size, body.x)); }
       if (body.y <= 0 || body.y + body.size >= height) { body.vy *= -1; body.y = Math.max(0, Math.min(height - body.size, body.y)); }
+    });
+    for (let i = 0; i < bodies.length; i++) {
+      const a = bodies[i];
+      if (a.element.classList.contains("hit")) continue;
+      for (let j = i + 1; j < bodies.length; j++) {
+        const b = bodies[j];
+        if (b.element.classList.contains("hit")) continue;
+        const dx = (b.x + b.size / 2) - (a.x + a.size / 2);
+        const dy = (b.y + b.size / 2) - (a.y + a.size / 2);
+        const distance = Math.hypot(dx, dy) || .001;
+        const minimum = (a.size + b.size) / 2;
+        if (distance >= minimum) continue;
+        const nx = dx / distance;
+        const ny = dy / distance;
+        const overlap = minimum - distance;
+        a.x -= nx * overlap / 2; a.y -= ny * overlap / 2;
+        b.x += nx * overlap / 2; b.y += ny * overlap / 2;
+        const approachSpeed = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+        if (approachSpeed < 0) {
+          a.vx += approachSpeed * nx; a.vy += approachSpeed * ny;
+          b.vx -= approachSpeed * nx; b.vy -= approachSpeed * ny;
+        }
+      }
+    }
+    bodies.forEach((body) => {
+      if (body.element.classList.contains("hit")) return;
+      body.x = Math.max(0, Math.min(width - body.size, body.x));
+      body.y = Math.max(0, Math.min(height - body.size, body.y));
       body.element.style.transform = `translate3d(${body.x}px, ${body.y}px, 0)`;
     });
     if (view === "onlineGame" && activeOnlineChallenge?.id === onlineArcadeGame?.challengeId && !onlineArcadeGame?.submitted) onlineArcadeFrame = requestAnimationFrame(step);
@@ -1354,6 +1382,14 @@ function hitOnlineBubble(button, index) {
     const lost = Math.min(250, game.score); game.score = Math.max(0, game.score - 250);
     game.feedback = lost ? `Wrong bubble: -${lost}. The answer is ${game.answer.word}.` : `Wrong bubble. The answer is ${game.answer.word}.`;
     game.feedbackType = "wrong"; playDontKnowSound();
+  }
+  const field = button.closest(".bubble-field");
+  if (field) {
+    const bubbleRect = button.getBoundingClientRect();
+    const fieldRect = field.getBoundingClientRect();
+    button.style.left = `${bubbleRect.left - fieldRect.left - field.clientLeft}px`;
+    button.style.top = `${bubbleRect.top - fieldRect.top - field.clientTop}px`;
+    button.style.transform = "none";
   }
   button.classList.add(correct ? "correct" : "wrong", "hit");
   if (!correct) {
