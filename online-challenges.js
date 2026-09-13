@@ -529,6 +529,7 @@ function awardOnlineChallengeBonus(challenge) {
   } else if (onlineChallengeWinner(challenge) === currentUser.id) {
     awarded = awardStars(5, `online-winner:${challenge.id}:${currentUser.id}`, "Online challenge victory", false);
     label = "Online challenge victory";
+    if (awarded && challenge.game_type === "memory") recordAchievementStat("memoryWins");
   }
   if (awarded) queueStarNotification(awarded, label);
   return awarded;

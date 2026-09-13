@@ -2223,6 +2223,7 @@
     bubblePlays: 0,
     whackPlays: 0,
     memoryGamesCompleted: 0,
+    memoryWins: 0,
     wordboundWins: 0,
     paragraphCompletions: 0,
     hardcoreParagraphCompletions: 0,
@@ -3876,6 +3877,7 @@
       { id: "on-fire", group: "Advanced", icon: FLAME_ICON_SVG, title: "On fire!", description: "Reach a 28-day Vocab Lab streak.", value: streak.count, target: 28, progressText: `${Math.min(streak.count, 28)} / 28 days` },
       { id: "boss-breaker", group: "Advanced", icon: "⚔️", title: "Boss Breaker", description: "Defeat the Wordbound boss 5 times.", value: stats.wordboundWins, target: 5, progressText: `${Math.min(stats.wordboundWins, 5)} / 5 wins` },
       { id: "memory-master", group: "Advanced", icon: "🏛️", title: "Memory Master", description: "Complete 10 Memory Match games.", value: stats.memoryGamesCompleted, target: 10, progressText: `${Math.min(stats.memoryGamesCompleted, 10)} / 10 games` },
+      { id: "memory-victor", group: "Advanced", icon: "🏆", title: "Memory Victor", description: "Win 5 Memory Match games against the AI or an online opponent.", value: stats.memoryWins, target: 5, progressText: `${Math.min(stats.memoryWins, 5)} / 5 wins` },
       { id: "study-scholar", group: "Advanced", icon: "🎓", title: "Study Scholar", description: "Complete 25 flashcard sessions.", value: progressStats.sessionsCompleted, target: 25, progressText: `${Math.min(progressStats.sessionsCompleted, 25)} / 25 sessions` },
       { id: "bubble-ace", group: "Advanced", icon: "🏹", title: "Bubble Ace", description: "Score 50,000 points in Bubble Shot.", value: highScores.bubble, target: 50000, progressText: `${Math.min(highScores.bubble, 50000).toLocaleString()} / 50,000` },
       { id: "whack-attack", group: "Advanced", icon: "⚡", title: "Whack Attack", description: "Score 25,000 points in Whack-a-Word.", value: highScores.whack, target: 25000, progressText: `${Math.min(highScores.whack, 25000).toLocaleString()} / 25,000` },
@@ -3889,6 +3891,7 @@
       { id: "arcade-deity", group: "Mythical", icon: "👑", title: "Arcade Deity", description: "Master Bubble Shot, Whack-a-Word, Memory Match, and Wordbound.", value: arcadeMilestones, target: 4, progressText: `${arcadeMilestones} / 4 game milestones` },
       { id: "master-storyteller", group: "Mythical", icon: "✨", title: "Master Storyteller", description: "Complete 10 Hardcore Mode paragraph challenges.", value: stats.hardcoreParagraphCompletions, target: 10, progressText: `${Math.min(stats.hardcoreParagraphCompletions, 10)} / 10 paragraphs` },
       { id: "insane-evoker", group: "Mythical", icon: "🔮", title: "Insane evoker", description: "Beat the Memory Match AI 6–0.", value: stats.memoryAiShutouts, target: 1, progressText: `${Math.min(stats.memoryAiShutouts, 1)} / 1 shutout` },
+      { id: "memory-legend", group: "Mythical", icon: "🧠", title: "Memory Legend", description: "Win 50 Memory Match games against the AI or online opponents.", value: stats.memoryWins, target: 50, progressText: `${Math.min(stats.memoryWins, 50)} / 50 wins` },
       { id: "batch-basher", group: "Mythical", icon: "🧰", title: "Batch basher", description: "Play all five games using the same vocabulary batch.", value: mostBatchGamesPlayed, target: 5, progressText: `${Math.min(mostBatchGamesPlayed, 5)} / 5 games` },
       { id: "batch-burner", group: "Mythical", icon: "🔥", title: "Batch Burner", description: "Master 10 vocabulary batches.", value: masteredBatchCount, target: 10, progressText: `${Math.min(masteredBatchCount, 10)} / 10 mastered batches` },
       { id: "supernova", group: "Mythical", icon: "🌠", title: "Supernova", description: "Collect 500 Stars.", value: starBalance, target: 500, progressText: `${Math.min(starBalance, 500).toLocaleString()} / 500 Stars` },
@@ -5098,6 +5101,9 @@
       if (!memoryGame.achievementRecorded) {
         memoryGame.achievementRecorded = true;
         recordAchievementStat("memoryGamesCompleted");
+        if (memoryGame.mode === "ai" && memoryGame.winner === 0) {
+          recordAchievementStat("memoryWins");
+        }
         if (memoryGame.mode === "ai" && memoryGame.scores[0] === 6 && memoryGame.scores[1] === 0) {
           recordAchievementStat("memoryAiShutouts");
         }
