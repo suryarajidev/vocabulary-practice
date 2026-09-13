@@ -492,6 +492,10 @@
   .achievement-group-chevron { flex: 0 0 auto; width: 18px; height: 18px; color: var(--muted); transition: transform .18s ease; }
   .achievement-group-heading[aria-expanded="false"] .achievement-group-chevron { transform: rotate(-90deg); }
   .achievement-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(175px, 1fr)); gap: 14px; }
+  .insane-tier-lock { display: grid; place-items: center; min-height: 150px; padding: 28px; border: 1px dashed color-mix(in srgb, var(--accent) 48%, var(--border)); border-radius: 18px; background: linear-gradient(135deg, var(--chip-bg), var(--card-bg)); text-align: center; }
+  .insane-tier-lock-icon { font-size: 38px; line-height: 1; filter: grayscale(.25); }
+  .insane-tier-lock strong { display: block; margin-top: 10px; font-size: 18px; }
+  .insane-tier-lock span { display: block; margin-top: 5px; color: var(--muted); font-size: 13px; font-weight: 750; }
   .achievement-card { position: relative; display: block; min-width: 0; aspect-ratio: 1; padding: 0; overflow: visible; border: 1px solid var(--border); border-radius: 18px; background: var(--card-bg); box-shadow: 0 5px 16px rgba(15,23,42,.05); transition: transform .18s ease, box-shadow .18s ease; }
   .achievement-card:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(15,23,42,.1); }
   .achievement-card.unlocked { border-color: rgba(13,148,136,.45); box-shadow: 0 7px 20px rgba(13,148,136,.1); }
@@ -2245,6 +2249,7 @@
     whackBestIncorrectGame: 0,
     lowHealthWordboundWins: 0,
     untouchableWordboundWins: 0,
+    fullHealthWordboundWins: 0,
     lastStandWordboundWins: 0,
     unbreakableWordboundWins: 0,
     wordboundFiveTurnWins: 0,
@@ -3830,7 +3835,7 @@
     return title.split(/(\s+)/).map((part) => /^\s+$/.test(part) ? part : part.charAt(0).toLocaleUpperCase() + part.slice(1)).join("");
   }
 
-  const achievementStarRewards = Object.freeze({ Basic: 1, Intermediate: 5, Advanced: 10, Mythical: 20, Miscellaneous: 3 });
+  const achievementStarRewards = Object.freeze({ Basic: 1, Intermediate: 5, Advanced: 10, Mythical: 20, Miscellaneous: 3, Insane: 50 });
 
   function getAchievementDefinitions() {
     const stats = achievementData.stats;
@@ -3842,12 +3847,16 @@
     const masteredWords = new Set(achievementData.masteredWords || []).size;
     const masteredBatchCount = Object.keys(achievementData.masteredBatches || {}).length;
     const starBalance = getStarBalance();
+    const insaneTierUnlocked = starBalance >= 500;
     const onlineChallengeWins = Object.keys(achievementData.starEvents || {}).filter((id) => id.startsWith("online-winner:")).length;
     const largestBatchMasteryReward = Math.max(0, ...Object.entries(achievementData.starEvents || {})
       .filter(([id]) => id.startsWith("batch-mastery:"))
       .map(([, amount]) => Number(amount) || 0));
     const largeBatches = batches.filter((batch) => getBatchWords(batch).length >= 10).length;
     const largestBatch = Math.max(0, ...batches.map((batch) => getBatchWords(batch).length));
+    const largestMasteredBatch = Math.max(0, ...batches.filter((batch) => isBatchMastered(batch)).map((batch) => getBatchWords(batch).length));
+    const definitionMasteredBatchCount = batches.filter((batch) => isBatchDefinitionMastered(batch)).length;
+    const insaneValue = (value) => insaneTierUnlocked ? value : 0;
     const achievements = [
       { id: "first-day", group: "Basic", icon: "🌱", title: "First day!", description: "Reach a 1-day Vocab Lab streak.", value: streak.count, target: 1, progressText: `${Math.min(streak.count, 1)} / 1 day` },
       { id: "beast-destroyer", group: "Basic", icon: "🐲", title: "Beast destroyer", description: "Beat the Wordbound boss once.", value: stats.wordboundWins, target: 1, progressText: `${Math.min(stats.wordboundWins, 1)} / 1 win` },
@@ -3915,11 +3924,32 @@
       { id: "night-owl", group: "Miscellaneous", icon: "🦉", title: "Night Owl", description: "Complete a flashcard session between 10 PM and 5 AM.", value: stats.nightSessions, target: 1, progressText: `${Math.min(stats.nightSessions, 1)} / 1 late session` },
       { id: "no-peeking", group: "Miscellaneous", icon: "🙈", title: "No Peeking", description: "Complete a normal Paragraph Challenge without opening a definition.", value: stats.noPeekParagraphs, target: 1, progressText: `${Math.min(stats.noPeekParagraphs, 1)} / 1 no-peek paragraph` },
       { id: "mastery-mishap", group: "Miscellaneous", icon: "🫣", title: "Mastery Mishap", description: "Miss a Batch Mastery answer before getting 3 correct.", value: stats.batchMasteryEarlyFailures, target: 1, progressText: `${Math.min(stats.batchMasteryEarlyFailures, 1)} / 1 early miss` },
-      { id: "just-checking", group: "Miscellaneous", icon: "👀", title: "Just Checking!", description: "Press the streak counter while exploring the website.", value: stats.streakButtonClicks, target: 1, progressText: `${Math.min(stats.streakButtonClicks, 1)} / 1 discovery` }
+      { id: "just-checking", group: "Miscellaneous", icon: "👀", title: "Just Checking!", description: "Press the streak counter while exploring the website.", value: stats.streakButtonClicks, target: 1, progressText: `${Math.min(stats.streakButtonClicks, 1)} / 1 discovery` },
+
+      { id: "cosmic-treasury", group: "Insane", icon: "🌌", title: "Cosmic Treasury", description: "Collect 2,000 Stars.", value: insaneValue(starBalance), target: 2000, progressText: `${Math.min(starBalance, 2000).toLocaleString()} / 2,000 Stars` },
+      { id: "arena-overlord", group: "Insane", icon: "⚔️", title: "Arena Overlord", description: "Win 100 online challenges.", value: insaneValue(onlineChallengeWins), target: 100, progressText: `${Math.min(onlineChallengeWins, 100)} / 100 wins` },
+      { id: "bubble-cataclysm", group: "Insane", icon: "🫧", title: "Bubble Cataclysm", description: "Score 100,000 points in Bubble Shot.", value: insaneValue(highScores.bubble), target: 100000, progressText: `${Math.min(highScores.bubble, 100000).toLocaleString()} / 100,000` },
+      { id: "molepocalypse", group: "Insane", icon: "💥", title: "Molepocalypse", description: "Score 80,000 points in Whack-a-Word.", value: insaneValue(highScores.whack), target: 80000, progressText: `${Math.min(highScores.whack, 80000).toLocaleString()} / 80,000` },
+      { id: "perfect-guardian", group: "Insane", icon: "🛡️", title: "Perfect Guardian", description: "Beat Wordbound while at full health.", value: insaneValue(stats.fullHealthWordboundWins), target: 1, progressText: `${Math.min(stats.fullHealthWordboundWins, 1)} / 1 full-health win` },
+      { id: "colossal-batchmaster", group: "Insane", icon: "🏅", title: "Colossal Batchmaster", description: "Master a batch containing at least 20 words.", value: insaneValue(largestMasteredBatch), target: 20, progressText: `${Math.min(largestMasteredBatch, 20)} / 20 words` },
+      { id: "dragon-extinction", group: "Insane", icon: "🐉", title: "Dragon Extinction", description: "Beat the Wordbound boss 100 times.", value: insaneValue(stats.wordboundWins), target: 100, progressText: `${Math.min(stats.wordboundWins, 100)} / 100 wins` },
+      { id: "memory-eternal", group: "Insane", icon: "🧠", title: "Memory Eternal", description: "Win 100 Memory Match games against the AI or online opponents.", value: insaneValue(stats.memoryWins), target: 100, progressText: `${Math.min(stats.memoryWins, 100)} / 100 wins` },
+      { id: "flawless-oracle", group: "Insane", icon: "🔮", title: "Flawless Oracle", description: "Beat the Memory Match AI 6–0 twenty-five times.", value: insaneValue(stats.memoryAiShutouts), target: 25, progressText: `${Math.min(stats.memoryAiShutouts, 25)} / 25 shutouts` },
+      { id: "lightning-mind", group: "Insane", icon: "⚡", title: "Lightning Mind", description: "Beat the Memory Match AI in fewer than 4 turns twenty-five times.", value: insaneValue(stats.memoryQuickWins), target: 25, progressText: `${Math.min(stats.memoryQuickWins, 25)} / 25 quick wins` },
+      { id: "year-of-fire", group: "Insane", icon: "🔥", title: "Year Of Fire!", description: "Reach a 365-day Vocab Lab streak.", value: insaneValue(streak.count), target: 365, progressText: `${Math.min(streak.count, 365)} / 365 days` },
+      { id: "eternal-scholar", group: "Insane", icon: "🎓", title: "Eternal Scholar", description: "Complete 250 flashcard sessions.", value: insaneValue(progressStats.sessionsCompleted), target: 250, progressText: `${Math.min(progressStats.sessionsCompleted, 250)} / 250 sessions` },
+      { id: "perfect-recall", group: "Insane", icon: "💯", title: "Perfect Recall", description: "Complete 50 perfect flashcard sessions with at least 20 cards each.", value: insaneValue(stats.perfectFlashcardSessions20), target: 50, progressText: `${Math.min(stats.perfectFlashcardSessions20, 50)} / 50 perfect sessions` },
+      { id: "lexicon-omniscient", group: "Insane", icon: "📖", title: "Lexicon Omniscient", description: "Master 500 different words in flashcards.", value: insaneValue(masteredWords), target: 500, progressText: `${Math.min(masteredWords, 500)} / 500 words` },
+      { id: "dictionary-architect", group: "Insane", icon: "🏛️", title: "Dictionary Architect", description: "Add 250 custom dictionary words.", value: insaneValue(stats.customWordHighWater), target: 250, progressText: `${Math.min(stats.customWordHighWater, 250)} / 250 words` },
+      { id: "hardcore-laureate", group: "Insane", icon: "🪶", title: "Hardcore Laureate", description: "Complete 50 Hardcore Mode Paragraph Challenges.", value: insaneValue(stats.hardcoreParagraphCompletions), target: 50, progressText: `${Math.min(stats.hardcoreParagraphCompletions, 50)} / 50 paragraphs` },
+      { id: "bubble-tempest", group: "Insane", icon: "🌊", title: "Bubble Tempest", description: "Hit 100 correct bubbles consecutively.", value: insaneValue(stats.bubbleBestStreak), target: 100, progressText: `${Math.min(stats.bubbleBestStreak, 100)} / 100 streak` },
+      { id: "mole-rampage", group: "Insane", icon: "🔨", title: "Mole Rampage", description: "Hit 50 correct moles consecutively.", value: insaneValue(stats.moleBestStreak), target: 50, progressText: `${Math.min(stats.moleBestStreak, 50)} / 50 streak` },
+      { id: "definition-deity", group: "Insane", icon: "📜", title: "Definition Deity", description: "Complete Definition Mastery for all 10 saved batches.", value: insaneValue(definitionMasteredBatchCount), target: 10, progressText: `${Math.min(definitionMasteredBatchCount, 10)} / 10 batches` },
+      { id: "fusion-fanatic", group: "Insane", icon: "🧬", title: "Fusion Fanatic", description: "Practice combined batches 50 times.", value: insaneValue(stats.combinedBatchPractices), target: 50, progressText: `${Math.min(stats.combinedBatchPractices, 50)} / 50 practices` }
     ];
-    const nonMythicalAchievements = achievements.filter((achievement) => achievement.group !== "Mythical");
+    const nonMythicalAchievements = achievements.filter((achievement) => !["Mythical", "Insane"].includes(achievement.group));
     const nonMythicalCompleted = nonMythicalAchievements.filter((achievement) => achievement.value >= achievement.target).length;
-    achievements.push({ id: "vocabulary-legend", group: "Mythical", icon: "🏆", title: "Vocabulary Legend", description: "Complete every non-Mythical achievement.", value: nonMythicalCompleted, target: nonMythicalAchievements.length, progressText: `${nonMythicalCompleted} / ${nonMythicalAchievements.length} achievements` });
+    achievements.push({ id: "vocabulary-legend", group: "Mythical", icon: "🏆", title: "Vocabulary Legend", description: "Complete every Basic, Intermediate, Advanced, and Miscellaneous achievement.", value: nonMythicalCompleted, target: nonMythicalAchievements.length, progressText: `${nonMythicalCompleted} / ${nonMythicalAchievements.length} achievements` });
     achievements.forEach((achievement) => { achievement.title = formatAchievementTitle(achievement.title); });
     return achievements;
   }
@@ -5808,8 +5838,9 @@
     refreshAchievements();
     const achievements = getAchievementDefinitions();
     const unlocked = new Set(achievementData.unlocked);
-    const groups = ["Basic", "Intermediate", "Advanced", "Mythical", "Miscellaneous"];
+    const groups = ["Basic", "Intermediate", "Advanced", "Mythical", "Miscellaneous", "Insane"];
     const secretGroups = new Set(["Mythical", "Miscellaneous"]);
+    const insaneTierUnlocked = getStarBalance() >= 500;
     const unlockedCount = achievements.filter((achievement) => unlocked.has(achievement.id)).length;
     const showAll = achievementsShowAll;
 
@@ -5853,11 +5884,32 @@
     const groupBlocks = groups.map((group) => {
       const groupAchievements = achievements.filter((achievement) => achievement.group === group);
       const groupUnlocked = groupAchievements.filter((achievement) => unlocked.has(achievement.id));
+      if (group === "Insane" && !insaneTierUnlocked) {
+        return `<div class="achievement-group insane-achievement-group">
+          <div class="achievement-group-heading">
+            <h3>Insane</h3>
+            <span>Locked</span>
+          </div>
+          <div class="insane-tier-lock">
+            <div><div class="insane-tier-lock-icon" aria-hidden="true">🔒</div><strong>Unlocked after 500 Stars</strong><span>${Math.min(getStarBalance(), 500).toLocaleString()} / 500 Stars</span></div>
+          </div>
+        </div>`;
+      }
       const visibleAchievements = showAll
         ? (secretGroups.has(group) ? groupUnlocked : groupAchievements)
         : groupUnlocked;
-      if (!visibleAchievements.length) return "";
       const isCollapsed = collapsedAchievementGroups.has(group);
+      if (group === "Insane" && !visibleAchievements.length) {
+        return `<div class="achievement-group insane-achievement-group">
+          <button type="button" class="achievement-group-heading" data-achievement-group="Insane" aria-expanded="${!isCollapsed}">
+            <h3>Insane</h3>
+            <span>0 / ${groupAchievements.length}</span>
+            <svg class="achievement-group-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg>
+          </button>
+          ${isCollapsed ? "" : `<div class="insane-tier-lock"><div><div class="insane-tier-lock-icon" aria-hidden="true">🔓</div><strong>Insane Tier Unlocked!</strong><span>Choose “Show all badges” to reveal its 20 challenges.</span></div></div>`}
+        </div>`;
+      }
+      if (!visibleAchievements.length) return "";
       return `<div class="achievement-group">
         <button type="button" class="achievement-group-heading" data-achievement-group="${escapeHtml(group)}" aria-expanded="${!isCollapsed}">
           <h3>${group}</h3>
@@ -5887,7 +5939,7 @@
       render();
     });
 
-    root.querySelectorAll(".achievement-group-heading").forEach((button) => {
+    root.querySelectorAll(".achievement-group-heading[data-achievement-group]").forEach((button) => {
       button.addEventListener("click", () => {
         const group = button.dataset.achievementGroup;
         if (collapsedAchievementGroups.has(group)) collapsedAchievementGroups.delete(group); else collapsedAchievementGroups.add(group);
@@ -6218,6 +6270,7 @@
         if (battleState.turn === 5) recordAchievementStat("wordboundFiveTurnWins");
         if (battleState.playerHp <= 5) recordAchievementStat("lowHealthWordboundWins");
         if (!battleState.healthLost) recordAchievementStat("untouchableWordboundWins");
+        if (battleState.playerHp >= battleState.playerMaxHp) recordAchievementStat("fullHealthWordboundWins");
         if (battleState.playerHp === 1) recordAchievementStat("lastStandWordboundWins");
         if (battleState.shield > battleState.playerHp) recordAchievementStat("unbreakableWordboundWins");
         if (gameReturnView === "batches" && battleState.incorrectAnswers === 0) recordPerfectBatchActivity(gameSourceBatchId, "wordbound");
