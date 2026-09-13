@@ -7432,7 +7432,7 @@
             </select>
             <div class="field-row">
               <textarea id="newDef" placeholder="Definition" rows="2"></textarea>
-              <button type="button" class="mic-btn" id="micDef" aria-label="Dictate definition" title="Speak the definition">
+              <button type="button" class="mic-btn" id="micDef" aria-label="Dictate definition" title="Speak the definition; you can say comma, period, question mark, or new paragraph">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                   <rect x="9" y="2" width="6" height="12" rx="3"></rect>
                   <path d="M5 10a7 7 0 0 0 14 0"></path>
@@ -7516,7 +7516,7 @@
         partInput.value = editingWord.partOfSpeech || "phrase / other";
       }
       attachDictation(root.querySelector("#micWord"), wordInput);
-      attachDictation(root.querySelector("#micDef"), defInput);
+      attachDictation(root.querySelector("#micDef"), defInput, { formatDefinition: true });
       root.querySelector("#cancelEditBtn").addEventListener("click", () => {
         playClickSound();
         showAddForm = false;
@@ -7662,7 +7662,43 @@
     return text.replace(/[A-Za-z]/, (letter) => letter.toUpperCase());
   }
 
-  function attachDictation(button, targetField) {
+  function formatDefinitionDictation(text) {
+    let formatted = String(text || "").trim();
+    if (!formatted) return "";
+
+    const punctuationCommands = [
+      [/\bnew paragraph\b/gi, "\n\n"],
+      [/\bnew line\b/gi, "\n"],
+      [/\bfull stop\b/gi, "."],
+      [/\bperiod\b(?!\s+(?:of|in|during|between|after|before|when|where|under|for)\b)/gi, "."],
+      [/\bcomma\b/gi, ","],
+      [/\b(?:question mark)\b/gi, "?"],
+      [/\b(?:exclamation mark|exclamation point)\b/gi, "!"],
+      [/\bsemicolon\b/gi, ";"],
+      [/\bcolon\b/gi, ":"]
+    ];
+    punctuationCommands.forEach(([pattern, replacement]) => {
+      formatted = formatted.replace(pattern, replacement);
+    });
+
+    formatted = formatted
+      .replace(/[^\S\r\n]+/g, " ")
+      .replace(/ *\n */g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .replace(/\s+([,.;:!?])/g, "$1")
+      .replace(/([,.;:!?])(?=[A-Za-z])/g, "$1 ")
+      .replace(/([A-Za-z0-9)])\s+which\s+/gi, "$1, which ")
+      .replace(/\s+(and|but|yet)\s+(it|they|he|she|this|that|these|those|you|we)\s+/gi, ", $1 $2 ");
+
+    const introductoryPhrase = /^(for example|for instance|in other words|as a result|in general|in particular|on the other hand|however|therefore|meanwhile|otherwise|instead)(?!,)\s+/i;
+    formatted = formatted.replace(introductoryPhrase, "$1, ");
+    formatted = formatted.replace(/(^|[.!?]\s+|\n+)([a-z])/g, (match, prefix, letter) => prefix + letter.toUpperCase());
+
+    if (!/[.!?]$/.test(formatted)) formatted += ".";
+    return formatted;
+  }
+
+  function attachDictation(button, targetField, options = {}) {
     if (!button) return;
     if (!SpeechRecognitionCtor) {
       button.remove();
@@ -7691,7 +7727,9 @@
       recognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript.trim();
         if (transcript) {
-          targetField.value = capitalizeDictation(transcript);
+          targetField.value = options.formatDefinition
+            ? formatDefinitionDictation(transcript)
+            : capitalizeDictation(transcript);
           targetField.focus();
         }
       };
