@@ -1291,11 +1291,13 @@
   .batch-panel-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
   .batch-panel-header h3 { margin: 0 0 3px; font-size: 24px; }
   .batch-panel-header p { margin: 0; color: var(--muted); font-size: 13px; }
-  .batch-header-actions { display: flex; gap: 7px; }
+  .batch-header-actions { display: flex; flex-wrap: wrap; gap: 7px; }
   .batch-header-actions button:disabled { opacity: .42; cursor: not-allowed; }
   .batch-title-row { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
   .batch-mastered-medal { width: 27px; height: 27px; flex: 0 0 auto; object-fit: contain; filter: drop-shadow(0 2px 3px rgba(146,91,0,.24)); }
   .batch-tab .batch-mastered-medal { width: 20px; height: 20px; margin-left: 4px; vertical-align: middle; }
+  .batch-definition-mastered-badge { width: 34px; height: 34px; filter: drop-shadow(0 3px 5px rgba(5,63,82,.34)); }
+  .batch-tab .batch-definition-mastered-badge { width: 24px; height: 24px; }
   .batch-play-menu { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
   .batch-play-menu button { padding: 10px 7px; font-size: 12px; }
   .batch-play-menu button:disabled { opacity: .42; cursor: not-allowed; }
@@ -1321,19 +1323,31 @@
   .mastery-card-label { display: block; margin-bottom: 12px; color: var(--muted); font-size: 12px; font-weight: 900; letter-spacing: .09em; text-transform: uppercase; }
   .mastery-definition { margin: 0 auto 24px; max-width: 590px; font-size: clamp(21px, 4vw, 30px); font-weight: 800; line-height: 1.35; }
   .mastery-answer-form { display: flex; gap: 9px; max-width: 520px; margin: 0 auto; }
-  .mastery-answer-form input { min-width: 0; flex: 1; padding: 13px 14px; border: 1px solid var(--border); border-radius: 11px; background: var(--bg); color: var(--text); font: inherit; }
+  .mastery-answer-form input, .mastery-answer-form textarea { min-width: 0; flex: 1; padding: 13px 14px; border: 1px solid var(--border); border-radius: 11px; background: var(--bg); color: var(--text); font: inherit; }
+  .mastery-answer-form textarea { min-height: 112px; resize: vertical; line-height: 1.5; }
   .mastery-answer-form button { padding-inline: 22px; }
   .mastery-rule { margin: 14px 0 0; color: var(--muted); font-size: 12px; }
+  .mastery-word { margin: 0 auto 24px; color: var(--accent); font-size: clamp(32px, 7vw, 52px); font-weight: 950; line-height: 1.1; overflow-wrap: anywhere; }
   .mastery-result { padding: clamp(26px, 6vw, 48px); border: 1px solid var(--border); border-radius: 20px; background: var(--card-bg); text-align: center; }
   .mastery-result h2 { margin: 0 0 10px; }
   .mastery-result p { margin: 7px auto; max-width: 560px; color: var(--muted); }
   .mastery-result strong { color: var(--text); }
   .mastery-result-actions { display: flex; justify-content: center; flex-wrap: wrap; gap: 9px; margin-top: 22px; }
   .mastery-success-icon, .mastery-failure-icon { display: block; margin-bottom: 13px; font-size: 48px; }
+  .mastery-result > .batch-definition-mastered-badge { display: block; width: 96px; height: 96px; margin: 0 auto 13px; }
+  .mastery-review-list { display: flex; flex-direction: column; gap: 10px; margin-top: 22px; text-align: left; }
+  .mastery-review-card { padding: 15px; border: 1px solid var(--border); border-left: 5px solid var(--good); border-radius: 13px; background: var(--bg); }
+  .mastery-review-card.failed { border-left-color: var(--bad); }
+  .mastery-review-card h3 { margin: 0 0 10px; font-size: 18px; }
+  .mastery-review-comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .mastery-review-comparison div { padding: 10px; border-radius: 9px; background: var(--card-bg); }
+  .mastery-review-comparison span { display: block; margin-bottom: 4px; color: var(--muted); font-size: 10px; font-weight: 900; letter-spacing: .07em; text-transform: uppercase; }
+  .mastery-review-comparison p { margin: 0; color: var(--text); font-size: 13px; line-height: 1.45; }
   @media (max-width: 560px) {
     .mastery-heading { flex-direction: column; }
     .mastery-answer-form { flex-direction: column; }
     .mastery-answer-form button { width: 100%; }
+    .mastery-review-comparison { grid-template-columns: 1fr; }
   }
 
   .batch-modal-backdrop { position: fixed; inset: 0; z-index: 1200; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(4,52,44,.48); }
@@ -2363,7 +2377,7 @@
   }
 
   function createEmptyAchievementData() {
-    return { stats: { ...defaultAchievementStats }, unlocked: [], unlockedAt: {}, batchGames: {}, gamesPlayed: [], masteredWords: [], masteredBatches: {}, batchPerfectActivities: {}, starEvents: {} };
+    return { stats: { ...defaultAchievementStats }, unlocked: [], unlockedAt: {}, batchGames: {}, gamesPlayed: [], masteredWords: [], masteredBatches: {}, definitionMasteredBatches: {}, batchPerfectActivities: {}, starEvents: {} };
   }
 
   function normalizeAchievementData(saved = {}) {
@@ -2379,6 +2393,9 @@
       masteredWords: Array.isArray(safeSaved.masteredWords) ? [...new Set(safeSaved.masteredWords.map((word) => String(word).toLowerCase()))] : [],
       masteredBatches: safeSaved.masteredBatches && typeof safeSaved.masteredBatches === "object" && !Array.isArray(safeSaved.masteredBatches)
         ? Object.fromEntries(Object.entries(safeSaved.masteredBatches).filter(([, signature]) => typeof signature === "string").map(([id, signature]) => [String(id), signature]))
+        : {},
+      definitionMasteredBatches: safeSaved.definitionMasteredBatches && typeof safeSaved.definitionMasteredBatches === "object" && !Array.isArray(safeSaved.definitionMasteredBatches)
+        ? Object.fromEntries(Object.entries(safeSaved.definitionMasteredBatches).filter(([, signature]) => typeof signature === "string").map(([id, signature]) => [String(id), signature]))
         : {},
       batchPerfectActivities: safeSaved.batchPerfectActivities && typeof safeSaved.batchPerfectActivities === "object" ? Object.fromEntries(Object.entries(safeSaved.batchPerfectActivities).map(([id, activities]) => [String(id), Array.isArray(activities) ? [...new Set(activities.map(String))] : []])) : {},
       starEvents: safeSaved.starEvents && typeof safeSaved.starEvents === "object" && !Array.isArray(safeSaved.starEvents)
@@ -2431,6 +2448,7 @@
       gamesPlayed: [...new Set([...local.gamesPlayed, ...cloud.gamesPlayed])],
       masteredWords: [...new Set([...local.masteredWords, ...cloud.masteredWords])],
       masteredBatches: { ...cloud.masteredBatches, ...local.masteredBatches },
+      definitionMasteredBatches: { ...cloud.definitionMasteredBatches, ...local.definitionMasteredBatches },
       batchPerfectActivities: mergeAchievementCollections(local.batchPerfectActivities, cloud.batchPerfectActivities),
       starEvents: mergeStarEvents(local.starEvents, cloud.starEvents)
     });
@@ -3452,6 +3470,34 @@
     saveAchievementData();
   }
 
+  function isBatchDefinitionMastered(batch) {
+    const signature = getBatchWords(batch)
+      .map((item) => `${item.word.toLocaleLowerCase()}\u001e${item.definition.trim().toLocaleLowerCase()}`)
+      .sort()
+      .join("\u001f");
+    return isBatchMastered(batch) && Boolean(signature && achievementData.definitionMasteredBatches?.[batch.id] === signature);
+  }
+
+  function markBatchDefinitionMastered(batch) {
+    const signature = getBatchWords(batch)
+      .map((item) => `${item.word.toLocaleLowerCase()}\u001e${item.definition.trim().toLocaleLowerCase()}`)
+      .sort()
+      .join("\u001f");
+    if (!signature) return;
+    if (!achievementData.definitionMasteredBatches) achievementData.definitionMasteredBatches = {};
+    achievementData.definitionMasteredBatches[batch.id] = signature;
+    saveAchievementData();
+  }
+
+  function getBatchMasteryBadge(batch) {
+    if (isBatchDefinitionMastered(batch)) {
+      return `<img class="batch-mastered-medal batch-definition-mastered-badge" src="assets/batch-definition-mastered-badge.png" alt="Definition Mastered" title="Definition Mastery completed">`;
+    }
+    return isBatchMastered(batch)
+      ? `<img class="batch-mastered-medal" src="assets/batch-mastered-medal.png" alt="Mastered" title="Word Mastery completed">`
+      : "";
+  }
+
   function getCombinedBatchWords(batchIds) {
     const selectedIds = new Set(batchIds);
     const byKey = new Map(words.map((item) => [item.word.toLowerCase(), item]));
@@ -3489,8 +3535,9 @@
       });
       if (achievementData.masteredBatches) {
         sourceBatchIds.forEach((id) => delete achievementData.masteredBatches[id]);
-        saveAchievementData();
       }
+      if (achievementData.definitionMasteredBatches) sourceBatchIds.forEach((id) => delete achievementData.definitionMasteredBatches[id]);
+      saveAchievementData();
     } else {
       mergedBatch = { id: makeBatchId(), name: cleanName, wordKeys };
       batches.push(mergedBatch);
@@ -6952,12 +6999,63 @@
     });
   }
 
-  function startBatchMasteryQuiz(batch) {
+  const DEFINITION_MASTERY_STOP_WORDS = new Set([
+    "a", "an", "and", "are", "as", "at", "be", "been", "being", "but", "by", "can", "could",
+    "did", "do", "does", "for", "from", "had", "has", "have", "he", "her", "hers", "him", "his",
+    "i", "if", "in", "into", "is", "it", "its", "may", "me", "might", "my", "no", "nor", "not",
+    "of", "on", "or", "our", "ours", "she", "should", "so", "than", "that", "the", "their", "theirs",
+    "them", "they", "this", "those", "to", "too", "us", "very", "was", "we", "were", "what", "when",
+    "where", "which", "who", "will", "with", "would", "you", "your", "yours"
+  ]);
+
+  function normalizeDefinitionMasteryToken(token) {
+    let normalized = token.toLocaleLowerCase().replace(/^'+|'+$/g, "");
+    if (normalized.length > 5 && normalized.endsWith("ies")) normalized = `${normalized.slice(0, -3)}y`;
+    else if (normalized.length > 5 && normalized.endsWith("ly")) normalized = normalized.slice(0, -2);
+    else if (normalized.length > 5 && normalized.endsWith("ing")) {
+      normalized = normalized.slice(0, -3).replace(/([b-df-hj-np-tv-z])\1$/i, "$1");
+    } else if (normalized.length > 4 && normalized.endsWith("ed")) {
+      normalized = normalized.slice(0, -2).replace(/([b-df-hj-np-tv-z])\1$/i, "$1");
+    } else if (normalized.length > 4 && normalized.endsWith("es")) normalized = normalized.slice(0, -2);
+    else if (normalized.length > 3 && normalized.endsWith("s") && !normalized.endsWith("ss")) normalized = normalized.slice(0, -1);
+    return normalized;
+  }
+
+  function getDefinitionMasteryTokens(text, excludeStopWords = true) {
+    return (String(text || "").toLocaleLowerCase().match(/[a-z0-9']+/g) || [])
+      .filter((token) => token.length > 1 && (!excludeStopWords || !DEFINITION_MASTERY_STOP_WORDS.has(token)))
+      .map(normalizeDefinitionMasteryToken)
+      .filter(Boolean);
+  }
+
+  function scoreDefinitionMasteryAnswer(answer, expectedDefinition) {
+    let expectedTokens = getDefinitionMasteryTokens(expectedDefinition);
+    if (!expectedTokens.length) expectedTokens = getDefinitionMasteryTokens(expectedDefinition, false);
+    const answerTokens = getDefinitionMasteryTokens(answer);
+    const availableMatches = new Map();
+    expectedTokens.forEach((token) => availableMatches.set(token, (availableMatches.get(token) || 0) + 1));
+    let score = 0;
+    answerTokens.forEach((token) => {
+      const remaining = availableMatches.get(token) || 0;
+      if (remaining > 0) {
+        score++;
+        availableMatches.set(token, remaining - 1);
+      } else {
+        score--;
+      }
+    });
+    const requiredScore = Math.max(1, Math.ceil(expectedTokens.length * .45));
+    return { score, requiredScore, passed: score >= requiredScore };
+  }
+
+  function startBatchMasteryQuiz(batch, mode = "word") {
     const batchWords = getBatchWords(batch);
     if (!batch || !batchWords.length) return false;
+    if (mode === "definition" && !isBatchMastered(batch)) return false;
     batchMasteryQuiz = {
       batchId: batch.id,
       batchName: batch.name,
+      mode,
       words: randomSample(batchWords, batchWords.length).map((item) => ({
         word: item.word,
         definition: item.definition,
@@ -6966,7 +7064,8 @@
       position: 0,
       failed: null,
       completed: false,
-      earnedStars: 0
+      earnedStars: 0,
+      results: []
     };
     view = "batchMastery";
     return true;
@@ -6988,9 +7087,36 @@
     };
     const restartQuiz = () => {
       playClickSound();
-      startBatchMasteryQuiz(batch);
+      startBatchMasteryQuiz(batch, quiz.mode || "word");
       render();
     };
+
+    if (quiz.mode === "definition" && quiz.completed) {
+      const allPassed = quiz.results.length === quiz.words.length && quiz.results.every((result) => result.passed);
+      root.innerHTML = `<section class="mastery-view" aria-labelledby="definitionMasteryResultTitle">
+        <div class="mastery-result">
+          ${allPassed
+            ? `<img class="batch-definition-mastered-badge" src="assets/batch-definition-mastered-badge.png" alt="" aria-hidden="true"><h2 id="definitionMasteryResultTitle">Definition Mastery Complete!</h2><p>You passed every definition in <strong>${escapeHtml(batch.name)}</strong>. Your batch earned its upgraded badge.</p>`
+            : `<span class="mastery-failure-icon" aria-hidden="true">↻</span><h2 id="definitionMasteryResultTitle">Restart Required</h2><p>At least one definition did not contain enough matching key words. Review the comparisons below, then restart the full round.</p>`}
+          <div class="mastery-review-list">
+            ${quiz.results.map((result) => `<article class="mastery-review-card ${result.passed ? "" : "failed"}">
+              <h3>${result.passed ? "✓" : "✕"} ${escapeHtml(result.word)}</h3>
+              <div class="mastery-review-comparison">
+                <div><span>Your definition</span><p>${escapeHtml(result.answer || "(blank)")}</p></div>
+                <div><span>Dictionary definition</span><p>${escapeHtml(result.expected)}</p></div>
+              </div>
+            </article>`).join("")}
+          </div>
+          <div class="mastery-result-actions">
+            <button class="accent-btn" id="restartDefinitionMastery">${allPassed ? "Try Again" : "Restart Round"}</button>
+            <button class="small-btn" id="returnFromDefinitionMastery">Back to Batch</button>
+          </div>
+        </div>
+      </section>`;
+      root.querySelector("#restartDefinitionMastery").addEventListener("click", restartQuiz);
+      root.querySelector("#returnFromDefinitionMastery").addEventListener("click", () => { playClickSound(); returnToBatch(); });
+      return;
+    }
 
     if (quiz.failed) {
       root.innerHTML = `<section class="mastery-view" aria-labelledby="masteryFailureTitle">
@@ -7026,6 +7152,55 @@
     }
 
     const currentWord = quiz.words[quiz.position];
+    if (quiz.mode === "definition") {
+      root.innerHTML = `<section class="mastery-view" aria-labelledby="definitionMasteryQuizTitle">
+        <div class="mastery-heading">
+          <div><h2 id="definitionMasteryQuizTitle">Definition Mastery: ${escapeHtml(batch.name)}</h2><p>Define each word in your own words. Meaningful matches count; common words such as “and,” “or,” “not,” and “the” are ignored.</p></div>
+          <span class="mastery-progress">${quiz.position + 1} / ${quiz.words.length}</span>
+        </div>
+        <div class="mastery-card">
+          <span class="mastery-card-label">${escapeHtml(currentWord.partOfSpeech || "Vocabulary word")}</span>
+          <p class="mastery-word">${escapeHtml(currentWord.word)}</p>
+          <form class="mastery-answer-form" id="definitionMasteryAnswerForm">
+            <textarea id="definitionMasteryAnswer" required autocomplete="off" spellcheck="true" aria-label="Type your definition of ${escapeHtml(currentWord.word)}" placeholder="Write the definition in your own words"></textarea>
+            <button class="accent-btn" type="submit">Save Definition</button>
+          </form>
+          <p class="mastery-rule">Your score stays hidden. After every word, you will compare all of your definitions with the dictionary definitions.</p>
+        </div>
+      </section>`;
+
+      const definitionInput = root.querySelector("#definitionMasteryAnswer");
+      root.querySelector("#definitionMasteryAnswerForm").addEventListener("submit", (event) => {
+        event.preventDefault();
+        const answer = definitionInput.value.trim();
+        if (!answer) return;
+        const scored = scoreDefinitionMasteryAnswer(answer, currentWord.definition);
+        quiz.results.push({
+          word: currentWord.word,
+          answer,
+          expected: currentWord.definition,
+          passed: scored.passed,
+          score: scored.score,
+          requiredScore: scored.requiredScore
+        });
+        quiz.position++;
+        if (quiz.position >= quiz.words.length) {
+          quiz.completed = true;
+          if (quiz.results.every((result) => result.passed)) {
+            markBatchDefinitionMastered(batch);
+            playGotItSound();
+          } else {
+            playDontKnowSound();
+          }
+        } else {
+          playClickSound();
+        }
+        render();
+      });
+      definitionInput.focus();
+      return;
+    }
+
     root.innerHTML = `<section class="mastery-view" aria-labelledby="masteryQuizTitle">
       <div class="mastery-heading">
         <div><h2 id="masteryQuizTitle">Master ${escapeHtml(batch.name)}</h2><p>Type every word exactly. Capitalization does not matter, but one mistake restarts the attempt.</p></div>
@@ -7115,12 +7290,12 @@
         </div>
       </div>` : ""}
       ${batches.length ? `<div class="batch-tabs" aria-label="Saved batches">
-        ${batches.map((batch) => `<button class="batch-tab ${batch.id === activeBatchId ? "active" : ""}" data-batch-id="${batch.id}">${escapeHtml(batch.name)} <span>(${getBatchWords(batch).length})</span>${isBatchMastered(batch) ? ` <img class="batch-mastered-medal" src="assets/batch-mastered-medal.png" alt="Mastered" title="Mastered batch">` : ""}</button>`).join("")}
+        ${batches.map((batch) => `<button class="batch-tab ${batch.id === activeBatchId ? "active" : ""}" data-batch-id="${batch.id}">${escapeHtml(batch.name)} <span>(${getBatchWords(batch).length})</span>${getBatchMasteryBadge(batch)}</button>`).join("")}
       </div>` : ""}
       ${activeBatch ? `<div class="batch-panel">
         <div class="batch-panel-header">
-          <div><div class="batch-title-row"><h3>${escapeHtml(activeBatch.name)}</h3>${isBatchMastered(activeBatch) ? `<img class="batch-mastered-medal" src="assets/batch-mastered-medal.png" alt="Mastered" title="Mastered batch">` : ""}</div><p>${batchWords.length} word${batchWords.length === 1 ? "" : "s"} in this batch</p></div>
-          <div class="batch-header-actions"><button class="small-btn" id="masterBatch" ${batchWords.length < 1 ? "disabled" : ""}>Master</button><button class="small-btn" id="renameBatch">Rename</button><button class="small-btn danger-outline" id="deleteBatch">Delete</button></div>
+          <div><div class="batch-title-row"><h3>${escapeHtml(activeBatch.name)}</h3>${getBatchMasteryBadge(activeBatch)}</div><p>${batchWords.length} word${batchWords.length === 1 ? "" : "s"} in this batch</p></div>
+          <div class="batch-header-actions"><button class="small-btn" id="masterBatch" ${batchWords.length < 1 ? "disabled" : ""}>Master I</button>${isBatchMastered(activeBatch) ? `<button class="small-btn" id="masterDefinitions">${isBatchDefinitionMastered(activeBatch) ? "Master II Again" : "Master II"}</button>` : ""}<button class="small-btn" id="renameBatch">Rename</button><button class="small-btn danger-outline" id="deleteBatch">Delete</button></div>
         </div>
         <div class="batch-play-menu" aria-label="Study this batch">
           <button class="small-btn" id="batchFlashcards" ${batchWords.length < 1 ? "disabled" : ""}>Flashcards</button>
@@ -7233,6 +7408,11 @@
 
     root.querySelector("#masterBatch").addEventListener("click", () => {
       if (!batchWords.length || !startBatchMasteryQuiz(activeBatch)) return;
+      playClickSound();
+      render();
+    });
+    root.querySelector("#masterDefinitions")?.addEventListener("click", () => {
+      if (!batchWords.length || !startBatchMasteryQuiz(activeBatch, "definition")) return;
       playClickSound();
       render();
     });
