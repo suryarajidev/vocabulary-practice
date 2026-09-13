@@ -7048,6 +7048,24 @@
     return { score, requiredScore, passed: score >= requiredScore };
   }
 
+  function awardDefinitionMasteryStars(batch, quiz, allPassed) {
+    const eventPrefix = `batch-definition-mastery:${batch.id}:`;
+    let earnedStars = 0;
+    quiz.results.filter((result) => result.passed).forEach((result) => {
+      const wordKey = encodeURIComponent(result.word.toLocaleLowerCase());
+      earnedStars += awardStars(1, `${eventPrefix}question:${wordKey}`, "Definition Mastery", false);
+    });
+    if (allPassed) {
+      const masteryReward = Math.floor(quiz.words.length * 2.5);
+      const bonus = Math.max(0, masteryReward - getStarsForEventPrefix(eventPrefix));
+      earnedStars += awardStars(bonus, `${eventPrefix}completion:${masteryReward}`, "Definition Mastery", false);
+    }
+    if (earnedStars > 0) {
+      queueStarNotification(earnedStars, allPassed ? "Definition Mastery" : "Definition Mastery questions");
+    }
+    return earnedStars;
+  }
+
   function startBatchMasteryQuiz(batch, mode = "word") {
     const batchWords = getBatchWords(batch);
     if (!batch || !batchWords.length) return false;
@@ -7093,11 +7111,20 @@
 
     if (quiz.mode === "definition" && quiz.completed) {
       const allPassed = quiz.results.length === quiz.words.length && quiz.results.every((result) => result.passed);
+      const masteryReward = Math.floor(quiz.words.length * 2.5);
+      const rewardMessage = quiz.earnedStars > 0
+        ? allPassed
+          ? `You earned <strong>${quiz.earnedStars} Stars</strong>. Completing Master II is worth ${masteryReward} Stars total for this batch.`
+          : `You earned <strong>${quiz.earnedStars} ${quiz.earnedStars === 1 ? "Star" : "Stars"}</strong> for newly passed questions.`
+        : allPassed
+          ? "This batch remains Definition Mastered. Its one-time Master II Star reward was already collected."
+          : "Previously rewarded questions do not award Stars again.";
       root.innerHTML = `<section class="mastery-view" aria-labelledby="definitionMasteryResultTitle">
         <div class="mastery-result">
           ${allPassed
             ? `<img class="batch-definition-mastered-badge" src="assets/batch-definition-mastered-badge.png" alt="" aria-hidden="true"><h2 id="definitionMasteryResultTitle">Definition Mastery Complete!</h2><p>You passed every definition in <strong>${escapeHtml(batch.name)}</strong>. Your batch earned its upgraded badge.</p>`
             : `<span class="mastery-failure-icon" aria-hidden="true">↻</span><h2 id="definitionMasteryResultTitle">Restart Required</h2><p>At least one definition did not contain enough matching key words. Review the comparisons below, then restart the full round.</p>`}
+          <p>${rewardMessage}</p>
           <div class="mastery-review-list">
             ${quiz.results.map((result) => `<article class="mastery-review-card ${result.passed ? "" : "failed"}">
               <h3>${result.passed ? "✓" : "✕"} ${escapeHtml(result.word)}</h3>
@@ -7186,7 +7213,9 @@
         quiz.position++;
         if (quiz.position >= quiz.words.length) {
           quiz.completed = true;
-          if (quiz.results.every((result) => result.passed)) {
+          const allPassed = quiz.results.every((result) => result.passed);
+          quiz.earnedStars = awardDefinitionMasteryStars(batch, quiz, allPassed);
+          if (allPassed) {
             markBatchDefinitionMastered(batch);
             playGotItSound();
           } else {
