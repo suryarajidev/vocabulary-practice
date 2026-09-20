@@ -126,6 +126,16 @@
 .online-memory-game .memory-card { min-height: 112px; }
 .online-memory-game .memory-message.syncing { color: var(--muted); }
 
+.online-wordbound-game { width: 100%; }
+.online-wordbound-game .battle-arena { background: linear-gradient(160deg, color-mix(in srgb, var(--chip-bg) 72%, var(--card-bg)), var(--card-bg)); }
+.online-wordbound-game .combatant { min-width: 0; }
+.online-wordbound-game .shield-label { min-height: 34px; font-size: 11px; line-height: 1.35; }
+.online-wordbound-turn { padding: 8px 12px; border: 1px solid var(--border); border-radius: 999px; color: var(--muted); font-size: 11px; font-weight: 900; letter-spacing: .06em; }
+.online-wordbound-turn.active { border-color: rgba(13,148,136,.35); background: rgba(13,148,136,.12); color: var(--accent); }
+.online-wordbound-waiting { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 150px; padding: 22px; border: 1px dashed var(--border); border-radius: 15px; background: var(--card-bg); color: var(--muted); text-align: center; }
+.online-wordbound-waiting span { font-size: 30px; }
+.online-wordbound-result .online-result-player small { display: block; margin-top: 6px; color: var(--muted); font-size: 11px; line-height: 1.4; }
+
 .online-paragraph-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .online-paragraph-entry { padding: 17px; border: 1px solid var(--border); border-radius: 14px; background: var(--card-bg); }
 .online-paragraph-entry h3 { margin: 0 0 10px; }

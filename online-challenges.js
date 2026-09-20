@@ -4,8 +4,17 @@ const ONLINE_GAME_META = {
   paragraph: { label: "Paragraph Duel", icon: "✍️", description: "Use the same five words, then reveal both stories." },
   whack: { label: "Whack-a-Word", icon: "🔨", description: "Use your own dictionary and score as many points as possible in 60 seconds." },
   bubble: { label: "Bubble Shot", icon: "🫧", description: "Use your own dictionary and score as many points as possible in 60 seconds." },
+  wordbound: { label: "Wordbound Duel", icon: "⚔️", description: "Answer vocabulary questions to attack an online opponent in a turn-based card battle." },
   taboo: { label: "Taboo", icon: "🤐", description: "Alternate describing and guessing words without using the definition's forbidden words." }
 };
+
+const ONLINE_WORDBOUND_DECK = Object.freeze([
+  "tackle", "tackle", "heavy", "heavy", "quick", "quick", "poison", "debilitating",
+  "reckless", "relentless", "arcane-bolt", "arcane-bolt",
+  "shield", "barrier", "parry",
+  "mend", "compassion",
+  "focus", "rally", "gambit"
+]);
 
 let onlineChallengesReady = false;
 let onlineChallengesAvailable = false;
@@ -34,6 +43,7 @@ let onlineTabooBothPlayersPresent = false;
 let onlineTabooLocalClock = null;
 let onlineTabooClockSyncPending = false;
 let onlineTabooLastCheckpointAt = 0;
+let onlineWordboundActionPending = false;
 let onlineLastUserId = null;
 
 const TABOO_ALLOWED_WORDS = new Set([
@@ -71,6 +81,181 @@ function onlineOpponentResult(challenge) {
 
 function cloneOnlineState(state) {
   return JSON.parse(JSON.stringify(state || {}));
+}
+
+function onlineWordboundCardDefinition(cardId) {
+  return battleCards.find((card) => card.id === cardId) || null;
+}
+
+function createOnlineWordboundCard(cardId, uid) {
+  const definition = onlineWordboundCardDefinition(cardId);
+  if (!definition?.words?.length) return null;
+  const vocab = definition.words[Math.floor(Math.random() * definition.words.length)];
+  return {
+    id: definition.id,
+    name: definition.name,
+    type: definition.type,
+    icon: definition.icon,
+    cost: definition.cost,
+    effect: definition.effect,
+    uid,
+    vocab: onlineWordData(vocab)
+  };
+}
+
+function drawOnlineWordboundCards(player, count) {
+  if (!player) return;
+  let remaining = Math.max(0, Number(count) || 0);
+  while (remaining > 0 && player.hand.length < 7) {
+    if (!player.drawPile.length) {
+      if (!player.discard.length) break;
+      player.drawPile = randomSample(player.discard, player.discard.length);
+      player.discard = [];
+    }
+    const card = createOnlineWordboundCard(player.drawPile.pop(), player.nextUid++);
+    if (!card) continue;
+    player.hand.push(card);
+    remaining--;
+  }
+}
+
+function createOnlineWordboundPlayer() {
+  const player = {
+    hp: 40,
+    maxHp: 40,
+    shield: 0,
+    energy: 3,
+    hand: [],
+    drawPile: randomSample(ONLINE_WORDBOUND_DECK, ONLINE_WORDBOUND_DECK.length),
+    discard: [],
+    nextUid: 1,
+    incorrectAnswers: 0,
+    poisonTurns: 0,
+    poisonDamage: 0,
+    weakened: 0,
+    evade: false,
+    counter: 0,
+    focusNext: false,
+    attackBonus: 0
+  };
+  drawOnlineWordboundCards(player, 5);
+  return player;
+}
+
+function onlineWordboundOpponentId(challenge, userId) {
+  return userId === challenge.challenger_id ? challenge.opponent_id : challenge.challenger_id;
+}
+
+function damageOnlineWordboundPlayer(player, amount, allowEvasion = true) {
+  const incoming = Math.max(0, Math.round(Number(amount) || 0));
+  if (allowEvasion && player.evade) {
+    player.evade = false;
+    return { incoming, blocked: 0, healthDamage: 0, evaded: true };
+  }
+  const blocked = Math.min(Math.max(0, Number(player.shield) || 0), incoming);
+  player.shield = Math.max(0, Number(player.shield || 0) - blocked);
+  const healthDamage = incoming - blocked;
+  player.hp = Math.max(0, Number(player.hp || 0) - healthDamage);
+  return { incoming, blocked, healthDamage, evaded: false };
+}
+
+function attackOnlineWordboundPlayer(actor, target, amount) {
+  const weakenedBy = Math.max(0, Number(actor.weakened) || 0);
+  const bonus = Math.max(0, Number(actor.attackBonus) || 0);
+  actor.weakened = 0;
+  actor.attackBonus = 0;
+  const total = Math.max(0, Number(amount || 0) + bonus - weakenedBy);
+  const hit = damageOnlineWordboundPlayer(target, total, true);
+  let counterDamage = 0;
+  if (!hit.evaded && target.counter > 0) {
+    const counter = target.counter;
+    target.counter = 0;
+    counterDamage = damageOnlineWordboundPlayer(actor, counter, false).healthDamage;
+  }
+  return { ...hit, total, counterDamage };
+}
+
+function healOnlineWordboundPlayer(player, amount) {
+  const before = Number(player.hp || 0);
+  player.hp = Math.min(Number(player.maxHp || 40), before + Math.max(0, Number(amount) || 0));
+  return player.hp - before;
+}
+
+function onlineWordboundAttackMessage(name, hit) {
+  if (hit.evaded) return `${name} was evaded.`;
+  const blocked = hit.blocked ? ` ${hit.blocked} was blocked.` : "";
+  const counter = hit.counterDamage ? ` The counter dealt ${hit.counterDamage} damage back.` : "";
+  return `${name} dealt ${hit.healthDamage} health damage.${blocked}${counter}`;
+}
+
+function applyOnlineWordboundCard(player, opponent, card) {
+  let hit;
+  switch (card.id) {
+    case "tackle":
+      return onlineWordboundAttackMessage("Tackle", attackOnlineWordboundPlayer(player, opponent, 6));
+    case "heavy":
+      return onlineWordboundAttackMessage("Heavy Strike", attackOnlineWordboundPlayer(player, opponent, 14));
+    case "quick":
+      hit = attackOnlineWordboundPlayer(player, opponent, 6);
+      drawOnlineWordboundCards(player, 1);
+      return `${onlineWordboundAttackMessage("Quick Slash", hit)} Drew 1 card.`;
+    case "poison":
+      hit = attackOnlineWordboundPlayer(player, opponent, 3);
+      if (!hit.evaded) {
+        opponent.poisonTurns = Math.max(Number(opponent.poisonTurns) || 0, 2);
+        opponent.poisonDamage = 3;
+      }
+      return `${onlineWordboundAttackMessage("Poison Dart", hit)}${hit.evaded ? "" : " Poison will strike for 2 turns."}`;
+    case "debilitating":
+      hit = attackOnlineWordboundPlayer(player, opponent, 7);
+      if (!hit.evaded) opponent.weakened = Math.max(Number(opponent.weakened) || 0, 4);
+      return `${onlineWordboundAttackMessage("Debilitating Blow", hit)}${hit.evaded ? "" : " Their next attack is weakened by 4."}`;
+    case "reckless":
+      hit = attackOnlineWordboundPlayer(player, opponent, 16);
+      player.hp = Math.max(0, Number(player.hp || 0) - 4);
+      return `${onlineWordboundAttackMessage("Reckless Charge", hit)} You took 4 damage.`;
+    case "relentless":
+      return onlineWordboundAttackMessage("Relentless Assault", attackOnlineWordboundPlayer(player, opponent, 21));
+    case "arcane-bolt":
+      return onlineWordboundAttackMessage("Arcane Bolt", attackOnlineWordboundPlayer(player, opponent, 8));
+    case "shield":
+      player.shield += 6;
+      return "Gained 6 shield.";
+    case "barrier":
+      player.shield += 12;
+      return "Gained 12 shield.";
+    case "parry":
+      player.shield += 5;
+      player.counter = 5;
+      return "Gained 5 shield and prepared a 5-damage counter.";
+    case "mend":
+      return `Restored ${healOnlineWordboundPlayer(player, 6)} health.`;
+    case "compassion":
+      player.shield += 3;
+      return `Restored ${healOnlineWordboundPlayer(player, 5)} health and gained 3 shield.`;
+    case "focus":
+      player.focusNext = true;
+      return "Your next vocabulary question will have only 2 choices.";
+    case "rally":
+      player.energy += 1;
+      player.attackBonus += 5;
+      return "Regained 1 energy; your next attack gains 5 damage.";
+    case "gambit":
+      drawOnlineWordboundCards(player, 2);
+      return "Drew 2 cards.";
+    default:
+      return "The card had no effect.";
+  }
+}
+
+function updateOnlineWordboundWinner(wordbound, challenge) {
+  const challenger = wordbound.players?.[challenge.challenger_id];
+  const opponent = wordbound.players?.[challenge.opponent_id];
+  if (!challenger || !opponent) return null;
+  if (challenger.hp <= 0 && opponent.hp <= 0) wordbound.winner = wordbound.currentPlayer;
+  else if (challenger.hp <= 0) wordbound.winner = challenge.opponent_id;
+  else if (opponent.hp <= 0) wordbound.winner = challenge.challenger_id;
+  return wordbound.winner;
 }
 
 function stopOnlineMemoryTimer() {
@@ -122,6 +307,7 @@ function resetOnlineChallengeSession(clearActive = true) {
   stopOnlineTabooTimers();
   stopOnlineGamePresence();
   onlineArcadeGame = null;
+  onlineWordboundActionPending = false;
   onlineTabooNoticeKeys = new Set();
   if (clearActive) activeOnlineChallenge = null;
 }
@@ -199,7 +385,10 @@ async function initializeOnlineChallengeSystem(user = currentUser) {
 
   const onChallengeChange = (payload) => {
     const changed = payload.new && Object.keys(payload.new).length ? payload.new : payload.old;
-    if (changed?.id && payload.eventType !== "DELETE") awardOnlineChallengeBonus(changed);
+    if (changed?.id && payload.eventType !== "DELETE") {
+      awardOnlineWordboundStars(changed);
+      awardOnlineChallengeBonus(changed);
+    }
     if (changed?.id && activeOnlineChallenge?.id === changed.id && payload.eventType !== "DELETE") {
       const previous = activeOnlineChallenge;
       const updatedTabooInPlace = changed.game_type === "taboo" && syncOnlineTabooRealtime(previous, changed);
@@ -245,7 +434,8 @@ function syncHomeChallengeBadge() {
 
 function buildOnlineGameState(type, challengerId, opponentId) {
   const source = getAllWords();
-  if (source.length < (type === "whack" ? 6 : type === "bubble" ? 4 : type === "paragraph" ? 5 : type === "taboo" ? 1 : 6)) return null;
+  const requiredWords = type === "wordbound" ? 0 : type === "whack" ? 6 : type === "bubble" ? 4 : type === "paragraph" ? 5 : type === "taboo" ? 1 : 6;
+  if (source.length < requiredWords) return null;
   const sharedWordCount = type === "memory" ? 6 : type === "paragraph" ? 5 : 0;
   const words = sharedWordCount ? randomSample(source, sharedWordCount).map(onlineWordData) : [];
   const base = { createdAt: new Date().toISOString() };
@@ -281,6 +471,18 @@ function buildOnlineGameState(type, challengerId, opponentId) {
       lobbyCompleted: false,
       successes: 0,
       completed: false
+    };
+  } else if (type === "wordbound") {
+    base.wordbound = {
+      currentPlayer: challengerId,
+      turn: 1,
+      winner: null,
+      question: null,
+      message: "The challenger goes first.",
+      players: {
+        [challengerId]: createOnlineWordboundPlayer(),
+        [opponentId]: createOnlineWordboundPlayer()
+      }
     };
   } else {
     base.durationSeconds = 60;
@@ -355,6 +557,7 @@ async function openOnlineChallenge(id) {
   resetOnlineChallengeSession();
   activeOnlineChallenge = challenge;
   awardOnlineMemoryStars(challenge);
+  awardOnlineWordboundStars(challenge);
   awardOnlineChallengeBonus(challenge);
   view = "onlineGame";
   render();
@@ -489,6 +692,7 @@ function renderOnlineGame(root) {
     return;
   }
   if (challenge.game_type === "memory") renderOnlineMemory(body, challenge);
+  else if (challenge.game_type === "wordbound") renderOnlineWordbound(body, challenge);
   else if (challenge.game_type === "paragraph") renderOnlineParagraph(body, challenge);
   else if (challenge.game_type === "taboo") renderOnlineTaboo(body, challenge);
   else renderOnlineArcade(body, challenge);
@@ -510,6 +714,7 @@ function onlineChallengeWinner(challenge) {
     const winner = challenge.game_state?.memory?.winner;
     return winner && winner !== "tie" ? winner : null;
   }
+  if (challenge.game_type === "wordbound") return challenge.game_state?.wordbound?.winner || null;
   if (!challenge.challenger_result || !challenge.opponent_result) return null;
   const challengerScore = Number(challenge.challenger_result.score || 0);
   const opponentScore = Number(challenge.opponent_result.score || 0);
@@ -532,6 +737,16 @@ function awardOnlineChallengeBonus(challenge) {
     if (awarded && challenge.game_type === "memory") recordAchievementStat("memoryWins");
   }
   if (awarded) queueStarNotification(awarded, label);
+  return awarded;
+}
+
+function awardOnlineWordboundStars(challenge) {
+  if (!challenge || challenge.game_type !== "wordbound" || !currentUser || !challenge.game_state?.wordbound?.winner) return 0;
+  const player = challenge.game_state.wordbound.players?.[currentUser.id];
+  if (!player) return 0;
+  const reward = Math.max(0, 8 - Math.max(0, Number(player.incorrectAnswers) || 0));
+  const awarded = awardStars(reward, `online-wordbound:${challenge.id}:${currentUser.id}`, "Wordbound Duel", false);
+  if (awarded) queueStarNotification(awarded, "Wordbound Duel");
   return awarded;
 }
 
@@ -632,6 +847,205 @@ async function resolveOnlineMemoryTurn() {
   awardOnlineMemoryStars(activeOnlineChallenge);
   awardOnlineChallengeBonus(activeOnlineChallenge);
   if (view === "onlineGame") render();
+}
+
+async function commitOnlineWordboundMutation(mutator, attempts = 3) {
+  if (onlineWordboundActionPending) return null;
+  onlineWordboundActionPending = true;
+  try {
+    for (let attempt = 0; attempt < attempts; attempt++) {
+      const challenge = attempt === 0 ? activeOnlineChallenge : await fetchOnlineChallenge(activeOnlineChallenge?.id);
+      const wordbound = challenge?.game_state?.wordbound;
+      if (!challenge || challenge.status !== "active" || challenge.game_type !== "wordbound" || !wordbound || wordbound.winner) return null;
+      const state = cloneOnlineState(challenge.game_state);
+      if (mutator(state.wordbound, challenge) === false) return null;
+      const updated = await commitOnlineGameState(state, challenge);
+      if (!updated) continue;
+      let finalChallenge = updated;
+      if (updated.game_state?.wordbound?.winner) {
+        const completed = await updateOnlineChallenge(updated.id, { status: "completed", completed_at: new Date().toISOString() });
+        finalChallenge = completed.data || updated;
+        awardOnlineWordboundStars(finalChallenge);
+        awardOnlineChallengeBonus(finalChallenge);
+      }
+      return finalChallenge;
+    }
+    return null;
+  } finally {
+    onlineWordboundActionPending = false;
+    if (view === "onlineGame") render();
+  }
+}
+
+function onlineWordboundQuestionForCard(card, choiceCount) {
+  const uniqueWords = allBattleWords.filter((item, index, items) =>
+    items.findIndex((candidate) => candidate.word.toLocaleLowerCase() === item.word.toLocaleLowerCase()) === index
+  );
+  const decoys = randomSample(
+    uniqueWords.filter((item) => item.word !== card.vocab.word && item.definition !== card.vocab.definition),
+    choiceCount - 1
+  );
+  return {
+    ownerId: currentUser.id,
+    uid: card.uid,
+    word: card.vocab.word,
+    partOfSpeech: card.vocab.partOfSpeech || "",
+    correctDefinition: card.vocab.definition,
+    choices: randomSample([card.vocab, ...decoys], choiceCount).map(onlineWordData)
+  };
+}
+
+async function askOnlineWordboundQuestion(uid) {
+  let opened = false;
+  await commitOnlineWordboundMutation((wordbound, challenge) => {
+    if (wordbound.currentPlayer !== currentUser.id || wordbound.question) return false;
+    const player = wordbound.players?.[currentUser.id];
+    const card = player?.hand?.find((item) => item.uid === uid);
+    if (!card || card.cost > player.energy) return false;
+    const choiceCount = player.focusNext ? 2 : 4;
+    player.focusNext = false;
+    wordbound.question = onlineWordboundQuestionForCard(card, choiceCount);
+    wordbound.message = `${onlinePlayerName(challenge, currentUser.id)} is answering a vocabulary question…`;
+    opened = true;
+    return true;
+  });
+  if (opened) playClickSound();
+}
+
+async function answerOnlineWordboundQuestion(choiceIndex) {
+  let wasCorrect = false;
+  let answered = false;
+  await commitOnlineWordboundMutation((wordbound, challenge) => {
+    const question = wordbound.question;
+    if (wordbound.currentPlayer !== currentUser.id || question?.ownerId !== currentUser.id) return false;
+    const player = wordbound.players?.[currentUser.id];
+    const opponentId = onlineWordboundOpponentId(challenge, currentUser.id);
+    const opponent = wordbound.players?.[opponentId];
+    const cardIndex = player?.hand?.findIndex((item) => item.uid === question.uid) ?? -1;
+    const selected = question.choices?.[choiceIndex];
+    if (cardIndex < 0 || !opponent || !selected) return false;
+    const card = player.hand[cardIndex];
+    if (card.cost > player.energy) return false;
+    answered = true;
+    wasCorrect = selected.definition === question.correctDefinition;
+    player.energy = Math.max(0, Number(player.energy || 0) - card.cost);
+    player.hand.splice(cardIndex, 1);
+    player.discard.push(card.id);
+    wordbound.question = null;
+    if (wasCorrect) {
+      wordbound.message = `Correct — ${applyOnlineWordboundCard(player, opponent, card)}`;
+    } else {
+      player.incorrectAnswers = Math.max(0, Number(player.incorrectAnswers) || 0) + 1;
+      wordbound.message = `Not quite. ${card.vocab.word} means “${card.vocab.definition}” The card was discarded.`;
+    }
+    const winner = updateOnlineWordboundWinner(wordbound, challenge);
+    if (winner) wordbound.message = `${onlinePlayerName(challenge, winner)} won the duel!`;
+    return true;
+  });
+  if (answered) (wasCorrect ? playGotItSound : playDontKnowSound)();
+}
+
+async function endOnlineWordboundTurn() {
+  await commitOnlineWordboundMutation((wordbound, challenge) => {
+    if (wordbound.currentPlayer !== currentUser.id || wordbound.question) return false;
+    const player = wordbound.players?.[currentUser.id];
+    const opponentId = onlineWordboundOpponentId(challenge, currentUser.id);
+    const opponent = wordbound.players?.[opponentId];
+    if (!player || !opponent) return false;
+    let endingMessage = "";
+    if (player.poisonTurns > 0) {
+      const poisonHit = damageOnlineWordboundPlayer(player, player.poisonDamage || 3, false);
+      player.poisonTurns--;
+      endingMessage = ` Poison dealt ${poisonHit.healthDamage} health damage.`;
+      if (!player.poisonTurns) player.poisonDamage = 0;
+    }
+    if (updateOnlineWordboundWinner(wordbound, challenge)) {
+      wordbound.message = `${onlinePlayerName(challenge, wordbound.winner)} won the duel!${endingMessage}`;
+      return true;
+    }
+    player.energy = 0;
+    opponent.energy = 3;
+    opponent.shield = 0;
+    opponent.counter = 0;
+    opponent.evade = false;
+    drawOnlineWordboundCards(opponent, Math.max(0, 5 - opponent.hand.length));
+    wordbound.currentPlayer = opponentId;
+    wordbound.turn = Math.max(1, Number(wordbound.turn) || 1) + 1;
+    wordbound.message = `${onlinePlayerName(challenge, opponentId)}'s turn.${endingMessage}`;
+    return true;
+  });
+  playClickSound();
+}
+
+function onlineWordboundStatusText(player) {
+  const statuses = [];
+  if (player.shield) statuses.push(`🛡 ${player.shield} shield`);
+  if (player.poisonTurns) statuses.push(`☠ ${player.poisonTurns} poison turn${player.poisonTurns === 1 ? "" : "s"}`);
+  if (player.weakened) statuses.push(`↓ next attack −${player.weakened}`);
+  if (player.evade) statuses.push("💨 evasion ready");
+  if (player.counter) statuses.push(`🤺 ${player.counter} counter`);
+  return statuses.join(" · ") || "No active effects";
+}
+
+function renderOnlineWordbound(root, challenge) {
+  const wordbound = challenge.game_state?.wordbound;
+  const player = wordbound?.players?.[currentUser.id];
+  const opponentId = challenge && onlineWordboundOpponentId(challenge, currentUser.id);
+  const opponent = wordbound?.players?.[opponentId];
+  if (!wordbound || !player || !opponent) {
+    root.innerHTML = `<div class="online-empty">This Wordbound Duel could not be loaded.</div>`;
+    return;
+  }
+  awardOnlineWordboundStars(challenge);
+  const finished = Boolean(wordbound.winner) || challenge.status === "completed";
+  if (finished) {
+    const won = wordbound.winner === currentUser.id;
+    const ownBaseStars = Math.max(0, 8 - Math.max(0, Number(player.incorrectAnswers) || 0));
+    const opponentBaseStars = Math.max(0, 8 - Math.max(0, Number(opponent.incorrectAnswers) || 0));
+    root.innerHTML = `<div class="online-result online-wordbound-result">
+      <div class="online-waiting-icon">${won ? "🏆" : "⚔️"}</div>
+      <h2>${won ? "You won the duel!" : `${escapeHtml(onlinePlayerName(challenge, wordbound.winner))} won the duel!`}</h2>
+      <p>Both players earn their normal <strong>8 − incorrect answers</strong> reward. The winner earns 5 additional Stars.</p>
+      <div class="online-result-score">
+        <div class="online-result-player"><span>${escapeHtml(onlinePlayerName(challenge, currentUser.id))}</span><strong>${Math.max(0, player.hp)} HP</strong><small>${ownBaseStars + (won ? 5 : 0)} Stars · ${player.incorrectAnswers} incorrect</small></div>
+        <span>vs</span>
+        <div class="online-result-player"><span>${escapeHtml(onlinePlayerName(challenge, opponentId))}</span><strong>${Math.max(0, opponent.hp)} HP</strong><small>${opponentBaseStars + (won ? 0 : 5)} Stars · ${opponent.incorrectAnswers} incorrect</small></div>
+      </div>
+    </div>`;
+    return;
+  }
+
+  const myTurn = wordbound.currentPlayer === currentUser.id;
+  const ownQuestion = myTurn && wordbound.question?.ownerId === currentUser.id;
+  const opponentQuestion = !myTurn && Boolean(wordbound.question);
+  const ownHealthPercent = Math.max(0, Math.min(100, player.hp / player.maxHp * 100));
+  const opponentHealthPercent = Math.max(0, Math.min(100, opponent.hp / opponent.maxHp * 100));
+  root.innerHTML = `<section class="boss-battle online-wordbound-game" aria-labelledby="onlineWordboundTitle">
+    <div class="battle-topbar"><div><h2 id="onlineWordboundTitle">Wordbound Duel</h2><p>Answer correctly to use cards. Your damage hits the opposing player.</p></div><div class="online-wordbound-turn ${myTurn ? "active" : ""}">${myTurn ? "YOUR TURN" : `${escapeHtml(onlinePlayerName(challenge, opponentId)).toUpperCase()}'S TURN`}</div></div>
+    <div class="battle-arena"><div class="combatant-row">
+      <div class="combatant player"><div class="combatant-name">${escapeHtml(onlinePlayerName(challenge, currentUser.id))}</div><div class="combatant-figure">🧙</div><div class="health-track"><div class="health-fill" style="width:${ownHealthPercent}%"></div></div><div class="health-label">${player.hp} / ${player.maxHp} HP</div><div class="shield-label">${escapeHtml(onlineWordboundStatusText(player))}</div></div>
+      <div class="versus">TURN ${wordbound.turn}</div>
+      <div class="combatant boss"><div class="combatant-name">${escapeHtml(onlinePlayerName(challenge, opponentId))}</div><div class="combatant-figure">🧙‍♂️</div><div class="health-track"><div class="health-fill" style="width:${opponentHealthPercent}%"></div></div><div class="health-label">${opponent.hp} / ${opponent.maxHp} HP</div><div class="shield-label">${escapeHtml(onlineWordboundStatusText(opponent))}</div></div>
+    </div></div>
+    <div class="battle-resource-row"><div class="energy-display">⚡ ${player.energy} energy</div><div class="battle-status">Potential reward: ${Math.max(0, 8 - player.incorrectAnswers)} Stars${myTurn ? "" : " · Waiting for opponent"}</div></div>
+    <div class="battle-message" aria-live="polite">${escapeHtml(wordbound.message || "Choose a card.")}</div>
+    ${ownQuestion ? `<div class="question-panel" aria-labelledby="onlineWordboundQuestionTitle"><h3 id="onlineWordboundQuestionTitle">What does “${escapeHtml(wordbound.question.word)}” mean?</h3><div class="part-of-speech">${escapeHtml(wordbound.question.partOfSpeech || "Not specified")}</div><p>Choose correctly to activate the card.</p><div class="question-options">${wordbound.question.choices.map((choice, index) => `<button class="question-option" data-online-wordbound-answer="${index}">${escapeHtml(choice.definition)}</button>`).join("")}</div></div>`
+      : opponentQuestion ? `<div class="online-wordbound-waiting"><span aria-hidden="true">🧠</span><strong>${escapeHtml(onlinePlayerName(challenge, opponentId))} is answering a vocabulary question…</strong></div>`
+      : `<div class="battle-hand" aria-label="Your hand">${player.hand.map((card) => `<button class="battle-card ${card.type} ${!myTurn || card.cost > player.energy ? "unaffordable" : ""}" data-online-wordbound-card="${card.uid}" ${!myTurn || card.cost > player.energy ? "disabled" : ""}><span class="battle-card-cost">${card.cost}</span><span class="battle-card-word">${escapeHtml(card.vocab.word)}</span><span class="battle-card-part">${escapeHtml(card.vocab.partOfSpeech || "Not specified")}</span><span class="battle-card-name">${escapeHtml(card.name)}</span><span class="battle-card-art">${card.icon}</span><span class="battle-card-effect">${escapeHtml(card.effect)}</span></button>`).join("")}</div>`}
+    <div class="battle-actions"><span>${player.hand.length} cards in hand · ${player.drawPile.length} in deck · ${player.incorrectAnswers} incorrect</span><button class="end-turn-btn" id="endOnlineWordboundTurn" ${!myTurn || wordbound.question || onlineWordboundActionPending ? "disabled" : ""}>End turn</button></div>
+  </section>`;
+  root.querySelectorAll("[data-online-wordbound-card]").forEach((button) => button.addEventListener("click", () => {
+    button.disabled = true;
+    askOnlineWordboundQuestion(Number(button.dataset.onlineWordboundCard));
+  }));
+  root.querySelectorAll("[data-online-wordbound-answer]").forEach((button) => button.addEventListener("click", () => {
+    root.querySelectorAll("[data-online-wordbound-answer]").forEach((choice) => { choice.disabled = true; });
+    answerOnlineWordboundQuestion(Number(button.dataset.onlineWordboundAnswer));
+  }));
+  root.querySelector("#endOnlineWordboundTurn")?.addEventListener("click", (event) => {
+    event.currentTarget.disabled = true;
+    endOnlineWordboundTurn();
+  });
 }
 
 function onlineParagraphUsedWords(text, words) {

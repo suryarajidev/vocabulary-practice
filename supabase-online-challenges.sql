@@ -7,7 +7,7 @@ create table if not exists public.online_challenges (
   opponent_id uuid not null references auth.users(id) on delete cascade,
   challenger_username text not null,
   opponent_username text not null,
-  game_type text not null check (game_type in ('memory', 'paragraph', 'whack', 'bubble', 'taboo')),
+  game_type text not null check (game_type in ('memory', 'paragraph', 'whack', 'bubble', 'taboo', 'wordbound')),
   status text not null default 'pending' check (status in ('pending', 'active', 'completed', 'declined', 'cancelled')),
   game_state jsonb not null default '{}'::jsonb,
   challenger_result jsonb,
@@ -20,12 +20,12 @@ create table if not exists public.online_challenges (
   constraint online_challenges_different_players check (challenger_id <> opponent_id)
 );
 
--- Re-running this setup upgrades existing projects to include Taboo challenges.
+-- Re-running this setup upgrades existing projects to include newer challenge types.
 alter table public.online_challenges
   drop constraint if exists online_challenges_game_type_check;
 alter table public.online_challenges
   add constraint online_challenges_game_type_check
-  check (game_type in ('memory', 'paragraph', 'whack', 'bubble', 'taboo'));
+  check (game_type in ('memory', 'paragraph', 'whack', 'bubble', 'taboo', 'wordbound'));
 
 create index if not exists online_challenges_challenger_status_idx
   on public.online_challenges (challenger_id, status, updated_at desc);
