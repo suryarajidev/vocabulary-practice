@@ -1,10 +1,10 @@
-const ONLINE_CHALLENGE_SELECT = "id, challenger_id, opponent_id, challenger_username, opponent_username, game_type, status, game_state, challenger_result, opponent_result, version, created_at, updated_at, accepted_at, completed_at";
+const ONLINE_CHALLENGE_SELECT = "id, challenger_id, opponent_id, challenger_username, opponent_username, participant_ids, participant_usernames, accepted_ids, game_type, status, game_state, challenger_result, opponent_result, version, created_at, updated_at, accepted_at, completed_at";
 const ONLINE_GAME_META = {
   memory: { label: "Memory Match", icon: "🧠", description: "Take turns matching six word-definition pairs." },
-  paragraph: { label: "Paragraph Duel", icon: "✍️", description: "Use the same five words, then reveal both stories." },
+  paragraph: { label: "Paragraph Challenge", icon: "✍️", description: "Use the same five words, then reveal every participant's story." },
   whack: { label: "Whack-a-Word", icon: "🔨", description: "Use your own dictionary and score as many points as possible in 60 seconds." },
   bubble: { label: "Bubble Shot", icon: "🫧", description: "Use your own dictionary and score as many points as possible in 60 seconds." },
-  wordbound: { label: "Wordbound Duel", icon: "⚔️", description: "Answer vocabulary questions to attack an online opponent in a turn-based card battle." },
+  wordbound: { label: "Wordbound Battle", icon: "⚔️", description: "Answer vocabulary questions and outlast up to three online opponents." },
   taboo: { label: "Taboo", icon: "🤐", description: "Alternate describing and guessing words without using the definition's forbidden words." }
 };
 
@@ -44,6 +44,7 @@ let onlineTabooLocalClock = null;
 let onlineTabooClockSyncPending = false;
 let onlineTabooLastCheckpointAt = 0;
 let onlineWordboundActionPending = false;
+let onlineWordboundTargetId = null;
 let onlineLastUserId = null;
 
 const TABOO_ALLOWED_WORDS = new Set([
@@ -63,20 +64,68 @@ function onlineGameMeta(type) {
   return ONLINE_GAME_META[type] || { label: "Vocabulary Game", icon: "🎮", description: "Online challenge" };
 }
 
+function onlineParticipantIds(challenge) {
+  const ids = Array.isArray(challenge?.participant_ids) && challenge.participant_ids.length
+    ? challenge.participant_ids
+    : [challenge?.challenger_id, challenge?.opponent_id];
+  return [...new Set(ids.filter(Boolean))].slice(0, 4);
+}
+
+function onlineParticipantNames(challenge) {
+  const saved = challenge?.participant_usernames && typeof challenge.participant_usernames === "object" ? challenge.participant_usernames : {};
+  return {
+    [challenge?.challenger_id]: challenge?.challenger_username,
+    [challenge?.opponent_id]: challenge?.opponent_username,
+    ...saved
+  };
+}
+
+function onlineAcceptedIds(challenge) {
+  const accepted = Array.isArray(challenge?.accepted_ids) && challenge.accepted_ids.length
+    ? challenge.accepted_ids
+    : challenge?.status === "pending" ? [challenge?.challenger_id] : onlineParticipantIds(challenge);
+  return [...new Set(accepted.filter(Boolean))];
+}
+
+function onlineAllPlayersAccepted(challenge) {
+  const accepted = new Set(onlineAcceptedIds(challenge));
+  return onlineParticipantIds(challenge).every((id) => accepted.has(id));
+}
+
+function onlineOtherPlayerIds(challenge, userId = currentUser?.id) {
+  return onlineParticipantIds(challenge).filter((id) => id !== userId);
+}
+
 function onlineOpponentName(challenge) {
-  return challenge.challenger_id === currentUser?.id ? challenge.opponent_username : challenge.challenger_username;
+  const names = onlineOtherPlayerIds(challenge).map((id) => onlinePlayerName(challenge, id));
+  if (names.length <= 2) return names.join(" and ");
+  return `${names.slice(0, -1).join(", ")}, and ${names.at(-1)}`;
 }
 
 function onlinePlayerName(challenge, userId) {
-  return userId === challenge.challenger_id ? challenge.challenger_username : challenge.opponent_username;
+  return onlineParticipantNames(challenge)[userId] || "Player";
+}
+
+function onlineArcadeResults(challenge) {
+  const results = { ...(challenge?.game_state?.arcadeResults || {}) };
+  if (challenge?.challenger_result && !results[challenge.challenger_id]) results[challenge.challenger_id] = challenge.challenger_result;
+  if (challenge?.opponent_result && !results[challenge.opponent_id]) results[challenge.opponent_id] = challenge.opponent_result;
+  return results;
 }
 
 function onlineOwnResult(challenge) {
-  return challenge.challenger_id === currentUser?.id ? challenge.challenger_result : challenge.opponent_result;
+  return onlineArcadeResults(challenge)[currentUser?.id] || null;
 }
 
-function onlineOpponentResult(challenge) {
-  return challenge.challenger_id === currentUser?.id ? challenge.opponent_result : challenge.challenger_result;
+function nextOnlineParticipantId(challenge, currentId, eligibleIds = onlineParticipantIds(challenge)) {
+  const participants = onlineParticipantIds(challenge);
+  const eligible = new Set(eligibleIds);
+  const start = Math.max(0, participants.indexOf(currentId));
+  for (let offset = 1; offset <= participants.length; offset++) {
+    const candidate = participants[(start + offset) % participants.length];
+    if (eligible.has(candidate)) return candidate;
+  }
+  return currentId;
 }
 
 function cloneOnlineState(state) {
@@ -142,8 +191,12 @@ function createOnlineWordboundPlayer() {
   return player;
 }
 
-function onlineWordboundOpponentId(challenge, userId) {
-  return userId === challenge.challenger_id ? challenge.opponent_id : challenge.challenger_id;
+function onlineWordboundAliveIds(wordbound, challenge) {
+  return onlineParticipantIds(challenge).filter((id) => Number(wordbound?.players?.[id]?.hp || 0) > 0);
+}
+
+function onlineWordboundTargetIds(wordbound, challenge, userId) {
+  return onlineWordboundAliveIds(wordbound, challenge).filter((id) => id !== userId);
 }
 
 function damageOnlineWordboundPlayer(player, amount, allowEvasion = true) {
@@ -249,12 +302,9 @@ function applyOnlineWordboundCard(player, opponent, card) {
 }
 
 function updateOnlineWordboundWinner(wordbound, challenge) {
-  const challenger = wordbound.players?.[challenge.challenger_id];
-  const opponent = wordbound.players?.[challenge.opponent_id];
-  if (!challenger || !opponent) return null;
-  if (challenger.hp <= 0 && opponent.hp <= 0) wordbound.winner = wordbound.currentPlayer;
-  else if (challenger.hp <= 0) wordbound.winner = challenge.opponent_id;
-  else if (opponent.hp <= 0) wordbound.winner = challenge.challenger_id;
+  const aliveIds = onlineWordboundAliveIds(wordbound, challenge);
+  if (aliveIds.length === 1) wordbound.winner = aliveIds[0];
+  else if (!aliveIds.length) wordbound.winner = wordbound.currentPlayer;
   return wordbound.winner;
 }
 
@@ -308,6 +358,7 @@ function resetOnlineChallengeSession(clearActive = true) {
   stopOnlineGamePresence();
   onlineArcadeGame = null;
   onlineWordboundActionPending = false;
+  onlineWordboundTargetId = null;
   onlineTabooNoticeKeys = new Set();
   if (clearActive) activeOnlineChallenge = null;
 }
@@ -325,12 +376,12 @@ function refreshOnlineGamePresence(challenge, channel) {
   if (channel !== onlineGamePresenceChannel || challenge.id !== onlineGamePresenceChallengeId) return;
   const state = channel.presenceState();
   onlineGamePresenceUserIds = new Set(Object.values(state || {}).flat().map((entry) => entry.user_id).filter(Boolean));
-  const bothPresent = onlineGamePresenceUserIds.has(challenge.challenger_id) && onlineGamePresenceUserIds.has(challenge.opponent_id);
-  const presenceChanged = bothPresent !== onlineTabooBothPlayersPresent;
-  onlineTabooBothPlayersPresent = bothPresent;
+  const allPresent = onlineParticipantIds(challenge).every((id) => onlineGamePresenceUserIds.has(id));
+  const presenceChanged = allPresent !== onlineTabooBothPlayersPresent;
+  onlineTabooBothPlayersPresent = allPresent;
   if (challenge.game_type !== "taboo" || !presenceChanged) return;
   if (onlineTabooLocalClock) onlineTabooLocalClock.lastTickAt = Date.now();
-  if (!bothPresent) checkpointOnlineTabooClock(true);
+  if (!allPresent) checkpointOnlineTabooClock(true);
   if (view === "onlineGame" && onlineTabooBeforeFirstRound(activeOnlineChallenge)) render();
   else updateOnlineTabooPresenceUI();
 }
@@ -372,7 +423,7 @@ async function initializeOnlineChallengeSystem(user = currentUser) {
   const { error } = await supabaseClient
     .from("online_challenges")
     .select("id")
-    .or(`challenger_id.eq.${userId},opponent_id.eq.${userId}`)
+    .contains("participant_ids", [userId])
     .limit(1);
   if (currentUser?.id !== userId) return;
   onlineChallengesReady = true;
@@ -402,8 +453,7 @@ async function initializeOnlineChallengeSystem(user = currentUser) {
 
   onlineChallengeFeed = supabaseClient
     .channel(`online-challenges-${userId}`)
-    .on("postgres_changes", { event: "*", schema: "public", table: "online_challenges", filter: `challenger_id=eq.${userId}` }, onChallengeChange)
-    .on("postgres_changes", { event: "*", schema: "public", table: "online_challenges", filter: `opponent_id=eq.${userId}` }, onChallengeChange)
+    .on("postgres_changes", { event: "*", schema: "public", table: "online_challenges" }, onChallengeChange)
     .subscribe();
   await refreshOnlinePendingCount();
   if (view === "challenges") render();
@@ -415,12 +465,12 @@ async function refreshOnlinePendingCount() {
     syncHomeChallengeBadge();
     return;
   }
-  const { count, error } = await supabaseClient
+  const { data, error } = await supabaseClient
     .from("online_challenges")
-    .select("id", { count: "exact", head: true })
-    .eq("opponent_id", currentUser.id)
+    .select("id, accepted_ids")
+    .contains("participant_ids", [currentUser.id])
     .eq("status", "pending");
-  if (!error) onlinePendingCount = count || 0;
+  if (!error) onlinePendingCount = (data || []).filter((challenge) => !onlineAcceptedIds(challenge).includes(currentUser.id)).length;
   syncHomeChallengeBadge();
 }
 
@@ -432,7 +482,11 @@ function syncHomeChallengeBadge() {
   badge.setAttribute("aria-label", `${onlinePendingCount} pending challenge${onlinePendingCount === 1 ? "" : "s"}`);
 }
 
-function buildOnlineGameState(type, challengerId, opponentId) {
+function buildOnlineGameState(type, participantIds) {
+  const players = [...new Set((participantIds || []).filter(Boolean))].slice(0, 4);
+  const challengerId = players[0];
+  const opponentId = players[1];
+  if (players.length < 2) return null;
   const source = getAllWords();
   const requiredWords = type === "wordbound" ? 0 : type === "whack" ? 6 : type === "bubble" ? 4 : type === "paragraph" ? 5 : type === "taboo" ? 1 : 6;
   if (source.length < requiredWords) return null;
@@ -449,7 +503,7 @@ function buildOnlineGameState(type, challengerId, opponentId) {
       cards: randomSample(cards, cards.length),
       flipped: [], matched: [], locked: false, resolver: null, resolveAt: null,
       currentPlayer: challengerId,
-      scores: { [challengerId]: 0, [opponentId]: 0 },
+      scores: Object.fromEntries(players.map((id) => [id, 0])),
       pairWinners: {}, winner: null,
       message: "The challenger goes first."
     };
@@ -461,7 +515,7 @@ function buildOnlineGameState(type, challengerId, opponentId) {
     base.wordSource = "round-guesser-dictionary";
     base.taboo = {
       roundIndex: 0,
-      totalRounds: 4,
+      totalRounds: players.length * 2,
       current: null,
       rounds: [],
       usedWords: [],
@@ -479,14 +533,13 @@ function buildOnlineGameState(type, challengerId, opponentId) {
       winner: null,
       question: null,
       message: "The challenger goes first.",
-      players: {
-        [challengerId]: createOnlineWordboundPlayer(),
-        [opponentId]: createOnlineWordboundPlayer()
-      }
+      targetId: opponentId,
+      players: Object.fromEntries(players.map((id) => [id, createOnlineWordboundPlayer()]))
     };
   } else {
     base.durationSeconds = 60;
     base.wordSource = "each-player-dictionary";
+    base.arcadeResults = {};
   }
   return base;
 }
@@ -494,11 +547,18 @@ function buildOnlineGameState(type, challengerId, opponentId) {
 function openOnlineChallengeDialog(opponentId, opponentUsername) {
   if (!currentUser || opponentId === currentUser.id) return;
   document.querySelector(".online-challenge-modal")?.remove();
+  const selectedPlayers = new Map([[opponentId, opponentUsername]]);
   const backdrop = document.createElement("div");
   backdrop.className = "batch-modal-backdrop online-challenge-modal";
   backdrop.innerHTML = `<div class="batch-modal" role="dialog" aria-modal="true" aria-labelledby="onlineChallengeTitle">
-    <h3 id="onlineChallengeTitle">Challenge ${escapeHtml(opponentUsername)}</h3>
-    <p>Choose a game. They can accept or decline from their Online Challenges page.</p>
+    <h3 id="onlineChallengeTitle">Create a group challenge</h3>
+    <p>Invite 1–3 players. The game starts after everyone accepts.</p>
+    <div class="challenge-player-builder">
+      <div class="challenge-selected-players" id="challengeSelectedPlayers"></div>
+      <form class="challenge-player-search" id="challengePlayerSearch"><input type="search" id="challengePlayerSearchInput" placeholder="Add another username" maxlength="20" autocomplete="off"><button class="small-btn" type="submit">Search</button></form>
+      <div class="challenge-player-results" id="challengePlayerResults"></div>
+    </div>
+    <p>Choose a game for all ${selectedPlayers.size + 1} participants.</p>
     <div class="challenge-modal-grid">
       ${Object.entries(ONLINE_GAME_META).map(([type, meta]) => `<button class="challenge-game-option" type="button" data-online-game-type="${type}"><span class="challenge-icon">${meta.icon}</span><strong>${meta.label}</strong><span>${meta.description}</span></button>`).join("")}
     </div>
@@ -509,11 +569,61 @@ function openOnlineChallengeDialog(opponentId, opponentUsername) {
   const close = () => backdrop.remove();
   backdrop.addEventListener("click", (event) => { if (event.target === backdrop) close(); });
   backdrop.querySelector("#cancelOnlineChallenge").addEventListener("click", close);
+  const selectedRoot = backdrop.querySelector("#challengeSelectedPlayers");
+  const searchForm = backdrop.querySelector("#challengePlayerSearch");
+  const searchInput = backdrop.querySelector("#challengePlayerSearchInput");
+  const searchResults = backdrop.querySelector("#challengePlayerResults");
+  const participantCopy = backdrop.querySelector(".challenge-player-builder + p");
+  const drawSelectedPlayers = () => {
+    selectedRoot.innerHTML = [...selectedPlayers].map(([id, username]) => `<span class="challenge-player-chip">${escapeHtml(username)}<button type="button" data-remove-challenge-player="${id}" aria-label="Remove ${escapeHtml(username)}">×</button></span>`).join("");
+    participantCopy.textContent = `Choose a game for all ${selectedPlayers.size + 1} participants.`;
+    searchInput.disabled = selectedPlayers.size >= 3;
+    searchForm.querySelector("button").disabled = selectedPlayers.size >= 3;
+    if (selectedPlayers.size >= 3) searchResults.innerHTML = `<span class="challenge-player-limit">Maximum of 4 total players reached.</span>`;
+  };
+  selectedRoot.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-remove-challenge-player]");
+    if (!button) return;
+    selectedPlayers.delete(button.dataset.removeChallengePlayer);
+    searchResults.innerHTML = "";
+    drawSelectedPlayers();
+  });
+  searchForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const query = searchInput.value.trim();
+    if (!query || selectedPlayers.size >= 3) return;
+    searchResults.textContent = "Searching…";
+    const { data, error } = await supabaseClient
+      .from("user_public_profiles")
+      .select("user_id, username")
+      .ilike("username", `%${query}%`)
+      .order("username", { ascending: true })
+      .limit(8);
+    if (error) {
+      searchResults.textContent = "Player search is unavailable right now.";
+      return;
+    }
+    const matches = (data || []).filter((profile) => profile.user_id !== currentUser.id && !selectedPlayers.has(profile.user_id));
+    searchResults.innerHTML = matches.length ? matches.map((profile) => `<button type="button" class="challenge-player-result" data-add-challenge-player="${profile.user_id}" data-username="${escapeHtml(profile.username)}"><span>${escapeHtml(profile.username)}</span><strong>Add</strong></button>`).join("") : `<span>No additional users found.</span>`;
+  });
+  searchResults.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-add-challenge-player]");
+    if (!button || selectedPlayers.size >= 3) return;
+    selectedPlayers.set(button.dataset.addChallengePlayer, button.dataset.username);
+    searchInput.value = "";
+    searchResults.innerHTML = "";
+    drawSelectedPlayers();
+  });
+  drawSelectedPlayers();
   backdrop.querySelectorAll("[data-online-game-type]").forEach((button) => button.addEventListener("click", async () => {
     const status = backdrop.querySelector("#onlineChallengeModalStatus");
+    if (!selectedPlayers.size) {
+      status.textContent = "Add at least one other player.";
+      return;
+    }
     backdrop.querySelectorAll("button").forEach((item) => { item.disabled = true; });
     status.textContent = "Sending challenge…";
-    const result = await createOnlineChallenge(opponentId, opponentUsername, button.dataset.onlineGameType);
+    const result = await createOnlineChallenge([...selectedPlayers].map(([id, username]) => ({ id, username })), button.dataset.onlineGameType);
     if (!result.ok) {
       status.textContent = result.message;
       backdrop.querySelectorAll("button").forEach((item) => { item.disabled = false; });
@@ -526,16 +636,24 @@ function openOnlineChallengeDialog(opponentId, opponentUsername) {
   }));
 }
 
-async function createOnlineChallenge(opponentId, opponentUsername, type) {
+async function createOnlineChallenge(invitedPlayers, type) {
   if (!onlineChallengesAvailable) return { ok: false, message: "Online challenges need the Supabase setup file first." };
   if (!publicProfile?.username) return { ok: false, message: "Choose a username in Settings before sending a challenge." };
-  const gameState = buildOnlineGameState(type, currentUser.id, opponentId);
+  const invited = (invitedPlayers || []).filter((player) => player?.id && player.id !== currentUser.id).slice(0, 3);
+  if (!invited.length) return { ok: false, message: "Invite at least one other player." };
+  const participantIds = [currentUser.id, ...invited.map((player) => player.id)];
+  const participantUsernames = { [currentUser.id]: publicProfile.username, ...Object.fromEntries(invited.map((player) => [player.id, player.username])) };
+  const firstOpponent = invited[0];
+  const gameState = buildOnlineGameState(type, participantIds);
   if (!gameState) return { ok: false, message: "There are not enough dictionary words for this game." };
   const { error } = await supabaseClient.from("online_challenges").insert({
     challenger_id: currentUser.id,
-    opponent_id: opponentId,
+    opponent_id: firstOpponent.id,
     challenger_username: publicProfile.username,
-    opponent_username: opponentUsername,
+    opponent_username: firstOpponent.username,
+    participant_ids: participantIds,
+    participant_usernames: participantUsernames,
+    accepted_ids: [currentUser.id],
     game_type: type,
     status: "pending",
     game_state: gameState
@@ -593,14 +711,19 @@ async function commitOnlineGameState(nextState, challenge = activeOnlineChalleng
 
 function onlineChallengeCardHtml(challenge, kind) {
   const meta = onlineGameMeta(challenge.game_type);
-  const incoming = challenge.opponent_id === currentUser.id;
+  const accepted = new Set(onlineAcceptedIds(challenge));
+  const incoming = challenge.status === "pending" && challenge.challenger_id !== currentUser.id && !accepted.has(currentUser.id);
   const otherName = onlineOpponentName(challenge);
-  const statusLabel = challenge.status === "pending" ? (incoming ? "Your turn" : "Sent") : challenge.status;
+  const acceptedCount = accepted.size;
+  const participantCount = onlineParticipantIds(challenge).length;
+  const statusLabel = challenge.status === "pending" ? (incoming ? "Your turn" : `${acceptedCount}/${participantCount} ready`) : challenge.status;
   let actions = "";
   if (challenge.status === "pending" && incoming) {
     actions = `<button class="accent-btn" data-online-action="accept" data-challenge-id="${challenge.id}">Accept</button><button class="small-btn" data-online-action="decline" data-challenge-id="${challenge.id}">Decline</button>`;
-  } else if (challenge.status === "pending") {
+  } else if (challenge.status === "pending" && challenge.challenger_id === currentUser.id) {
     actions = `<button class="small-btn" data-online-action="cancel" data-challenge-id="${challenge.id}">Cancel challenge</button>`;
+  } else if (challenge.status === "pending") {
+    actions = `<button class="small-btn" data-online-action="open" data-challenge-id="${challenge.id}">View lobby</button>`;
   } else if (challenge.status === "active") {
     actions = `<button class="accent-btn" data-online-action="open" data-challenge-id="${challenge.id}">Play / Resume</button>`;
   } else if (challenge.status === "completed") {
@@ -617,7 +740,7 @@ async function loadOnlineChallenges() {
   const { data, error } = await supabaseClient
     .from("online_challenges")
     .select(ONLINE_CHALLENGE_SELECT)
-    .or(`challenger_id.eq.${currentUser.id},opponent_id.eq.${currentUser.id}`)
+    .contains("participant_ids", [currentUser.id])
     .order("updated_at", { ascending: false })
     .limit(50);
   return error ? [] : (data || []);
@@ -625,7 +748,7 @@ async function loadOnlineChallenges() {
 
 function renderOnlineChallenges(root) {
   root.innerHTML = `<section class="online-challenge-view" aria-labelledby="onlineChallengesTitle">
-    <div class="online-challenge-heading"><div><h2 id="onlineChallengesTitle">Online Challenges</h2><p>Challenge a username, take your turn, and see live results from either account.</p></div><div class="online-challenge-heading-actions"><button class="small-btn" id="findChallengeOpponent">Find an opponent</button><button class="small-btn" id="refreshChallenges">Refresh</button></div></div>
+    <div class="online-challenge-heading"><div><h2 id="onlineChallengesTitle">Online Challenges</h2><p>Invite up to three other players and see live turns, clues, and results.</p></div><div class="online-challenge-heading-actions"><button class="small-btn" id="findChallengeOpponent">Find players</button><button class="small-btn" id="refreshChallenges">Refresh</button></div></div>
     <div id="onlineChallengeContent"><div class="online-empty">Checking for challenges…</div></div>
   </section>`;
   root.querySelector("#findChallengeOpponent").addEventListener("click", () => { playClickSound(); view = "users"; render(); });
@@ -636,14 +759,14 @@ function renderOnlineChallenges(root) {
     if (!onlineChallengesReady) await initializeOnlineChallengeSystem(currentUser);
     if (!content.isConnected) return;
     if (!onlineChallengesAvailable) {
-      content.innerHTML = `<div class="online-challenge-setup"><strong>One Supabase step is required.</strong><br>Open the Supabase SQL Editor, run <code>supabase-online-challenges.sql</code> once, then reload this page. The policies make every challenge visible only to its two players.</div>`;
+      content.innerHTML = `<div class="online-challenge-setup"><strong>One Supabase step is required.</strong><br>Open the Supabase SQL Editor, run <code>supabase-online-challenges.sql</code>, then reload this page. The policies make every challenge visible only to its 2–4 participants.</div>`;
       return;
     }
     const rows = await loadOnlineChallenges();
     if (!content.isConnected) return;
-    const incoming = rows.filter((item) => item.status === "pending" && item.opponent_id === currentUser.id);
+    const incoming = rows.filter((item) => item.status === "pending" && item.challenger_id !== currentUser.id && !onlineAcceptedIds(item).includes(currentUser.id));
     const active = rows.filter((item) => item.status === "active");
-    const outgoing = rows.filter((item) => item.status === "pending" && item.challenger_id === currentUser.id);
+    const outgoing = rows.filter((item) => item.status === "pending" && !incoming.includes(item));
     const history = rows.filter((item) => ["completed", "declined", "cancelled"].includes(item.status)).slice(0, 12);
     const group = (title, items, kind) => `<section class="online-challenge-group"><h3>${title} (${items.length})</h3>${items.length ? `<div class="online-challenge-list">${items.map((item) => onlineChallengeCardHtml(item, kind)).join("")}</div>` : `<div class="online-empty">Nothing here yet.</div>`}</section>`;
     content.innerHTML = `<div class="online-challenge-groups">${group("Incoming", incoming, "incoming")}${group("In progress", active, "active")}${group("Sent", outgoing, "outgoing")}${group("Recent results", history, "history")}</div>`;
@@ -655,7 +778,7 @@ function renderOnlineChallenges(root) {
       const action = button.dataset.onlineAction;
       if (action === "open") return openOnlineChallenge(id);
       if (action === "accept") {
-        const { data } = await updateOnlineChallenge(id, { status: "active", accepted_at: new Date().toISOString() });
+        const data = await acceptOnlineChallenge(id);
         if (data) return openOnlineChallenge(id);
       } else if (action === "decline") {
         await updateOnlineChallenge(id, { status: "declined" });
@@ -666,6 +789,33 @@ function renderOnlineChallenges(root) {
     });
   };
   populate();
+}
+
+async function acceptOnlineChallenge(id) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const challenge = await fetchOnlineChallenge(id);
+    if (!challenge || challenge.status !== "pending" || !onlineParticipantIds(challenge).includes(currentUser.id)) return null;
+    const acceptedIds = [...new Set([...onlineAcceptedIds(challenge), currentUser.id])];
+    const allAccepted = onlineParticipantIds(challenge).every((participantId) => acceptedIds.includes(participantId));
+    const patch = {
+      accepted_ids: acceptedIds,
+      status: allAccepted ? "active" : "pending",
+      accepted_at: allAccepted ? new Date().toISOString() : challenge.accepted_at,
+      version: Number(challenge.version || 0) + 1
+    };
+    const { data, error } = await supabaseClient
+      .from("online_challenges")
+      .update(patch)
+      .eq("id", id)
+      .eq("version", challenge.version)
+      .select(ONLINE_CHALLENGE_SELECT)
+      .maybeSingle();
+    if (!error && data) {
+      activeOnlineChallenge = data;
+      return data;
+    }
+  }
+  return null;
 }
 
 function onlineMatchBanner(challenge) {
@@ -684,7 +834,9 @@ function renderOnlineGame(root) {
   root.innerHTML = `<section class="online-game-shell">${onlineMatchBanner(challenge)}<div id="onlineGameBody"></div></section>`;
   const body = root.querySelector("#onlineGameBody");
   if (challenge.status === "pending") {
-    body.innerHTML = `<div class="online-waiting"><div class="online-waiting-icon">⏳</div><h2>Waiting for ${escapeHtml(challenge.opponent_username)}</h2><p>The game will unlock as soon as the challenge is accepted.</p></div>`;
+    const accepted = new Set(onlineAcceptedIds(challenge));
+    const participantRows = onlineParticipantIds(challenge).map((id) => `<div class="online-lobby-player ${accepted.has(id) ? "ready" : ""}"><span>${accepted.has(id) ? "✓" : "…"}</span><strong>${escapeHtml(onlinePlayerName(challenge, id))}</strong><small>${accepted.has(id) ? "Ready" : "Waiting to accept"}</small></div>`).join("");
+    body.innerHTML = `<div class="online-waiting online-group-lobby"><div class="online-waiting-icon">⏳</div><h2>Waiting for every player</h2><p>The ${onlineParticipantIds(challenge).length}-player game begins automatically after all invited players accept.</p><div class="online-lobby-players">${participantRows}</div></div>`;
     return;
   }
   if (["declined", "cancelled"].includes(challenge.status)) {
@@ -715,6 +867,12 @@ function onlineChallengeWinner(challenge) {
     return winner && winner !== "tie" ? winner : null;
   }
   if (challenge.game_type === "wordbound") return challenge.game_state?.wordbound?.winner || null;
+  const groupResults = onlineArcadeResults(challenge);
+  if (groupResults && ["bubble", "whack"].includes(challenge.game_type)) {
+    const standings = onlineParticipantIds(challenge).map((id) => ({ id, score: Number(groupResults[id]?.score || 0) })).sort((a, b) => b.score - a.score);
+    if (standings.length < 2 || standings[0].score === standings[1].score) return null;
+    return standings[0].id;
+  }
   if (!challenge.challenger_result || !challenge.opponent_result) return null;
   const challengerScore = Number(challenge.challenger_result.score || 0);
   const opponentScore = Number(challenge.opponent_result.score || 0);
@@ -728,8 +886,8 @@ function awardOnlineChallengeBonus(challenge) {
   let label = "Online Challenge";
   if (challenge.game_type === "paragraph") {
     if (challenge.game_state?.paragraphs?.[currentUser.id]) {
-      awarded = awardStars(1, `online-participation:${challenge.id}:${currentUser.id}`, "Paragraph Duel participation", false);
-      label = "Paragraph Duel participation";
+      awarded = awardStars(1, `online-participation:${challenge.id}:${currentUser.id}`, "Paragraph Challenge participation", false);
+      label = "Paragraph Challenge participation";
     }
   } else if (onlineChallengeWinner(challenge) === currentUser.id) {
     awarded = awardStars(5, `online-winner:${challenge.id}:${currentUser.id}`, "Online challenge victory", false);
@@ -745,8 +903,8 @@ function awardOnlineWordboundStars(challenge) {
   const player = challenge.game_state.wordbound.players?.[currentUser.id];
   if (!player) return 0;
   const reward = Math.max(0, 8 - Math.max(0, Number(player.incorrectAnswers) || 0));
-  const awarded = awardStars(reward, `online-wordbound:${challenge.id}:${currentUser.id}`, "Wordbound Duel", false);
-  if (awarded) queueStarNotification(awarded, "Wordbound Duel");
+  const awarded = awardStars(reward, `online-wordbound:${challenge.id}:${currentUser.id}`, "Wordbound Battle", false);
+  if (awarded) queueStarNotification(awarded, "Wordbound Battle");
   return awarded;
 }
 
@@ -767,13 +925,13 @@ function renderOnlineMemory(root, challenge) {
   const flipped = memory.flipped || [];
   const myTurn = memory.currentPlayer === currentUser.id;
   const finished = challenge.status === "completed" || matched.size === memory.cards.length;
-  const scoreOne = Number(memory.scores?.[challenge.challenger_id] || 0);
-  const scoreTwo = Number(memory.scores?.[challenge.opponent_id] || 0);
   const turnLabel = finished ? "GAME OVER" : myTurn ? "YOUR TURN" : `${onlinePlayerName(challenge, memory.currentPlayer).toUpperCase()}'S TURN`;
+  const scoreCards = onlineParticipantIds(challenge).map((id) => `<div class="memory-player ${memory.currentPlayer === id && !finished ? "active" : ""}">${escapeHtml(onlinePlayerName(challenge, id))}<strong>${Number(memory.scores?.[id] || 0)}</strong></div>`).join("");
+  const finalScores = onlineParticipantIds(challenge).map((id) => `${escapeHtml(onlinePlayerName(challenge, id))}: ${Number(memory.scores?.[id] || 0)}`).join(" · ");
   root.innerHTML = `<section class="memory-game online-memory-game" aria-labelledby="onlineMemoryTitle">
-    <div class="game-heading"><div><h2 id="onlineMemoryTitle">Online Memory Match</h2><p>Matches keep the turn; misses pass it to your opponent.</p></div></div>
-    <div class="memory-scoreboard"><div class="memory-player ${memory.currentPlayer === challenge.challenger_id && !finished ? "active" : ""}">${escapeHtml(challenge.challenger_username)}<strong>${scoreOne}</strong></div><div class="memory-turn">${turnLabel}</div><div class="memory-player ${memory.currentPlayer === challenge.opponent_id && !finished ? "active" : ""}">${escapeHtml(challenge.opponent_username)}<strong>${scoreTwo}</strong></div></div>
-    ${finished ? `<div class="memory-ending"><h3>${escapeHtml(onlineMemoryWinnerText(challenge, memory))}</h3><p>Final score: ${scoreOne}–${scoreTwo}</p><p>${memory.winner === "tie" ? "A tied match has no winner bonus." : "The winner earns 5 bonus Stars."}</p></div>` : `<div class="memory-message ${memory.locked ? "syncing" : ""}" aria-live="polite">${escapeHtml(memory.message || (myTurn ? "Choose two cards." : "Waiting for your opponent…"))}</div><div class="memory-grid">${memory.cards.map((card, index) => {
+    <div class="game-heading"><div><h2 id="onlineMemoryTitle">Online Memory Match</h2><p>Matches keep the turn; misses pass to the next player.</p></div></div>
+    <div class="memory-scoreboard online-group-scoreboard"><div class="memory-turn">${turnLabel}</div>${scoreCards}</div>
+    ${finished ? `<div class="memory-ending"><h3>${escapeHtml(onlineMemoryWinnerText(challenge, memory))}</h3><p>${finalScores}</p><p>${memory.winner === "tie" ? "A tied match has no winner bonus." : "The winner earns 5 bonus Stars."}</p></div>` : `<div class="memory-message ${memory.locked ? "syncing" : ""}" aria-live="polite">${escapeHtml(memory.message || (myTurn ? "Choose two cards." : "Waiting for the current player…"))}</div><div class="memory-grid">${memory.cards.map((card, index) => {
       const revealed = flipped.includes(index) || matched.has(index);
       return `<button class="memory-card ${card.kind} ${revealed ? "revealed" : ""} ${matched.has(index) ? "matched" : ""}" data-online-memory-index="${index}" ${matched.has(index) || memory.locked || !myTurn ? "disabled" : ""}>${revealed ? `<span class="memory-card-kind">${card.kind}</span>${escapeHtml(card.content)}${card.kind === "term" ? `<span class="part-of-speech card-part-of-speech">${escapeHtml(card.partOfSpeech || "Not specified")}</span>` : ""}` : `<span class="memory-card-back">?</span>`}</button>`;
     }).join("")}</div>`}
@@ -795,7 +953,7 @@ async function flipOnlineMemoryCard(index) {
   } else {
     memory.locked = true;
     memory.resolver = currentUser.id;
-    memory.resolveAt = Date.now() + 900;
+    memory.resolveAt = Date.now() + 1800;
     memory.message = "Checking the pair…";
   }
   await commitOnlineGameState(state, challenge);
@@ -828,7 +986,7 @@ async function resolveOnlineMemoryTurn() {
     next.pairWinners[String(first.pairIndex)] = actingPlayer;
     next.message = `${onlinePlayerName(current, actingPlayer)} found a match and plays again!`;
   } else {
-    next.currentPlayer = actingPlayer === current.challenger_id ? current.opponent_id : current.challenger_id;
+    next.currentPlayer = nextOnlineParticipantId(current, actingPlayer);
     next.message = `No match. ${onlinePlayerName(current, next.currentPlayer)} goes next.`;
   }
   next.flipped = [];
@@ -836,9 +994,8 @@ async function resolveOnlineMemoryTurn() {
   next.resolver = null;
   next.resolveAt = null;
   if (next.matched.length === next.cards.length) {
-    const firstScore = Number(next.scores[current.challenger_id] || 0);
-    const secondScore = Number(next.scores[current.opponent_id] || 0);
-    next.winner = firstScore === secondScore ? "tie" : firstScore > secondScore ? current.challenger_id : current.opponent_id;
+    const standings = onlineParticipantIds(current).map((id) => ({ id, score: Number(next.scores[id] || 0) })).sort((a, b) => b.score - a.score);
+    next.winner = standings.length > 1 && standings[0].score === standings[1].score ? "tie" : standings[0].id;
   }
   const updated = await commitOnlineGameState(state, current);
   if (updated?.game_state?.memory?.winner) {
@@ -877,7 +1034,7 @@ async function commitOnlineWordboundMutation(mutator, attempts = 3) {
   }
 }
 
-function onlineWordboundQuestionForCard(card, choiceCount) {
+function onlineWordboundQuestionForCard(card, choiceCount, targetId) {
   const uniqueWords = allBattleWords.filter((item, index, items) =>
     items.findIndex((candidate) => candidate.word.toLocaleLowerCase() === item.word.toLocaleLowerCase()) === index
   );
@@ -887,6 +1044,7 @@ function onlineWordboundQuestionForCard(card, choiceCount) {
   );
   return {
     ownerId: currentUser.id,
+    targetId,
     uid: card.uid,
     word: card.vocab.word,
     partOfSpeech: card.vocab.partOfSpeech || "",
@@ -895,16 +1053,20 @@ function onlineWordboundQuestionForCard(card, choiceCount) {
   };
 }
 
-async function askOnlineWordboundQuestion(uid) {
+async function askOnlineWordboundQuestion(uid, requestedTargetId = onlineWordboundTargetId) {
   let opened = false;
   await commitOnlineWordboundMutation((wordbound, challenge) => {
     if (wordbound.currentPlayer !== currentUser.id || wordbound.question) return false;
     const player = wordbound.players?.[currentUser.id];
     const card = player?.hand?.find((item) => item.uid === uid);
     if (!card || card.cost > player.energy) return false;
+    const targets = onlineWordboundTargetIds(wordbound, challenge, currentUser.id);
+    const targetId = targets.includes(requestedTargetId) ? requestedTargetId : targets[0];
+    if (!targetId) return false;
     const choiceCount = player.focusNext ? 2 : 4;
     player.focusNext = false;
-    wordbound.question = onlineWordboundQuestionForCard(card, choiceCount);
+    wordbound.targetId = targetId;
+    wordbound.question = onlineWordboundQuestionForCard(card, choiceCount, targetId);
     wordbound.message = `${onlinePlayerName(challenge, currentUser.id)} is answering a vocabulary question…`;
     opened = true;
     return true;
@@ -919,11 +1081,11 @@ async function answerOnlineWordboundQuestion(choiceIndex) {
     const question = wordbound.question;
     if (wordbound.currentPlayer !== currentUser.id || question?.ownerId !== currentUser.id) return false;
     const player = wordbound.players?.[currentUser.id];
-    const opponentId = onlineWordboundOpponentId(challenge, currentUser.id);
-    const opponent = wordbound.players?.[opponentId];
+    const targetId = question.targetId;
+    const opponent = wordbound.players?.[targetId];
     const cardIndex = player?.hand?.findIndex((item) => item.uid === question.uid) ?? -1;
     const selected = question.choices?.[choiceIndex];
-    if (cardIndex < 0 || !opponent || !selected) return false;
+    if (cardIndex < 0 || !opponent || opponent.hp <= 0 || !selected) return false;
     const card = player.hand[cardIndex];
     if (card.cost > player.energy) return false;
     answered = true;
@@ -939,7 +1101,19 @@ async function answerOnlineWordboundQuestion(choiceIndex) {
       wordbound.message = `Not quite. ${card.vocab.word} means “${card.vocab.definition}” The card was discarded.`;
     }
     const winner = updateOnlineWordboundWinner(wordbound, challenge);
-    if (winner) wordbound.message = `${onlinePlayerName(challenge, winner)} won the duel!`;
+    if (winner) wordbound.message = `${onlinePlayerName(challenge, winner)} won the battle!`;
+    else if (player.hp <= 0) {
+      const nextId = nextOnlineParticipantId(challenge, currentUser.id, onlineWordboundAliveIds(wordbound, challenge));
+      const nextPlayer = wordbound.players?.[nextId];
+      if (nextPlayer) {
+        nextPlayer.energy = 3;
+        drawOnlineWordboundCards(nextPlayer, Math.max(0, 5 - nextPlayer.hand.length));
+        wordbound.currentPlayer = nextId;
+        wordbound.targetId = onlineWordboundTargetIds(wordbound, challenge, nextId)[0] || null;
+        wordbound.turn = Math.max(1, Number(wordbound.turn) || 1) + 1;
+        wordbound.message += ` ${onlinePlayerName(challenge, nextId)}'s turn.`;
+      }
+    }
     return true;
   });
   if (answered) (wasCorrect ? playGotItSound : playDontKnowSound)();
@@ -949,9 +1123,7 @@ async function endOnlineWordboundTurn() {
   await commitOnlineWordboundMutation((wordbound, challenge) => {
     if (wordbound.currentPlayer !== currentUser.id || wordbound.question) return false;
     const player = wordbound.players?.[currentUser.id];
-    const opponentId = onlineWordboundOpponentId(challenge, currentUser.id);
-    const opponent = wordbound.players?.[opponentId];
-    if (!player || !opponent) return false;
+    if (!player) return false;
     let endingMessage = "";
     if (player.poisonTurns > 0) {
       const poisonHit = damageOnlineWordboundPlayer(player, player.poisonDamage || 3, false);
@@ -960,18 +1132,23 @@ async function endOnlineWordboundTurn() {
       if (!player.poisonTurns) player.poisonDamage = 0;
     }
     if (updateOnlineWordboundWinner(wordbound, challenge)) {
-      wordbound.message = `${onlinePlayerName(challenge, wordbound.winner)} won the duel!${endingMessage}`;
+      wordbound.message = `${onlinePlayerName(challenge, wordbound.winner)} won the battle!${endingMessage}`;
       return true;
     }
     player.energy = 0;
-    opponent.energy = 3;
-    opponent.shield = 0;
-    opponent.counter = 0;
-    opponent.evade = false;
-    drawOnlineWordboundCards(opponent, Math.max(0, 5 - opponent.hand.length));
-    wordbound.currentPlayer = opponentId;
+    const aliveIds = onlineWordboundAliveIds(wordbound, challenge);
+    const nextId = nextOnlineParticipantId(challenge, currentUser.id, aliveIds);
+    const nextPlayer = wordbound.players?.[nextId];
+    if (!nextPlayer || nextId === currentUser.id) return false;
+    nextPlayer.energy = 3;
+    nextPlayer.shield = 0;
+    nextPlayer.counter = 0;
+    nextPlayer.evade = false;
+    drawOnlineWordboundCards(nextPlayer, Math.max(0, 5 - nextPlayer.hand.length));
+    wordbound.currentPlayer = nextId;
+    wordbound.targetId = onlineWordboundTargetIds(wordbound, challenge, nextId)[0] || null;
     wordbound.turn = Math.max(1, Number(wordbound.turn) || 1) + 1;
-    wordbound.message = `${onlinePlayerName(challenge, opponentId)}'s turn.${endingMessage}`;
+    wordbound.message = `${onlinePlayerName(challenge, nextId)}'s turn.${endingMessage}`;
     return true;
   });
   playClickSound();
@@ -990,26 +1167,25 @@ function onlineWordboundStatusText(player) {
 function renderOnlineWordbound(root, challenge) {
   const wordbound = challenge.game_state?.wordbound;
   const player = wordbound?.players?.[currentUser.id];
-  const opponentId = challenge && onlineWordboundOpponentId(challenge, currentUser.id);
-  const opponent = wordbound?.players?.[opponentId];
-  if (!wordbound || !player || !opponent) {
-    root.innerHTML = `<div class="online-empty">This Wordbound Duel could not be loaded.</div>`;
+  const participantIds = onlineParticipantIds(challenge);
+  if (!wordbound || !player || participantIds.some((id) => !wordbound.players?.[id])) {
+    root.innerHTML = `<div class="online-empty">This Wordbound Battle could not be loaded.</div>`;
     return;
   }
   awardOnlineWordboundStars(challenge);
   const finished = Boolean(wordbound.winner) || challenge.status === "completed";
   if (finished) {
     const won = wordbound.winner === currentUser.id;
-    const ownBaseStars = Math.max(0, 8 - Math.max(0, Number(player.incorrectAnswers) || 0));
-    const opponentBaseStars = Math.max(0, 8 - Math.max(0, Number(opponent.incorrectAnswers) || 0));
+    const standings = participantIds.map((id) => ({ id, player: wordbound.players[id] })).sort((a, b) => Number(b.player.hp || 0) - Number(a.player.hp || 0));
     root.innerHTML = `<div class="online-result online-wordbound-result">
       <div class="online-waiting-icon">${won ? "🏆" : "⚔️"}</div>
-      <h2>${won ? "You won the duel!" : `${escapeHtml(onlinePlayerName(challenge, wordbound.winner))} won the duel!`}</h2>
-      <p>Both players earn their normal <strong>8 − incorrect answers</strong> reward. The winner earns 5 additional Stars.</p>
-      <div class="online-result-score">
-        <div class="online-result-player"><span>${escapeHtml(onlinePlayerName(challenge, currentUser.id))}</span><strong>${Math.max(0, player.hp)} HP</strong><small>${ownBaseStars + (won ? 5 : 0)} Stars · ${player.incorrectAnswers} incorrect</small></div>
-        <span>vs</span>
-        <div class="online-result-player"><span>${escapeHtml(onlinePlayerName(challenge, opponentId))}</span><strong>${Math.max(0, opponent.hp)} HP</strong><small>${opponentBaseStars + (won ? 0 : 5)} Stars · ${opponent.incorrectAnswers} incorrect</small></div>
+      <h2>${won ? "You won the battle!" : `${escapeHtml(onlinePlayerName(challenge, wordbound.winner))} won the battle!`}</h2>
+      <p>Everyone earns their normal <strong>8 − incorrect answers</strong> reward. The winner earns 5 additional Stars.</p>
+      <div class="online-result-score online-group-results">
+        ${standings.map(({ id, player: resultPlayer }) => {
+          const baseStars = Math.max(0, 8 - Math.max(0, Number(resultPlayer.incorrectAnswers) || 0));
+          return `<div class="online-result-player"><span>${escapeHtml(onlinePlayerName(challenge, id))}</span><strong>${Math.max(0, resultPlayer.hp)} HP</strong><small>${baseStars + (id === wordbound.winner ? 5 : 0)} Stars · ${resultPlayer.incorrectAnswers} incorrect</small></div>`;
+        }).join("")}
       </div>
     </div>`;
     return;
@@ -1018,25 +1194,35 @@ function renderOnlineWordbound(root, challenge) {
   const myTurn = wordbound.currentPlayer === currentUser.id;
   const ownQuestion = myTurn && wordbound.question?.ownerId === currentUser.id;
   const opponentQuestion = !myTurn && Boolean(wordbound.question);
-  const ownHealthPercent = Math.max(0, Math.min(100, player.hp / player.maxHp * 100));
-  const opponentHealthPercent = Math.max(0, Math.min(100, opponent.hp / opponent.maxHp * 100));
+  const availableTargets = onlineWordboundTargetIds(wordbound, challenge, currentUser.id);
+  if (!availableTargets.includes(onlineWordboundTargetId)) onlineWordboundTargetId = availableTargets.includes(wordbound.targetId) ? wordbound.targetId : availableTargets[0];
+  const roster = participantIds.map((id) => {
+    const rosterPlayer = wordbound.players[id];
+    const healthPercent = Math.max(0, Math.min(100, rosterPlayer.hp / rosterPlayer.maxHp * 100));
+    const classes = [id === currentUser.id ? "self" : "", id === wordbound.currentPlayer ? "active" : "", rosterPlayer.hp <= 0 ? "defeated" : "", id === onlineWordboundTargetId && myTurn ? "targeted" : ""].filter(Boolean).join(" ");
+    return `<article class="online-wordbound-player ${classes}" data-wordbound-player="${id}"><div class="combatant-name">${escapeHtml(onlinePlayerName(challenge, id))}${id === currentUser.id ? " (You)" : ""}</div><div class="combatant-figure">${rosterPlayer.hp <= 0 ? "💀" : "🧙"}</div><div class="health-track"><div class="health-fill" style="width:${healthPercent}%"></div></div><div class="health-label">${Math.max(0, rosterPlayer.hp)} / ${rosterPlayer.maxHp} HP</div><div class="shield-label">${escapeHtml(onlineWordboundStatusText(rosterPlayer))}</div></article>`;
+  }).join("");
+  const targetPicker = myTurn && availableTargets.length > 1 && !ownQuestion
+    ? `<div class="online-wordbound-targets"><span>Attack target</span>${availableTargets.map((id) => `<button type="button" data-online-wordbound-target="${id}" class="${id === onlineWordboundTargetId ? "selected" : ""}">${escapeHtml(onlinePlayerName(challenge, id))}</button>`).join("")}</div>`
+    : "";
   root.innerHTML = `<section class="boss-battle online-wordbound-game" aria-labelledby="onlineWordboundTitle">
-    <div class="battle-topbar"><div><h2 id="onlineWordboundTitle">Wordbound Duel</h2><p>Answer correctly to use cards. Your damage hits the opposing player.</p></div><div class="online-wordbound-turn ${myTurn ? "active" : ""}">${myTurn ? "YOUR TURN" : `${escapeHtml(onlinePlayerName(challenge, opponentId)).toUpperCase()}'S TURN`}</div></div>
-    <div class="battle-arena"><div class="combatant-row">
-      <div class="combatant player"><div class="combatant-name">${escapeHtml(onlinePlayerName(challenge, currentUser.id))}</div><div class="combatant-figure">🧙</div><div class="health-track"><div class="health-fill" style="width:${ownHealthPercent}%"></div></div><div class="health-label">${player.hp} / ${player.maxHp} HP</div><div class="shield-label">${escapeHtml(onlineWordboundStatusText(player))}</div></div>
-      <div class="versus">TURN ${wordbound.turn}</div>
-      <div class="combatant boss"><div class="combatant-name">${escapeHtml(onlinePlayerName(challenge, opponentId))}</div><div class="combatant-figure">🧙‍♂️</div><div class="health-track"><div class="health-fill" style="width:${opponentHealthPercent}%"></div></div><div class="health-label">${opponent.hp} / ${opponent.maxHp} HP</div><div class="shield-label">${escapeHtml(onlineWordboundStatusText(opponent))}</div></div>
-    </div></div>
-    <div class="battle-resource-row"><div class="energy-display">⚡ ${player.energy} energy</div><div class="battle-status">Potential reward: ${Math.max(0, 8 - player.incorrectAnswers)} Stars${myTurn ? "" : " · Waiting for opponent"}</div></div>
+    <div class="battle-topbar"><div><h2 id="onlineWordboundTitle">Wordbound Battle</h2><p>Answer correctly to use cards. Select which surviving player receives your attacks.</p></div><div class="online-wordbound-turn ${myTurn ? "active" : ""}">${myTurn ? "YOUR TURN" : `${escapeHtml(onlinePlayerName(challenge, wordbound.currentPlayer)).toUpperCase()}'S TURN`}</div></div>
+    <div class="battle-arena"><div class="online-wordbound-roster">${roster}</div><div class="versus">TURN ${wordbound.turn}</div></div>
+    ${targetPicker}
+    <div class="battle-resource-row"><div class="energy-display">⚡ ${player.energy} energy</div><div class="battle-status">Potential reward: ${Math.max(0, 8 - player.incorrectAnswers)} Stars${myTurn ? "" : " · Waiting for the active player"}</div></div>
     <div class="battle-message" aria-live="polite">${escapeHtml(wordbound.message || "Choose a card.")}</div>
-    ${ownQuestion ? `<div class="question-panel" aria-labelledby="onlineWordboundQuestionTitle"><h3 id="onlineWordboundQuestionTitle">What does “${escapeHtml(wordbound.question.word)}” mean?</h3><div class="part-of-speech">${escapeHtml(wordbound.question.partOfSpeech || "Not specified")}</div><p>Choose correctly to activate the card.</p><div class="question-options">${wordbound.question.choices.map((choice, index) => `<button class="question-option" data-online-wordbound-answer="${index}">${escapeHtml(choice.definition)}</button>`).join("")}</div></div>`
-      : opponentQuestion ? `<div class="online-wordbound-waiting"><span aria-hidden="true">🧠</span><strong>${escapeHtml(onlinePlayerName(challenge, opponentId))} is answering a vocabulary question…</strong></div>`
+    ${ownQuestion ? `<div class="question-panel" aria-labelledby="onlineWordboundQuestionTitle"><h3 id="onlineWordboundQuestionTitle">What does “${escapeHtml(wordbound.question.word)}” mean?</h3><div class="part-of-speech">${escapeHtml(wordbound.question.partOfSpeech || "Not specified")}</div><p>Choose correctly to activate the card${wordbound.question.targetId ? ` against ${escapeHtml(onlinePlayerName(challenge, wordbound.question.targetId))}` : ""}.</p><div class="question-options">${wordbound.question.choices.map((choice, index) => `<button class="question-option" data-online-wordbound-answer="${index}">${escapeHtml(choice.definition)}</button>`).join("")}</div></div>`
+      : opponentQuestion ? `<div class="online-wordbound-waiting"><span aria-hidden="true">🧠</span><strong>${escapeHtml(onlinePlayerName(challenge, wordbound.currentPlayer))} is answering a vocabulary question…</strong></div>`
       : `<div class="battle-hand" aria-label="Your hand">${player.hand.map((card) => `<button class="battle-card ${card.type} ${!myTurn || card.cost > player.energy ? "unaffordable" : ""}" data-online-wordbound-card="${card.uid}" ${!myTurn || card.cost > player.energy ? "disabled" : ""}><span class="battle-card-cost">${card.cost}</span><span class="battle-card-word">${escapeHtml(card.vocab.word)}</span><span class="battle-card-part">${escapeHtml(card.vocab.partOfSpeech || "Not specified")}</span><span class="battle-card-name">${escapeHtml(card.name)}</span><span class="battle-card-art">${card.icon}</span><span class="battle-card-effect">${escapeHtml(card.effect)}</span></button>`).join("")}</div>`}
     <div class="battle-actions"><span>${player.hand.length} cards in hand · ${player.drawPile.length} in deck · ${player.incorrectAnswers} incorrect</span><button class="end-turn-btn" id="endOnlineWordboundTurn" ${!myTurn || wordbound.question || onlineWordboundActionPending ? "disabled" : ""}>End turn</button></div>
   </section>`;
   root.querySelectorAll("[data-online-wordbound-card]").forEach((button) => button.addEventListener("click", () => {
     button.disabled = true;
-    askOnlineWordboundQuestion(Number(button.dataset.onlineWordboundCard));
+    askOnlineWordboundQuestion(Number(button.dataset.onlineWordboundCard), onlineWordboundTargetId);
+  }));
+  root.querySelectorAll("[data-online-wordbound-target]").forEach((button) => button.addEventListener("click", () => {
+    onlineWordboundTargetId = button.dataset.onlineWordboundTarget;
+    renderOnlineWordbound(root, challenge);
   }));
   root.querySelectorAll("[data-online-wordbound-answer]").forEach((button) => button.addEventListener("click", () => {
     root.querySelectorAll("[data-online-wordbound-answer]").forEach((choice) => { choice.disabled = true; });
@@ -1055,21 +1241,22 @@ function onlineParagraphUsedWords(text, words) {
 function renderOnlineParagraph(root, challenge) {
   const words = challenge.game_state?.words || [];
   const paragraphs = challenge.game_state?.paragraphs || {};
+  const participantIds = onlineParticipantIds(challenge);
   const ownSubmission = paragraphs[currentUser.id];
-  const opponentId = challenge.challenger_id === currentUser.id ? challenge.opponent_id : challenge.challenger_id;
-  const opponentSubmission = paragraphs[opponentId];
-  const bothDone = Boolean(ownSubmission && opponentSubmission);
-  if (bothDone || challenge.status === "completed") {
-    root.innerHTML = `<section class="paragraph-challenge"><div class="paragraph-heading"><div><h2>Paragraph Duel Complete</h2><p>Both stories use the same five vocabulary words. Each participant earns 1 additional Star.</p></div></div><div class="paragraph-word-list">${words.map((item) => `<span class="paragraph-word-chip used">${escapeHtml(item.word)}</span>`).join("")}</div><div class="online-paragraph-columns"><article class="online-paragraph-entry"><h3>${escapeHtml(challenge.challenger_username)}</h3><p>${escapeHtml(paragraphs[challenge.challenger_id]?.text || "No paragraph submitted.")}</p></article><article class="online-paragraph-entry"><h3>${escapeHtml(challenge.opponent_username)}</h3><p>${escapeHtml(paragraphs[challenge.opponent_id]?.text || "No paragraph submitted.")}</p></article></div></section>`;
+  const allDone = participantIds.every((id) => paragraphs[id]);
+  if (allDone || challenge.status === "completed") {
+    const entries = participantIds.map((id) => `<article class="online-paragraph-entry"><h3>${escapeHtml(onlinePlayerName(challenge, id))}</h3><p>${escapeHtml(paragraphs[id]?.text || "No paragraph submitted.")}</p></article>`).join("");
+    root.innerHTML = `<section class="paragraph-challenge"><div class="paragraph-heading"><div><h2>Paragraph Challenge Complete</h2><p>Every story uses the same five vocabulary words. Each participant earns 1 additional Star.</p></div></div><div class="paragraph-word-list">${words.map((item) => `<span class="paragraph-word-chip used">${escapeHtml(item.word)}</span>`).join("")}</div><div class="online-paragraph-columns">${entries}</div></section>`;
     return;
   }
   if (ownSubmission) {
-    root.innerHTML = `<div class="online-waiting"><div class="online-waiting-icon">✍️</div><h2>Your paragraph is submitted</h2><p>You earned 1 additional participation Star. ${opponentSubmission ? "Opening both stories…" : `Waiting for ${escapeHtml(onlineOpponentName(challenge))} to finish writing.`}</p></div>`;
+    const waitingNames = participantIds.filter((id) => !paragraphs[id]).map((id) => onlinePlayerName(challenge, id));
+    root.innerHTML = `<div class="online-waiting"><div class="online-waiting-icon">✍️</div><h2>Your paragraph is submitted</h2><p>You earned 1 additional participation Star. Waiting for ${escapeHtml(waitingNames.join(", "))} to finish writing.</p></div>`;
     return;
   }
   const draft = onlineParagraphDrafts.get(challenge.id) || "";
   const used = onlineParagraphUsedWords(draft, words);
-  root.innerHTML = `<section class="paragraph-challenge"><div class="paragraph-heading"><div><h2>Paragraph Duel</h2><p>Use all five words. Both paragraphs are revealed after both players submit.</p></div></div><div class="paragraph-word-panel"><h3>Words to include <span class="part-of-speech">Select a word for its definition</span></h3><div class="paragraph-word-list">${words.map((item, index) => `<button class="paragraph-word-chip ${used.includes(item) ? "used" : ""}" data-online-paragraph-word="${index}">${escapeHtml(item.word)}</button>`).join("")}</div><div class="paragraph-definition" id="onlineParagraphDefinition" hidden></div></div><div class="paragraph-editor"><label for="onlineParagraphText">Your paragraph</label><textarea id="onlineParagraphText" placeholder="Start writing here…" spellcheck="true">${escapeHtml(draft)}</textarea><div class="paragraph-progress"><span>Each vocabulary word must appear as a complete word.</span><strong id="onlineParagraphCount">${used.length} / ${words.length} used</strong></div></div><div class="paragraph-success" id="onlineParagraphSuccess" ${used.length === words.length ? "" : "hidden"}>Ready to submit!</div><div class="paragraph-actions"><button class="accent-btn" id="submitOnlineParagraph" ${used.length === words.length ? "" : "disabled"}>Submit paragraph</button></div></section>`;
+  root.innerHTML = `<section class="paragraph-challenge"><div class="paragraph-heading"><div><h2>Paragraph Challenge</h2><p>Use all five words. Every paragraph is revealed after all ${participantIds.length} players submit.</p></div></div><div class="paragraph-word-panel"><h3>Words to include <span class="part-of-speech">Select a word for its definition</span></h3><div class="paragraph-word-list">${words.map((item, index) => `<button class="paragraph-word-chip ${used.includes(item) ? "used" : ""}" data-online-paragraph-word="${index}">${escapeHtml(item.word)}</button>`).join("")}</div><div class="paragraph-definition" id="onlineParagraphDefinition" hidden></div></div><div class="paragraph-editor"><label for="onlineParagraphText">Your paragraph</label><textarea id="onlineParagraphText" placeholder="Start writing here…" spellcheck="true">${escapeHtml(draft)}</textarea><div class="paragraph-progress"><span>Each vocabulary word must appear as a complete word.</span><strong id="onlineParagraphCount">${used.length} / ${words.length} used</strong></div></div><div class="paragraph-success" id="onlineParagraphSuccess" ${used.length === words.length ? "" : "hidden"}>Ready to submit!</div><div class="paragraph-actions"><button class="accent-btn" id="submitOnlineParagraph" ${used.length === words.length ? "" : "disabled"}>Submit paragraph</button></div></section>`;
   const textarea = root.querySelector("#onlineParagraphText");
   const update = () => {
     onlineParagraphDrafts.set(challenge.id, textarea.value);
@@ -1094,16 +1281,25 @@ async function submitOnlineParagraph() {
   const text = onlineParagraphDrafts.get(challenge.id) || "";
   const words = challenge.game_state?.words || [];
   if (onlineParagraphUsedWords(text, words).length !== words.length) return;
-  const state = cloneOnlineState(challenge.game_state);
-  state.paragraphs = state.paragraphs || {};
-  state.paragraphs[currentUser.id] = { text: text.trim(), submittedAt: new Date().toISOString() };
-  const updated = await commitOnlineGameState(state, challenge);
+  const submission = { text: text.trim(), submittedAt: new Date().toISOString() };
+  let updated = null;
+  for (let attempt = 0; attempt < 4 && !updated; attempt++) {
+    const latest = attempt === 0 ? activeOnlineChallenge : await fetchOnlineChallenge(challenge.id);
+    if (!latest || latest.status !== "active") break;
+    if (latest.game_state?.paragraphs?.[currentUser.id]) {
+      updated = latest;
+      break;
+    }
+    const state = cloneOnlineState(latest.game_state);
+    state.paragraphs = { ...(state.paragraphs || {}), [currentUser.id]: submission };
+    updated = await commitOnlineGameState(state, latest);
+  }
   if (!updated) return render();
-  words.forEach((item) => awardStars(1, `online-paragraph:${challenge.id}:word:${item.word.toLowerCase()}`, "Online Paragraph Duel", false));
-  queueStarNotification(words.length, "Online Paragraph Duel");
+  words.forEach((item) => awardStars(1, `online-paragraph:${challenge.id}:word:${item.word.toLowerCase()}`, "Online Paragraph Challenge", false));
+  queueStarNotification(words.length, "Online Paragraph Challenge");
   awardOnlineChallengeBonus(updated);
   const submissions = updated.game_state?.paragraphs || {};
-  if (submissions[updated.challenger_id] && submissions[updated.opponent_id]) {
+  if (onlineParticipantIds(updated).every((id) => submissions[id])) {
     await updateOnlineChallenge(updated.id, { status: "completed", completed_at: new Date().toISOString() });
   }
   if (view === "onlineGame") render();
@@ -1120,10 +1316,9 @@ function tabooForbiddenWords(item) {
 }
 
 function tabooRoles(challenge, roundIndex) {
-  const challengerDescribes = Number(roundIndex || 0) % 2 === 0;
-  return challengerDescribes
-    ? { describerId: challenge.challenger_id, guesserId: challenge.opponent_id }
-    : { describerId: challenge.opponent_id, guesserId: challenge.challenger_id };
+  const participants = onlineParticipantIds(challenge);
+  const index = Number(roundIndex || 0) % participants.length;
+  return { describerId: participants[index], guesserId: participants[(index + 1) % participants.length] };
 }
 
 function tabooGuessMatches(guess, word) {
@@ -1171,7 +1366,7 @@ function onlineTabooBeforeFirstRound(challenge = activeOnlineChallenge) {
 function onlineTabooLobbyReady(challenge = activeOnlineChallenge) {
   const taboo = challenge?.game_state?.taboo;
   if (!challenge || !taboo) return false;
-  return [challenge.challenger_id, challenge.opponent_id].every((userId) => {
+  return onlineParticipantIds(challenge).every((userId) => {
     const selection = taboo.playerSelections?.[userId];
     const pool = taboo.playerWordPools?.[userId];
     return Boolean(selection && Array.isArray(pool) && pool.length);
@@ -1215,7 +1410,7 @@ async function chooseOnlineTabooWordSource(sourceType, batchId = null) {
       taboo.playerSelections = { ...(taboo.playerSelections || {}), [currentUser.id]: selection };
       taboo.playerWordPools = { ...(taboo.playerWordPools || {}), [currentUser.id]: chosenWords };
       taboo.lobbyRequired = true;
-      taboo.lobbyCompleted = [latestChallenge.challenger_id, latestChallenge.opponent_id].every((userId) => taboo.playerSelections[userId] && taboo.playerWordPools[userId]?.length);
+      taboo.lobbyCompleted = onlineParticipantIds(latestChallenge).every((userId) => taboo.playerSelections[userId] && taboo.playerWordPools[userId]?.length);
     });
   } catch (error) {
     console.warn("Unable to save the Taboo word source:", error);
@@ -1356,16 +1551,8 @@ async function advanceOnlineTabooRound(roundId) {
   onlineTabooSetupError = "";
   const taboo = updated.game_state?.taboo;
   if (taboo?.completed) {
-    const result = {
-      score: Number(taboo.successes || 0),
-      roundsWon: Number(taboo.successes || 0),
-      roundsPlayed: Number(taboo.totalRounds || 4),
-      finishedAt: new Date().toISOString()
-    };
     await updateOnlineChallenge(updated.id, {
       status: "completed",
-      challenger_result: result,
-      opponent_result: result,
       completed_at: new Date().toISOString()
     });
   }
@@ -1381,9 +1568,9 @@ function showOnlineTabooRoundNotice(challenge = activeOnlineChallenge) {
   document.querySelector(".online-taboo-alert")?.remove();
   const lost = current.outcome === "lost";
   const reason = current.reason === "timeout"
-    ? `Time ran out before ${escapeHtml(current.word)} was guessed. Both players lose this round.`
+    ? `Time ran out before ${escapeHtml(current.word)} was guessed. The active pair loses this round.`
     : current.reason?.startsWith("forbidden:")
-      ? `The forbidden word “${escapeHtml(current.reason.slice("forbidden:".length))}” was used. Both players lose this round.`
+      ? `The forbidden word “${escapeHtml(current.reason.slice("forbidden:".length))}” was used. The active pair loses this round.`
       : `${escapeHtml(current.word)} was guessed correctly!`;
   const backdrop = document.createElement("div");
   backdrop.className = "batch-modal-backdrop online-taboo-alert";
@@ -1407,7 +1594,7 @@ function syncOnlineTabooRealtime(previous, changed) {
     onlineTabooLocalClock.remainingMs = Math.min(onlineTabooLocalClock.remainingMs, Math.max(0, authoritativeRemaining));
   }
   const liveClue = document.getElementById("tabooLiveClue");
-  if (liveClue && afterRound.guesserId === currentUser?.id) liveClue.textContent = afterRound.clue || "Waiting for the describer to begin…";
+  if (liveClue && afterRound.describerId !== currentUser?.id) liveClue.textContent = afterRound.clue || "Waiting for the describer to begin…";
   return true;
 }
 
@@ -1473,11 +1660,11 @@ function updateOnlineTabooPresenceUI() {
   if (!challenge || challenge.game_type !== "taboo" || !current || current.outcome) return;
   const status = document.getElementById("tabooRoundStatus");
   const clock = document.getElementById("tabooRoundClock");
-  const missingId = challenge.challenger_id === currentUser?.id ? challenge.opponent_id : challenge.challenger_id;
+  const missingIds = onlineParticipantIds(challenge).filter((id) => !onlineGamePresenceUserIds.has(id));
   if (status) {
     status.textContent = onlineTabooBothPlayersPresent
       ? status.dataset.activeCopy
-      : `Waiting for ${onlinePlayerName(challenge, missingId)} — timer paused.`;
+      : `Waiting for ${missingIds.map((id) => onlinePlayerName(challenge, id)).join(", ")} — timer paused.`;
   }
   if (clock) clock.classList.toggle("paused", !onlineTabooBothPlayersPresent);
   const textarea = document.getElementById("tabooDescriptionInput");
@@ -1519,20 +1706,21 @@ function renderOnlineTabooLobby(root, challenge) {
   const taboo = challenge.game_state?.taboo || {};
   const { allWords, batchSources } = onlineTabooLocalSources();
   const ownId = currentUser?.id;
-  const opponentId = challenge.challenger_id === ownId ? challenge.opponent_id : challenge.challenger_id;
   const ownSelection = taboo.playerSelections?.[ownId] || null;
-  const opponentSelection = taboo.playerSelections?.[opponentId] || null;
-  const bothSelected = onlineTabooLobbyReady(challenge);
+  const participants = onlineParticipantIds(challenge);
+  const unselectedIds = participants.filter((id) => !taboo.playerSelections?.[id]);
+  const absentIds = participants.filter((id) => !onlineGamePresenceUserIds.has(id));
+  const everyoneSelected = onlineTabooLobbyReady(challenge);
   const lobbyMessage = onlineTabooLobbyStatus || (!ownSelection
     ? "Choose the words you want to use."
-    : !opponentSelection
-      ? `Waiting for ${onlinePlayerName(challenge, opponentId)} to choose their words.`
+    : unselectedIds.length
+      ? `Waiting for ${unselectedIds.map((id) => onlinePlayerName(challenge, id)).join(", ")} to choose their words.`
       : !onlineTabooBothPlayersPresent
-        ? `Both choices are saved. Waiting for ${onlinePlayerName(challenge, opponentId)} to enter the game.`
-        : "Both players are ready. Starting the first round…");
+        ? `Every choice is saved. Waiting for ${absentIds.map((id) => onlinePlayerName(challenge, id)).join(", ")} to enter the game.`
+        : "Everyone is ready. Starting the first round…");
   const selectionCard = (label, selection, isPresent) => `<div class="taboo-lobby-player ${selection ? "ready" : ""}"><span class="taboo-lobby-presence ${isPresent ? "online" : ""}"></span><div><strong>${escapeHtml(label)}</strong><small>${selection ? `${escapeHtml(selection.label)} · ${Number(selection.wordCount || 0)} words` : "Choosing words…"}</small></div><b>${selection ? "Ready" : "Waiting"}</b></div>`;
   const sourceButton = (sourceType, source, selected) => `<button class="taboo-source-option ${selected ? "selected" : ""}" type="button" data-taboo-source="${sourceType}" aria-pressed="${selected}" ${sourceType === "batch" ? `data-taboo-batch-index="${source.index}"` : ""} ${onlineTabooActionPending ? "disabled" : ""}><span>${sourceType === "all" ? "📚" : "🗂️"}</span><div><strong>${escapeHtml(source.label)}</strong><small>${source.words.length} word${source.words.length === 1 ? "" : "s"}</small></div>${selected ? "<b>Selected</b>" : ""}</button>`;
-  root.innerHTML = `<section class="online-taboo"><div class="taboo-lobby"><div class="online-waiting-icon">🤐</div><h2>Choose your Taboo words</h2><p>Each player can use a different batch. The match starts when both players are here and ready.</p><div class="taboo-lobby-players">${selectionCard("You", ownSelection, onlineGamePresenceUserIds.has(ownId))}${selectionCard(onlinePlayerName(challenge, opponentId), opponentSelection, onlineGamePresenceUserIds.has(opponentId))}</div><div class="taboo-source-list">${sourceButton("all", { label: "All words", words: allWords }, ownSelection?.source === "all")}${batchSources.map((source, index) => sourceButton("batch", { ...source, index }, ownSelection?.source === "batch" && ownSelection.batchId === source.id)).join("")}</div>${batchSources.length ? "" : `<p class="taboo-no-batches">You have no non-empty batches, so all your words will be selected automatically.</p>`}<p class="taboo-lobby-status ${onlineTabooLobbyStatus && !onlineTabooActionPending ? "error" : ""}" role="status">${escapeHtml(lobbyMessage)}</p></div></section>`;
+  root.innerHTML = `<section class="online-taboo"><div class="taboo-lobby"><div class="online-waiting-icon">🤐</div><h2>Choose your Taboo words</h2><p>Each player can use a different batch. The match starts when all ${participants.length} players are here and ready.</p><div class="taboo-lobby-players">${participants.map((id) => selectionCard(id === ownId ? "You" : onlinePlayerName(challenge, id), taboo.playerSelections?.[id], onlineGamePresenceUserIds.has(id))).join("")}</div><div class="taboo-source-list">${sourceButton("all", { label: "All words", words: allWords }, ownSelection?.source === "all")}${batchSources.map((source, index) => sourceButton("batch", { ...source, index }, ownSelection?.source === "batch" && ownSelection.batchId === source.id)).join("")}</div>${batchSources.length ? "" : `<p class="taboo-no-batches">You have no non-empty batches, so all your words will be selected automatically.</p>`}<p class="taboo-lobby-status ${onlineTabooLobbyStatus && !onlineTabooActionPending ? "error" : ""}" role="status">${escapeHtml(lobbyMessage)}</p></div></section>`;
   root.querySelector('[data-taboo-source="all"]')?.addEventListener("click", () => {
     playClickSound();
     chooseOnlineTabooWordSource("all");
@@ -1544,7 +1732,7 @@ function renderOnlineTabooLobby(root, challenge) {
     chooseOnlineTabooWordSource("batch", source.id);
   }));
   if (!batchSources.length && !ownSelection && !onlineTabooActionPending) setTimeout(() => chooseOnlineTabooWordSource("all"), 0);
-  if (bothSelected && onlineTabooBothPlayersPresent) scheduleOnlineTabooRoundInitialization(onlineTabooActionPending ? 250 : 0);
+  if (everyoneSelected && onlineTabooBothPlayersPresent) scheduleOnlineTabooRoundInitialization(onlineTabooActionPending ? 250 : 0);
 }
 
 function onlineTabooRoundSummary(challenge, round) {
@@ -1593,15 +1781,17 @@ function renderOnlineTaboo(root, challenge) {
   const finished = Boolean(current.outcome);
   const statusCopy = finished
     ? (current.outcome === "won" ? "Correct—the round is won!" : "Round lost. Get ready to switch roles.")
-    : (amDescriber ? "Describe the word without using a forbidden word." : "Read the live clue and guess the vocabulary word.");
+    : (amDescriber ? "Describe the word without using a forbidden word." : amGuesser ? "Read the live clue and guess the vocabulary word." : "Watch the active pair—the next round may be yours.");
   let playArea = "";
   if (amDescriber) {
     playArea = `<div class="taboo-describer-layout"><section class="taboo-secret-card"><span class="side-label">YOUR WORD</span><h2>${escapeHtml(current.word)}</h2>${current.partOfSpeech ? `<span class="part-of-speech">${escapeHtml(current.partOfSpeech)}</span>` : ""}<div class="taboo-definition"><strong>Dictionary description</strong><p>${escapeHtml(current.definition)}</p></div><div class="taboo-forbidden"><strong>Do not type these words</strong><div>${(current.forbiddenWords || []).map((word) => `<span>${escapeHtml(word)}</span>`).join("")}</div></div><small>Common words such as “it,” “the,” “a,” and “and” are allowed.</small></section><section class="taboo-clue-panel"><label for="tabooDescriptionInput">Your live description</label><textarea id="tabooDescriptionInput" placeholder="Start describing…" maxlength="1000" ${finished ? "disabled" : ""}>${escapeHtml(current.clue || "")}</textarea><p>The guesser sees this text as you type.</p></section></div>`;
   } else if (amGuesser) {
     playArea = `<div class="taboo-guesser-layout"><section class="taboo-speech-card"><span class="side-label">LIVE DESCRIPTION</span><div class="taboo-speech-bubble" id="tabooLiveClue">${escapeHtml(current.clue || "Waiting for the describer to begin…")}</div><span class="taboo-typing-note">${escapeHtml(onlinePlayerName(challenge, current.describerId))} is describing the word</span></section><form class="taboo-guess-form" id="tabooGuessForm"><label for="tabooGuessInput">What is the word?</label><div><input id="tabooGuessInput" type="text" autocomplete="off" placeholder="Type your guess" ${finished ? "disabled" : ""}><button class="accent-btn" type="submit" ${finished ? "disabled" : ""}>Guess</button></div><p id="tabooGuessFeedback" role="status"></p></form></div>`;
+  } else {
+    playArea = `<div class="taboo-spectator-layout"><section class="taboo-speech-card"><span class="side-label">LIVE DESCRIPTION</span><div class="taboo-speech-bubble" id="tabooLiveClue">${escapeHtml(current.clue || "Waiting for the describer to begin…")}</div><span class="taboo-typing-note">${escapeHtml(onlinePlayerName(challenge, current.describerId))} describes · ${escapeHtml(onlinePlayerName(challenge, current.guesserId))} guesses</span></section><div class="taboo-spectator-note"><span>👀</span><strong>You are watching this round</strong><p>Only the active guesser can submit an answer.</p></div></div>`;
   }
   const startingRemaining = Number.isFinite(Number(current.remainingMs)) ? Number(current.remainingMs) : onlineTabooRoundDuration(challenge);
-  root.innerHTML = `<section class="online-taboo"><header class="taboo-game-header"><div><span class="side-label">ROUND ${Number(current.roundNumber || roundIndex + 1)} OF ${Number(taboo.totalRounds || 4)}</span><h2>${amDescriber ? "You are the describer" : "You are the guesser"}</h2><p id="tabooRoundStatus" data-active-copy="${escapeHtml(statusCopy)}">${statusCopy}</p></div><div class="taboo-clock ${finished ? "finished" : ""}" id="tabooRoundClock">${(startingRemaining / 1000).toFixed(1)}s</div></header>${playArea}${finished ? `<div class="taboo-inline-result ${current.outcome}">${current.outcome === "won" ? "Round won!" : "Round lost."}</div>` : ""}<div class="taboo-score-strip"><span>Team score</span><strong>${Number(taboo.successes || 0)} / ${Number(taboo.totalRounds || 4)} rounds</strong></div></section>`;
+  root.innerHTML = `<section class="online-taboo"><header class="taboo-game-header"><div><span class="side-label">ROUND ${Number(current.roundNumber || roundIndex + 1)} OF ${Number(taboo.totalRounds || 4)}</span><h2>${amDescriber ? "You are the describer" : amGuesser ? "You are the guesser" : "You are watching"}</h2><p id="tabooRoundStatus" data-active-copy="${escapeHtml(statusCopy)}">${statusCopy}</p></div><div class="taboo-clock ${finished ? "finished" : ""}" id="tabooRoundClock">${(startingRemaining / 1000).toFixed(1)}s</div></header>${playArea}${finished ? `<div class="taboo-inline-result ${current.outcome}">${current.outcome === "won" ? "Round won!" : "Round lost."}</div>` : ""}<div class="taboo-score-strip"><span>Team score</span><strong>${Number(taboo.successes || 0)} / ${Number(taboo.totalRounds || 4)} rounds</strong></div></section>`;
   updateOnlineTabooPresenceUI();
   if (amDescriber && !finished) {
     const textarea = root.querySelector("#tabooDescriptionInput");
@@ -1702,9 +1892,8 @@ function startOnlineArcadeClock(root) {
 
 function renderOnlineArcade(root, challenge) {
   const ownResult = onlineOwnResult(challenge);
-  const opponentResult = onlineOpponentResult(challenge);
   if (ownResult) {
-    renderOnlineArcadeResult(root, challenge, ownResult, opponentResult);
+    renderOnlineArcadeResult(root, challenge, ownResult);
     return;
   }
   if (!ensureOnlineArcadeGame(challenge)) {
@@ -1775,7 +1964,7 @@ function startOnlineBubblePhysics(field) {
 
 function renderOnlineBubble(root, challenge) {
   const game = onlineArcadeGame;
-  root.innerHTML = `<section class="bubble-game"><div class="game-heading"><div><h2>Bubble Shot Duel</h2><p>Shoot the matching word. Your 60-second run cannot be paused.</p></div>${onlineArcadeStatsHtml(game)}</div><div class="definition-prompt"><div class="side-label">FIND THIS WORD</div><p>${escapeHtml(game.answer.definition)}</p></div><div class="bubble-field online-bubble-field">${game.choices.map((choice, index) => `<button class="word-bubble" data-online-bubble="${index}" ${game.locked ? "disabled" : ""}><span class="bubble-word">${escapeHtml(choice.word)}</span><span class="pop-spray">${"<i></i>".repeat(12)}</span></button>`).join("")}<div class="aim-hint">60-second duel</div></div><div class="game-feedback ${game.feedbackType}">${escapeHtml(game.feedback)}</div></section>`;
+  root.innerHTML = `<section class="bubble-game"><div class="game-heading"><div><h2>Bubble Shot Challenge</h2><p>Shoot the matching word. Your 60-second run cannot be paused.</p></div>${onlineArcadeStatsHtml(game)}</div><div class="definition-prompt"><div class="side-label">FIND THIS WORD</div><p>${escapeHtml(game.answer.definition)}</p></div><div class="bubble-field online-bubble-field">${game.choices.map((choice, index) => `<button class="word-bubble" data-online-bubble="${index}" ${game.locked ? "disabled" : ""}><span class="bubble-word">${escapeHtml(choice.word)}</span><span class="pop-spray">${"<i></i>".repeat(12)}</span></button>`).join("")}<div class="aim-hint">60-second challenge</div></div><div class="game-feedback ${game.feedbackType}">${escapeHtml(game.feedback)}</div></section>`;
   startOnlineArcadeClock(root);
   startOnlineBubblePhysics(root.querySelector(".bubble-field"));
   root.querySelectorAll("[data-online-bubble]").forEach((button) => button.addEventListener("click", () => hitOnlineBubble(button, Number(button.dataset.onlineBubble))));
@@ -1842,7 +2031,7 @@ function scheduleOnlineMoles(root) {
 
 function renderOnlineWhack(root, challenge) {
   const game = onlineArcadeGame;
-  root.innerHTML = `<section class="whack-game"><div class="game-heading"><div><h2>Whack-a-Word Duel</h2><p>Whack the matching mole. Your 60-second run cannot be paused.</p></div>${onlineArcadeStatsHtml(game)}</div><div class="definition-prompt"><div class="side-label">WHACK THIS WORD</div><p>${escapeHtml(game.answer.definition)}</p></div><div class="whack-yard online-whack-yard">${game.choices.map((choice, index) => `<div class="mole-hole"><button class="mole" data-online-mole="${index}" disabled><span class="mole-word">${escapeHtml(choice.word)}</span></button></div>`).join("")}<img class="whack-mallet" src="assets/whack-mallet.png" alt=""></div><div class="whack-feedback ${game.feedbackType}">${escapeHtml(game.feedback)}</div></section>`;
+  root.innerHTML = `<section class="whack-game"><div class="game-heading"><div><h2>Whack-a-Word Challenge</h2><p>Whack the matching mole. Your 60-second run cannot be paused.</p></div>${onlineArcadeStatsHtml(game)}</div><div class="definition-prompt"><div class="side-label">WHACK THIS WORD</div><p>${escapeHtml(game.answer.definition)}</p></div><div class="whack-yard online-whack-yard">${game.choices.map((choice, index) => `<div class="mole-hole"><button class="mole" data-online-mole="${index}" disabled><span class="mole-word">${escapeHtml(choice.word)}</span></button></div>`).join("")}<img class="whack-mallet" src="assets/whack-mallet.png" alt=""></div><div class="whack-feedback ${game.feedbackType}">${escapeHtml(game.feedback)}</div></section>`;
   const yard = root.querySelector(".whack-yard");
   const mallet = root.querySelector(".whack-mallet");
   attachWhackMalletTracking(yard, mallet, game);
@@ -1888,27 +2077,46 @@ async function finishOnlineArcade() {
   game.submitted = true;
   stopOnlineArcadeVisuals();
   const result = { score: Math.max(0, Math.round(game.score)), correct: game.correct, incorrect: game.incorrect, finishedAt: new Date().toISOString() };
-  const resultColumn = challenge.challenger_id === currentUser.id ? "challenger_result" : "opponent_result";
   const stars = arcadeStarsForScore(result.score);
   if (stars) awardStars(stars, `online-arcade:${challenge.id}:${currentUser.id}`, onlineGameMeta(challenge.game_type).label);
-  const { data } = await updateOnlineChallenge(challenge.id, { [resultColumn]: result });
-  if (data?.challenger_result && data?.opponent_result) {
-    await updateOnlineChallenge(data.id, { status: "completed", completed_at: new Date().toISOString() });
+  let updated = null;
+  for (let attempt = 0; attempt < 4 && !updated; attempt++) {
+    const latest = attempt === 0 ? activeOnlineChallenge : await fetchOnlineChallenge(challenge.id);
+    if (!latest || !["active", "completed"].includes(latest.status)) break;
+    if (onlineArcadeResults(latest)[currentUser.id]) {
+      updated = latest;
+      break;
+    }
+    if (latest.status !== "active") break;
+    const state = cloneOnlineState(latest.game_state);
+    state.arcadeResults = { ...(state.arcadeResults || {}), [currentUser.id]: result };
+    updated = await commitOnlineGameState(state, latest);
+  }
+  if (!updated) {
+    game.submitted = false;
+    if (view === "onlineGame") render();
+    return;
+  }
+  const mergedResults = onlineArcadeResults(updated);
+  if (onlineParticipantIds(updated).every((id) => mergedResults[id])) {
+    await updateOnlineChallenge(updated.id, { status: "completed", completed_at: new Date().toISOString() });
   }
   awardOnlineChallengeBonus(activeOnlineChallenge);
   if (view === "onlineGame") render();
 }
 
-function renderOnlineArcadeResult(root, challenge, ownResult, opponentResult) {
-  if (!opponentResult) {
-    root.innerHTML = `<div class="online-waiting"><div class="online-waiting-icon">🏁</div><h2>Your run is complete</h2><p>You scored <strong>${Number(ownResult.score || 0).toLocaleString()}</strong>. Waiting for ${escapeHtml(onlineOpponentName(challenge))} to finish their 60-second run.</p></div>`;
+function renderOnlineArcadeResult(root, challenge, ownResult) {
+  const participantIds = onlineParticipantIds(challenge);
+  const results = onlineArcadeResults(challenge);
+  const waitingIds = participantIds.filter((id) => !results[id]);
+  if (waitingIds.length) {
+    root.innerHTML = `<div class="online-waiting"><div class="online-waiting-icon">🏁</div><h2>Your run is complete</h2><p>You scored <strong>${Number(ownResult.score || 0).toLocaleString()}</strong>. Waiting for ${escapeHtml(waitingIds.map((id) => onlinePlayerName(challenge, id)).join(", "))} to finish.</p></div>`;
     return;
   }
-  const challengerScore = Number(challenge.challenger_result?.score || 0);
-  const opponentScore = Number(challenge.opponent_result?.score || 0);
-  const winner = challengerScore === opponentScore ? null : challengerScore > opponentScore ? challenge.challenger_id : challenge.opponent_id;
+  const winner = onlineChallengeWinner(challenge);
   const title = winner === null ? "It's a tie!" : winner === currentUser.id ? "You win!" : `${onlinePlayerName(challenge, winner)} wins!`;
-  root.innerHTML = `<div class="online-result"><div class="online-waiting-icon">🏆</div><h2>${escapeHtml(title)}</h2><p>Both players completed their 60-second run. ${winner === null ? "A tied match has no winner bonus." : "The winner earns 5 bonus Stars on top of score-based Stars."}</p><div class="online-result-score"><div class="online-result-player">${escapeHtml(challenge.challenger_username)}<strong>${challengerScore.toLocaleString()}</strong></div><span>vs</span><div class="online-result-player">${escapeHtml(challenge.opponent_username)}<strong>${opponentScore.toLocaleString()}</strong></div></div></div>`;
+  const standings = participantIds.map((id) => ({ id, score: Number(results[id]?.score || 0) })).sort((a, b) => b.score - a.score);
+  root.innerHTML = `<div class="online-result"><div class="online-waiting-icon">🏆</div><h2>${escapeHtml(title)}</h2><p>All ${participantIds.length} players completed their 60-second runs. ${winner === null ? "A tied top score has no winner bonus." : "The winner earns 5 bonus Stars on top of score-based Stars."}</p><div class="online-result-score online-group-results">${standings.map((entry) => `<div class="online-result-player">${escapeHtml(onlinePlayerName(challenge, entry.id))}<strong>${entry.score.toLocaleString()}</strong></div>`).join("")}</div></div>`;
 }
 
 function leaveOnlineGame() {

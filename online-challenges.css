@@ -21,6 +21,18 @@
 .public-profile-footer .public-profile-updated { margin: 0; }
 .challenge-user-btn { padding: 8px 13px; font-size: 12px; }
 
+.challenge-player-builder { display: flex; flex-direction: column; gap: 10px; margin: 16px 0; }
+.challenge-selected-players { display: flex; flex-wrap: wrap; gap: 7px; min-height: 34px; }
+.challenge-player-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 7px 6px 10px; border-radius: 999px; background: var(--chip-bg); color: var(--text); font-size: 12px; font-weight: 800; }
+.challenge-player-chip button { display: grid; place-items: center; width: 20px; height: 20px; padding: 0; border: 0; border-radius: 50%; background: rgba(127,127,127,.18); color: inherit; cursor: pointer; font-size: 15px; }
+.challenge-player-search { display: flex; gap: 8px; }
+.challenge-player-search input { min-width: 0; flex: 1; padding: 10px 12px; border: 1px solid var(--border); border-radius: 11px; background: var(--bg); color: var(--text); font: inherit; }
+.challenge-player-results { display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: 12px; }
+.challenge-player-result { display: flex; justify-content: space-between; gap: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); color: var(--text); cursor: pointer; font: inherit; text-align: left; }
+.challenge-player-result:hover { border-color: var(--accent); }
+.challenge-player-result strong { color: var(--accent); }
+.challenge-player-limit { padding: 8px 10px; border-radius: 9px; background: var(--chip-bg); }
+
 .challenge-modal-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -122,9 +134,18 @@
 .online-result-score { display: flex; justify-content: center; align-items: center; gap: 18px; margin: 20px 0; }
 .online-result-player { min-width: 130px; padding: 15px; border-radius: 13px; background: var(--bg); }
 .online-result-player strong { display: block; color: var(--accent); font-size: 30px; }
+.online-group-results { flex-wrap: wrap; }
+.online-group-lobby { width: min(700px, 100%); }
+.online-lobby-players { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin-top: 18px; text-align: left; }
+.online-lobby-player { display: grid; grid-template-columns: 28px 1fr; gap: 2px 9px; align-items: center; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg); }
+.online-lobby-player > span { grid-row: 1 / 3; display: grid; place-items: center; width: 27px; height: 27px; border-radius: 50%; background: var(--chip-bg); color: var(--muted); font-weight: 900; }
+.online-lobby-player.ready > span { background: rgba(16,185,129,.14); color: #16a34a; }
+.online-lobby-player small { color: var(--muted); }
 
 .online-memory-game .memory-card { min-height: 112px; }
 .online-memory-game .memory-message.syncing { color: var(--muted); }
+.online-group-scoreboard { flex-wrap: wrap; }
+.online-group-scoreboard .memory-turn { flex-basis: 100%; }
 
 .online-wordbound-game { width: 100%; }
 .online-wordbound-game .battle-arena { background: linear-gradient(160deg, color-mix(in srgb, var(--chip-bg) 72%, var(--card-bg)), var(--card-bg)); }
@@ -135,6 +156,17 @@
 .online-wordbound-waiting { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 150px; padding: 22px; border: 1px dashed var(--border); border-radius: 15px; background: var(--card-bg); color: var(--muted); text-align: center; }
 .online-wordbound-waiting span { font-size: 30px; }
 .online-wordbound-result .online-result-player small { display: block; margin-top: 6px; color: var(--muted); font-size: 11px; line-height: 1.4; }
+.online-wordbound-roster { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; width: 100%; }
+.online-wordbound-player { min-width: 0; padding: 12px; border: 2px solid transparent; border-radius: 15px; background: color-mix(in srgb, var(--card-bg) 84%, transparent); text-align: center; transition: border-color 160ms ease, opacity 160ms ease, transform 160ms ease; }
+.online-wordbound-player.active { border-color: var(--accent); }
+.online-wordbound-player.targeted { border-color: #ef4444; transform: translateY(-2px); }
+.online-wordbound-player.defeated { opacity: .48; filter: grayscale(.75); }
+.online-wordbound-player .combatant-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.online-wordbound-player .combatant-figure { margin: 7px 0; font-size: 40px; }
+.online-wordbound-targets { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 7px; padding: 10px; border-radius: 12px; background: var(--card-bg); }
+.online-wordbound-targets > span { margin-right: 3px; color: var(--muted); font-size: 12px; font-weight: 850; }
+.online-wordbound-targets button { padding: 7px 11px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg); color: var(--text); cursor: pointer; font: inherit; font-size: 12px; font-weight: 800; }
+.online-wordbound-targets button.selected { border-color: #ef4444; background: rgba(239,68,68,.1); color: #dc2626; }
 
 .online-paragraph-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .online-paragraph-entry { padding: 17px; border: 1px solid var(--border); border-radius: 14px; background: var(--card-bg); }
@@ -209,7 +241,7 @@
 }
 .taboo-clock.finished { min-width: 150px; border-color: var(--border); background: var(--bg); color: var(--muted); font-size: 15px; }
 .taboo-clock.paused { min-width: 150px; border-color: var(--border); background: var(--bg); color: var(--muted); font-size: 15px; }
-.taboo-describer-layout, .taboo-guesser-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
+.taboo-describer-layout, .taboo-guesser-layout, .taboo-spectator-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; }
 .taboo-secret-card, .taboo-clue-panel, .taboo-speech-card, .taboo-guess-form {
   padding: 20px;
   border: 1px solid var(--border);
@@ -259,6 +291,11 @@
 }
 .taboo-speech-bubble::after { content: ""; position: absolute; left: 0; bottom: -13px; border: 14px solid transparent; border-left-color: var(--chip-bg); transform: rotate(16deg); }
 .taboo-typing-note { color: var(--muted); font-size: 12px; }
+.taboo-spectator-layout { grid-template-columns: minmax(0, 1.35fr) minmax(230px, .65fr); }
+.taboo-spectator-note { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; border: 1px solid var(--border); border-radius: 18px; background: var(--card-bg); text-align: center; }
+.taboo-spectator-note > span { font-size: 42px; }
+.taboo-spectator-note strong { margin-top: 8px; font-size: 18px; }
+.taboo-spectator-note p { margin: 6px 0 0; color: var(--muted); }
 .taboo-guess-form { justify-content: center; }
 .taboo-guess-form > div { display: flex; gap: 8px; }
 .taboo-guess-form input { min-width: 0; flex: 1; padding: 13px; border: 2px solid var(--border); border-radius: 12px; background: var(--bg); color: var(--text); font: inherit; }
@@ -298,12 +335,13 @@
 [data-theme="dark"] .taboo-inline-result.lost { color: #fca5a5; }
 
 @media (max-width: 720px) {
-  .online-challenge-list, .online-paragraph-columns { grid-template-columns: 1fr; }
+  .online-challenge-list, .online-paragraph-columns, .online-lobby-players { grid-template-columns: 1fr; }
   .challenge-modal-grid { grid-template-columns: 1fr; }
   .online-challenge-heading, .online-match-banner { align-items: stretch; flex-direction: column; }
   .online-game-shell .game-stats { justify-content: flex-start; }
   .taboo-game-header { align-items: stretch; flex-direction: column; }
   .taboo-clock { width: 100%; }
-  .taboo-lobby-players, .taboo-source-list, .taboo-describer-layout, .taboo-guesser-layout, .taboo-round-history { grid-template-columns: 1fr; }
+  .online-wordbound-roster { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .taboo-lobby-players, .taboo-source-list, .taboo-describer-layout, .taboo-guesser-layout, .taboo-spectator-layout, .taboo-round-history { grid-template-columns: 1fr; }
   .taboo-guess-form > div { align-items: stretch; flex-direction: column; }
 }
