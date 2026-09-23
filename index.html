@@ -2191,6 +2191,11 @@
   let dictionarySyncUserId = null;
   let dictionarySyncPromise = null;
   let dictionarySaveTimer = null;
+  let batchSyncReady = false;
+  let batchCloudAvailable = false;
+  let batchSyncUserId = null;
+  let batchSyncPromise = null;
+  let batchSaveTimer = null;
   let publicProfile = null;
   let publicProfileReady = false;
   let publicProfileAvailable = false;
@@ -2205,6 +2210,7 @@
   const FLASHCARD_SETTINGS_KEY = "vocabPracticeFlashcardSettings";
   const HIGH_SCORES_KEY = "vocabPracticeHighScores";
   const BATCHES_KEY = "vocabPracticeBatches";
+  const BATCHES_META_KEY = "vocabPracticeBatchesMeta";
   const SAVED_PARAGRAPHS_KEY = "vocabPracticeSavedParagraphs";
   const PARAGRAPH_SETTINGS_KEY = "vocabPracticeParagraphSettings";
   const WORD_EXPANSION_KEY = "vocabPracticeWordExpansion120";
@@ -2876,22 +2882,166 @@
     document.documentElement.setAttribute("data-theme", appSettings.theme === "dark" ? "dark" : "light");
   }
 
-  function loadBatches() {
+  function normalizeBatches(saved) {
+    if (!Array.isArray(saved)) return [];
+    const normalized = [];
+    const seenIds = new Set();
+    saved.forEach((batch) => {
+      if (normalized.length >= MAX_BATCHES || !batch || !batch.id || !batch.name || !Array.isArray(batch.wordKeys)) return;
+      const id = String(batch.id);
+      if (seenIds.has(id)) return;
+      seenIds.add(id);
+      normalized.push({
+        id,
+        name: String(batch.name).trim().slice(0, 40),
+        wordKeys: [...new Set(batch.wordKeys.map((key) => String(key).trim().toLowerCase()).filter(Boolean))]
+      });
+    });
+    return normalized.filter((batch) => batch.name);
+  }
+
+  function getBatchesStorageKey(userId = currentUser?.id) {
+    return userId ? `${BATCHES_KEY}:${userId}` : BATCHES_KEY;
+  }
+
+  function getBatchesMetaKey(userId = currentUser?.id) {
+    return userId ? `${BATCHES_META_KEY}:${userId}` : BATCHES_META_KEY;
+  }
+
+  function loadBatches(storageKey = getBatchesStorageKey()) {
     try {
-      const saved = JSON.parse(localStorage.getItem(BATCHES_KEY) || "[]");
-      if (!Array.isArray(saved)) return [];
-      return saved.slice(0, MAX_BATCHES).filter((batch) => batch && batch.id && batch.name && Array.isArray(batch.wordKeys)).map((batch) => ({
-        id: String(batch.id),
-        name: String(batch.name).slice(0, 40),
-        wordKeys: [...new Set(batch.wordKeys.map((key) => String(key).toLowerCase()))]
-      }));
+      return normalizeBatches(JSON.parse(localStorage.getItem(storageKey) || "[]"));
     } catch {
       return [];
     }
   }
 
+  function readBatchesUpdatedAt(userId) {
+    try {
+      const saved = JSON.parse(localStorage.getItem(getBatchesMetaKey(userId)) || "{}");
+      const timestamp = Date.parse(saved.updatedAt || "");
+      return Number.isFinite(timestamp) ? timestamp : 0;
+    } catch {
+      return 0;
+    }
+  }
+
+  function cacheBatchesForUser(userId, list, updatedAt = new Date().toISOString()) {
+    const normalized = normalizeBatches(list);
+    localStorage.setItem(getBatchesStorageKey(userId), JSON.stringify(normalized));
+    localStorage.setItem(getBatchesMetaKey(userId), JSON.stringify({ updatedAt }));
+    return normalized;
+  }
+
+  function mergeBatchLists(first = [], second = []) {
+    const merged = new Map();
+    [...normalizeBatches(first), ...normalizeBatches(second)].forEach((batch) => merged.set(batch.id, batch));
+    return [...merged.values()].slice(0, MAX_BATCHES);
+  }
+
   function saveBatches() {
-    localStorage.setItem(BATCHES_KEY, JSON.stringify(batches));
+    batches = normalizeBatches(batches);
+    const storageKey = getBatchesStorageKey();
+    localStorage.setItem(storageKey, JSON.stringify(batches));
+    if (!currentUser) return;
+    localStorage.setItem(getBatchesMetaKey(currentUser.id), JSON.stringify({ updatedAt: new Date().toISOString() }));
+    queueBatchCloudSync();
+  }
+
+  function queueBatchCloudSync() {
+    if (!currentUser || !batchSyncReady || !batchCloudAvailable || batchSyncUserId !== currentUser.id) return;
+    clearTimeout(batchSaveTimer);
+    batchSaveTimer = setTimeout(() => flushBatchesToCloud(), 600);
+  }
+
+  async function flushBatchesToCloud() {
+    clearTimeout(batchSaveTimer);
+    batchSaveTimer = null;
+    const userId = currentUser?.id;
+    if (!userId || !batchSyncReady || !batchCloudAvailable || batchSyncUserId !== userId) return;
+    const updatedAt = new Date().toISOString();
+    const snapshot = normalizeBatches(batches);
+    const { error } = await supabaseClient.from("user_saved_batches").upsert({
+      user_id: userId,
+      batches: snapshot,
+      updated_at: updatedAt
+    }, { onConflict: "user_id" });
+    if (error) {
+      batchCloudAvailable = false;
+      console.warn("Batch cloud sync is unavailable; batches are still saved for this account on this device.", error.message);
+      return;
+    }
+    if (currentUser?.id === userId) localStorage.setItem(getBatchesMetaKey(userId), JSON.stringify({ updatedAt }));
+  }
+
+  function resetBatchSyncSession() {
+    clearTimeout(batchSaveTimer);
+    batchSaveTimer = null;
+    batchSyncReady = false;
+    batchCloudAvailable = false;
+    batchSyncUserId = null;
+    batchSyncPromise = null;
+    batches = [];
+    activeBatchId = null;
+    selectedBatchIds = new Set();
+    batchCombineOpen = false;
+    batchAddOpen = false;
+    batchSearchQuery = "";
+  }
+
+  async function initializeBatchSync(user) {
+    if (!user?.id) return;
+    if (batchSyncReady && batchSyncUserId === user.id) return;
+    if (batchSyncPromise && batchSyncUserId === user.id) return batchSyncPromise;
+
+    batchSyncUserId = user.id;
+    batchSyncReady = false;
+    batchCloudAvailable = false;
+    batchSyncPromise = (async () => {
+      const userStorageKey = getBatchesStorageKey(user.id);
+      const hasUserCache = localStorage.getItem(userStorageKey) !== null;
+      const localBatches = loadBatches(hasUserCache ? userStorageKey : BATCHES_KEY);
+      const localUpdatedAt = readBatchesUpdatedAt(user.id);
+      const { data, error } = await supabaseClient
+        .from("user_saved_batches")
+        .select("batches, updated_at")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (currentUser?.id !== user.id) return;
+      let chosenBatches = localBatches;
+      let chosenUpdatedAt = new Date(localUpdatedAt || Date.now()).toISOString();
+      if (!error && data) {
+        const cloudBatches = normalizeBatches(data.batches);
+        const cloudUpdatedAt = Date.parse(data.updated_at || "") || 0;
+        if (!hasUserCache) {
+          chosenBatches = mergeBatchLists(cloudBatches, localBatches);
+          chosenUpdatedAt = new Date(Math.max(localUpdatedAt, cloudUpdatedAt, Date.now())).toISOString();
+        } else if (cloudUpdatedAt >= localUpdatedAt) {
+          chosenBatches = cloudBatches;
+          chosenUpdatedAt = data.updated_at || new Date().toISOString();
+        }
+      }
+
+      batches = cacheBatchesForUser(user.id, chosenBatches, chosenUpdatedAt);
+      if (!hasUserCache) {
+        localStorage.removeItem(BATCHES_KEY);
+        localStorage.removeItem(BATCHES_META_KEY);
+      }
+      batchSyncReady = true;
+      batchCloudAvailable = !error;
+      activeBatchId = batches.some((batch) => batch.id === activeBatchId) ? activeBatchId : batches[0]?.id || null;
+      selectedBatchIds = new Set([...selectedBatchIds].filter((id) => batches.some((batch) => batch.id === id)));
+
+      if (error) {
+        console.warn("Batch cloud sync is unavailable; batches are still saved for this account on this device.", error.message);
+        return;
+      }
+      await flushBatchesToCloud();
+    })().finally(() => {
+      if (batchSyncUserId === user.id) batchSyncPromise = null;
+    });
+    return batchSyncPromise;
   }
 
   function loadSavedParagraphs() {
@@ -5244,7 +5394,7 @@
       }
 
       currentUser = data.user;
-      await Promise.all([initializeAchievementSync(currentUser), initializeProgressSync(currentUser), initializeDictionarySync(currentUser)]);
+      await Promise.all([initializeAchievementSync(currentUser), initializeProgressSync(currentUser), initializeDictionarySync(currentUser), initializeBatchSync(currentUser)]);
       refreshAchievements(false);
       await flushAchievementDataToCloud();
       await initializePublicProfile(currentUser);
@@ -5263,7 +5413,7 @@
     const { data: { session } } = await supabaseClient.auth.getSession();
     currentUser = session ? session.user : null;
     if (currentUser) {
-      await Promise.all([initializeAchievementSync(currentUser), initializeProgressSync(currentUser), initializeDictionarySync(currentUser)]);
+      await Promise.all([initializeAchievementSync(currentUser), initializeProgressSync(currentUser), initializeDictionarySync(currentUser), initializeBatchSync(currentUser)]);
       refreshAchievements(false);
       await flushAchievementDataToCloud();
       await initializePublicProfile(currentUser);
@@ -5281,7 +5431,7 @@
         appSettingsOpen = false;
         setTimeout(async () => {
           if (currentUser?.id !== user.id) return;
-          await Promise.all([initializeAchievementSync(user), initializeProgressSync(user), initializeDictionarySync(user)]);
+          await Promise.all([initializeAchievementSync(user), initializeProgressSync(user), initializeDictionarySync(user), initializeBatchSync(user)]);
           refreshAchievements(false);
           await flushAchievementDataToCloud();
           await initializePublicProfile(user);
@@ -5291,6 +5441,7 @@
         resetAchievementSyncSession();
         resetProgressSyncSession();
         resetDictionarySyncSession();
+        resetBatchSyncSession();
         resetPublicProfileSession();
         dictionaryUndo = null;
         appSettingsOpen = false;

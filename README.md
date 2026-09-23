@@ -78,6 +78,10 @@ Following the same pattern as achievements, session stats (got it/almost/don't k
 
 Custom dictionary words are cached separately for each signed-in account and synced across devices. Open the Supabase SQL Editor, paste the contents of `supabase-dictionary.sql`, and run it once. Row Level Security only allows each user to read and update their own custom words. If the table has not been created yet, custom words continue to work from the account's local device cache.
 
+## Supabase saved batches setup
+
+Saved batches are cached separately for each signed-in account and synced across devices. Open the Supabase SQL Editor, paste the contents of `supabase-batches.sql`, and run it once. Row Level Security only allows each user to read and update their own batches. Existing batches from the older shared browser storage are migrated into the first account that uses them; afterward, switching accounts loads only that account's batches. If the table has not been created yet, batches remain separated by account on the current device and begin cloud syncing after the SQL setup is installed.
+
 ## Supabase online challenge setup
 
 Online Memory Match, Paragraph Challenge, Bubble Shot, Whack-a-Word, Wordbound Battle, and Taboo support private 2–4 player challenges with live updates. Open the Supabase SQL Editor, paste the contents of `supabase-online-challenges.sql`, and run it once. Re-run the same file after pulling online challenge updates; it safely upgrades existing two-player matches. The included Row Level Security policies only let a match's participants read or update it, and the setup adds the table to Supabase Realtime so turns, live clues, and results appear on every player's device.
