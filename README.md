@@ -118,3 +118,5 @@ SURYA: I thought I already answered that...try and find this quote somewhere els
 "I'm taking two SSATs, one on Sept 5th and one later in October."
 
 Publishing the website sounds good. I have no idea what to do though.
+
+JAI: I AM BACK!!!!!!!! my Claude ran out so i couldn't code for a while. Also, how was the PSAT? I might not put as much time on this project as you do mostly because I am also juggling two other websites but I'll try.
